@@ -1,5 +1,6 @@
 export * from './navigation-types';
 export { RouterOutlet } from './outlet';
+export * from './frame-routes';
 export * from './query-schema';
 export * from './route-adapter';
 export * from './route-builders';

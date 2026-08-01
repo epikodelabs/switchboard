@@ -10,16 +10,13 @@
     "prejasmine:coverage": "npm run build",
     "start": "ng build switchboard --watch --configuration development",
     "start:playground": "ng serve app1",
-    "start:app2": "ng serve app2",
     "build": "ng build switchboard",
     "build:playground": "ng build app1",
-    "build:app2": "ng build app2",
     "watch": "ng build switchboard --watch --configuration development",
     "test": "testify --headless --browser chrome",
     "test:watch": "testify --browser chrome",
     "jasmine": "testify --headless --browser chrome",
-    "jasmine:coverage": "testify --headless --browser chrome --coverage",
-    "serve:ssr:app2": "node dist/app2/server/server.mjs"
+    "jasmine:coverage": "testify --headless --browser chrome --coverage"
   },
   "private": true,
   "packageManager": "npm@10.9.8",
@@ -29,11 +26,7 @@
     "@angular/core": "^22.0.0",
     "@angular/forms": "^22.0.0",
     "@angular/platform-browser": "^22.0.0",
-    "@angular/platform-server": "22.0.8",
-    "@angular/router": "22.0.8",
-    "@angular/ssr": "22.0.8",
     "@epikodelabs/switchboard": "file:dist/switchboard",
-    "express": "^5.1.0",
     "tslib": "^2.3.0"
   },
   "devDependencies": {
@@ -41,7 +34,6 @@
     "@angular/cli": "^22.0.8",
     "@angular/compiler-cli": "^22.0.0",
     "@epikodelabs/testify": "^1.0.36",
-    "@types/express": "^5.0.1",
     "@types/jasmine": "^6.0.0",
     "@types/node": "^20.17.19",
     "ng-packagr": "^22.0.0",
