@@ -1,5 +1,4 @@
 import {
-  buildFrameRoutes,
   layout,
   redirectRoute,
   type StreamixRoutes,
@@ -16,7 +15,7 @@ import {
 } from './frames';
 
 export const routes = [
-  ...buildFrameRoutes(introFrame),
+  introFrame,
   redirectRoute(
     '/legacy',
     '/app/workspace/101?view=activity&page=2&filters=legacy',
@@ -26,10 +25,10 @@ export const routes = [
       '',
       '/app/workspace/101?view=overview&page=1&filters=open&filters=recent',
     ),
-    ...buildFrameRoutes(workspaceFrame),
-    ...buildFrameRoutes(settingsFrame),
-    ...buildFrameRoutes(editorFrame),
-    ...buildFrameRoutes(reportsFrame),
-    ...buildFrameRoutes(adminFrame),
+    workspaceFrame,
+    settingsFrame,
+    editorFrame,
+    reportsFrame,
+    adminFrame,
   ]),
 ] as const satisfies StreamixRoutes;

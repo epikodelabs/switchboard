@@ -1,7 +1,7 @@
 import {
-  defineFrameOutlet,
-  defineFrameRoute,
   frame,
+  frameOutlet,
+  frameRoute,
   s,
 } from '@epikodelabs/switchboard';
 
@@ -10,7 +10,7 @@ import {
   SettingsSidebarComponent,
 } from '../demo-pages';
 
-export const settingsFrame = defineFrameRoute(
+export const settingsFrame = frameRoute(
   '/settings',
   frame(SettingsPage),
   {
@@ -20,7 +20,7 @@ export const settingsFrame = defineFrameRoute(
     },
   },
   [
-    defineFrameOutlet(
+    frameOutlet(
       'sidebar',
       frame(SettingsSidebarComponent),
     ),

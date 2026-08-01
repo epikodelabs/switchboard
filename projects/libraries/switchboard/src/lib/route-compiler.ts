@@ -1,4 +1,6 @@
+import { buildFrameRoutes } from './frame-routes';
 import type {
+  StreamixFrameRoute,
   StreamixLayout,
   StreamixRoute,
   StreamixRoutes,
@@ -86,6 +88,17 @@ export function compileRoutes(
           ...layouts,
           entry,
         ]),
+        output,
+      );
+
+      continue;
+    }
+
+    if (entry.kind === 'frame-route') {
+      compileRoutes(
+        buildFrameRoutes(entry as StreamixFrameRoute),
+        parentPath,
+        layouts,
         output,
       );
 

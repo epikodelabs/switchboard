@@ -1,8 +1,8 @@
 import { inject } from '@angular/core';
 import {
-  defineFrameOutlet,
-  defineFrameRoute,
   frame,
+  frameOutlet,
+  frameRoute,
   s,
 } from '@epikodelabs/switchboard';
 
@@ -12,7 +12,7 @@ import {
 } from '../demo-pages';
 import { DemoSessionService } from '../demo-session.service';
 
-export const workspaceFrame = defineFrameRoute(
+export const workspaceFrame = frameRoute(
   '/workspace/:projectId',
   frame(WorkspacePage, {
     prepare: [
@@ -42,7 +42,7 @@ export const workspaceFrame = defineFrameRoute(
     },
   },
   [
-    defineFrameOutlet(
+    frameOutlet(
       'sidebar',
       frame(WorkspaceSidebarComponent),
     ),

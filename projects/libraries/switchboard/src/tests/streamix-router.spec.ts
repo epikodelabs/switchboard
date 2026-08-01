@@ -3,6 +3,9 @@ import { ensureAngularTestEnvironment } from './angular-testbed.init';
 import { Component } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import {
+  frame,
+  frameOutlet,
+  frameRoute,
   layout,
   lazyLayout,
   lazyRoute,
@@ -262,6 +265,24 @@ describe('StreamixRouter: flat routes and layouts', () => {
       layout('/app', ShellWithSidebarComponent, [
         route('/child', ChildComponent),
         route('/child', SettingsComponent, { outlet: 'sidebar' }),
+      ]),
+    ] as const satisfies StreamixRoutes;
+
+    bootstrap(routes);
+    await navigate('/app/child');
+
+    const content = getOutletContent();
+    expect(content).toContain('<h2>Shell</h2>');
+    expect(content).toContain('<h3>Child</h3>');
+    expect(content).toContain('<h3>Settings</h3>');
+  });
+
+  it('composes frame routes directly inside a layout', async () => {
+    const routes = [
+      layout('/app', ShellWithSidebarComponent, [
+        frameRoute('/child', frame(ChildComponent), {}, [
+          frameOutlet('sidebar', frame(SettingsComponent)),
+        ]),
       ]),
     ] as const satisfies StreamixRoutes;
 

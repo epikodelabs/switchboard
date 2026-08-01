@@ -1,8 +1,8 @@
 import { inject } from '@angular/core';
 import {
-  defineFrameOutlet,
-  defineFrameRoute,
   frame,
+  frameOutlet,
+  frameRoute,
   s,
 } from '@epikodelabs/switchboard';
 
@@ -12,7 +12,7 @@ import {
 } from '../demo-pages';
 import { DemoSessionService } from '../demo-session.service';
 
-export const editorFrame = defineFrameRoute(
+export const editorFrame = frameRoute(
   '/editor/:draftId',
   frame(EditorPage, {
     beforeLeave: [
@@ -36,7 +36,7 @@ export const editorFrame = defineFrameRoute(
     },
   },
   [
-    defineFrameOutlet(
+    frameOutlet(
       'sidebar',
       frame(EditorSidebarComponent),
     ),

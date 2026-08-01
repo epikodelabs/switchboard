@@ -92,6 +92,29 @@ export type StreamixRouteOptions<
   'kind' | 'path'
 >;
 
+export interface StreamixFrameOutlet<
+  TOutlet extends string = string,
+> {
+  readonly outlet: TOutlet;
+  readonly view: StreamixFrame;
+}
+
+export interface StreamixFrameRoute<
+  TPath extends string = string,
+  TName extends string | undefined = string | undefined,
+  TParamsSchema extends ParamSchemaRecord | undefined = ParamSchemaRecord | undefined,
+  TQuerySchema extends QuerySchemaRecord | undefined = QuerySchemaRecord | undefined,
+> extends StreamixRouteOptions<
+    TName,
+    TParamsSchema,
+    TQuerySchema
+  > {
+  readonly kind: 'frame-route';
+  readonly path: TPath;
+  readonly view: StreamixFrame;
+  readonly outlets?: readonly StreamixFrameOutlet[];
+}
+
 export interface StreamixRedirectRoute<
   TPath extends string = string,
   TName extends string | undefined = string | undefined,
@@ -168,6 +191,10 @@ export type StreamixLayout<
 // Any-instantiated route/layout primitives to avoid undefined-widening issues
 export type AnyStreamixRoute = StreamixRoute<any, any, any, any>;
 export type AnyStreamixLayout = StreamixLayout<any, any>;
+export type AnyStreamixFrameRoute = StreamixFrameRoute<any, any, any, any>;
 
-export type StreamixRouteEntry = AnyStreamixRoute | AnyStreamixLayout;
+export type StreamixRouteEntry =
+  | AnyStreamixRoute
+  | AnyStreamixLayout
+  | AnyStreamixFrameRoute;
 export type StreamixRoutes = readonly StreamixRouteEntry[];

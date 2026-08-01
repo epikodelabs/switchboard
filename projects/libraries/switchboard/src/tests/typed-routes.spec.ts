@@ -1,6 +1,7 @@
 import {
+  frame,
+  frameRoute,
   layout,
-  route,
   s,
   type StreamixRoutes,
   type StreamixRouter,
@@ -10,7 +11,7 @@ class DashboardLayout {}
 class DashboardPage {}
 class SettingsPage {}
 
-const dashboardRoute = route('/dashboard/:projectId', DashboardPage, {
+const dashboardRoute = frameRoute('/dashboard/:projectId', frame(DashboardPage), {
   name: 'dashboard',
   paramsSchema: {
     projectId: s.number({ min: 1 }),
@@ -23,7 +24,7 @@ const dashboardRoute = route('/dashboard/:projectId', DashboardPage, {
   },
 });
 
-const settingsRoute = route('/settings', SettingsPage, {
+const settingsRoute = frameRoute('/settings', frame(SettingsPage), {
   name: 'settings',
   querySchema: {
     section: s.string('general'),

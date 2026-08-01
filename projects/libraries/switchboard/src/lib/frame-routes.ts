@@ -2,46 +2,25 @@ import type { ParamSchemaRecord, QuerySchemaRecord } from './query-schema';
 import { route } from './route-builders';
 import type {
   StreamixFrame,
+  StreamixFrameRoute,
+  StreamixFrameOutlet,
   StreamixRouteOptions,
   StreamixRoutes,
 } from './route-types';
 
-export interface FrameOutletDefinition<
-  TOutlet extends string = string,
-> {
-  readonly outlet: TOutlet;
-  readonly view: StreamixFrame;
-}
-
-export interface FrameRouteDefinition<
-  TPath extends string = string,
-  TName extends string | undefined = string | undefined,
-  TParamsSchema extends ParamSchemaRecord | undefined = ParamSchemaRecord | undefined,
-  TQuerySchema extends QuerySchemaRecord | undefined = QuerySchemaRecord | undefined,
-> {
-  readonly path: TPath;
-  readonly view: StreamixFrame;
-  readonly options?: StreamixRouteOptions<
-    TName,
-    TParamsSchema,
-    TQuerySchema
-  >;
-  readonly outlets?: readonly FrameOutletDefinition[];
-}
-
-export function defineFrameOutlet<
+export function frameOutlet<
   const TOutlet extends string,
 >(
   outlet: TOutlet,
-  view: StreamixFrame,
-): FrameOutletDefinition<TOutlet> {
+  view: StreamixFrameOutlet<TOutlet>['view'],
+): StreamixFrameOutlet<TOutlet> {
   return {
     outlet,
     view,
   };
 }
 
-export function defineFrameRoute<
+export function frameRoute<
   const TPath extends string,
   const TName extends string | undefined = undefined,
   const TParamsSchema extends ParamSchemaRecord | undefined = undefined,
@@ -49,39 +28,53 @@ export function defineFrameRoute<
 >(
   path: TPath,
   view: StreamixFrame,
-  options?: StreamixRouteOptions<
+  options: StreamixRouteOptions<
     TName,
     TParamsSchema,
     TQuerySchema
-  >,
-  outlets: readonly FrameOutletDefinition[] = [],
-): FrameRouteDefinition<
+  > = {},
+  outlets: readonly StreamixFrameOutlet[] = [],
+): StreamixFrameRoute<
   TPath,
   TName,
   TParamsSchema,
   TQuerySchema
 > {
   return {
+    kind: 'frame-route',
     path,
     view,
-    options,
+    ...options,
     outlets,
   };
 }
 
 export function buildFrameRoutes(
-  definition: FrameRouteDefinition,
+  definition: StreamixFrameRoute,
 ): StreamixRoutes {
+  const {
+    kind: _kind,
+    path,
+    view,
+    outlets,
+    ...options
+  } = definition;
+
   return [
     route(
-      definition.path,
-      definition.view,
-      definition.options,
+      path,
+      view,
+      options,
     ),
-    ...(definition.outlets ?? []).map(outlet =>
-      route(definition.path, outlet.view, {
+    ...(outlets ?? []).map(outlet =>
+      route(path, outlet.view, {
         outlet: outlet.outlet,
       }),
     ),
   ];
 }
+
+export {
+  frameOutlet as defineFrameOutlet,
+  frameRoute as defineFrameRoute,
+};

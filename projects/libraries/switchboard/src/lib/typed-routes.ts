@@ -6,7 +6,9 @@ import type {
   QuerySchemaRecord,
 } from './query-schema';
 import type {
-  StreamixRoute, StreamixRoutes
+  StreamixFrameRoute,
+  StreamixRoute,
+  StreamixRoutes,
 } from './route-types';
 
 /**
@@ -19,11 +21,37 @@ export type ExtractPathParams<T extends string> =
     ? Param
     : never;
 
+type FrameRouteAsLeaf<TRoute> =
+  TRoute extends StreamixFrameRoute<
+    infer TPath extends string,
+    infer TName extends string | undefined,
+    infer TParamsSchema,
+    infer TQuerySchema
+  >
+    ? StreamixRoute<
+        TPath,
+        TName,
+        TParamsSchema,
+        TQuerySchema
+      >
+    : never;
+
 /**
  * Recursively flattens all routes and layout entries into a union of leaf routes.
  */
 export type StreamixLeafRoutes<TRoutes extends StreamixRoutes> =
-  TRoutes[number] extends infer TEntry ? TEntry extends { kind: 'route' } ? TEntry : TEntry extends { kind: 'layout', entries: infer TEntries extends StreamixRoutes } ? StreamixLeafRoutes<TEntries> : never : never;
+  TRoutes[number] extends infer TEntry
+    ? TEntry extends { kind: 'route' }
+      ? TEntry
+      : TEntry extends { kind: 'frame-route' }
+      ? FrameRouteAsLeaf<TEntry>
+      : TEntry extends {
+            kind: 'layout',
+            entries: infer TEntries extends StreamixRoutes,
+          }
+      ? StreamixLeafRoutes<TEntries>
+      : never
+    : never;
 
 type RouteName<TRoute> = TRoute extends StreamixRoute<
   string,

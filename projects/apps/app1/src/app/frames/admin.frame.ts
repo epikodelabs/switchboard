@@ -1,8 +1,8 @@
 import { inject } from '@angular/core';
 import {
-  defineFrameOutlet,
-  defineFrameRoute,
   frame,
+  frameOutlet,
+  frameRoute,
 } from '@epikodelabs/switchboard';
 
 import {
@@ -11,7 +11,7 @@ import {
 } from '../demo-pages';
 import { DemoSessionService } from '../demo-session.service';
 
-export const adminFrame = defineFrameRoute(
+export const adminFrame = frameRoute(
   '/admin',
   frame(AdminPage, {
     beforeEnter: [
@@ -37,7 +37,7 @@ export const adminFrame = defineFrameRoute(
     name: 'admin',
   },
   [
-    defineFrameOutlet(
+    frameOutlet(
       'sidebar',
       frame(AdminSidebarComponent),
     ),

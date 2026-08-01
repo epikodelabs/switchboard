@@ -1,13 +1,13 @@
 import {
-  defineFrameOutlet,
-  defineFrameRoute,
   frame,
+  frameOutlet,
+  frameRoute,
   lazyFrame,
 } from '@epikodelabs/switchboard';
 
 import { ReportsSidebarComponent } from '../demo-pages';
 
-export const reportsFrame = defineFrameRoute(
+export const reportsFrame = frameRoute(
   '/reports',
   lazyFrame(() =>
     import('../reports.page')
@@ -17,7 +17,7 @@ export const reportsFrame = defineFrameRoute(
     name: 'reports',
   },
   [
-    defineFrameOutlet(
+    frameOutlet(
       'sidebar',
       frame(ReportsSidebarComponent),
     ),
