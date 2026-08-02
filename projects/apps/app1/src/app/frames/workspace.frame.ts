@@ -8,8 +8,8 @@ import {
 import {
   WorkspacePage,
   WorkspaceSidebarComponent,
-} from '../demo-pages';
-import { DemoSessionService } from '../demo-session.service';
+} from '../components/demo-pages';
+import { DemoSessionService } from '../services/demo-session.service';
 
 export const workspaceFrame = frame(
   'workspace',

@@ -3,7 +3,7 @@ import {
   view,
 } from '@epikodelabs/switchboard';
 
-import { IntroPage } from '../demo-pages';
+import { IntroPage } from '../components/demo-pages';
 
 export const introFrame = frame(
   'intro',

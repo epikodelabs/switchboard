@@ -7,7 +7,7 @@ import {
 import {
   SettingsPage,
   SettingsSidebarComponent,
-} from '../demo-pages';
+} from '../components/demo-pages';
 
 export const settingsFrame = frame(
   'settings',

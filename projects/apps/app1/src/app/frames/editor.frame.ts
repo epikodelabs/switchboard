@@ -8,8 +8,8 @@ import {
 import {
   EditorPage,
   EditorSidebarComponent,
-} from '../demo-pages';
-import { DemoSessionService } from '../demo-session.service';
+} from '../components/demo-pages';
+import { DemoSessionService } from '../services/demo-session.service';
 
 export const editorFrame = frame(
   'editor',

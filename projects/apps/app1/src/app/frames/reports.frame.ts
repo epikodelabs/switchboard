@@ -5,12 +5,12 @@ import {
   view,
 } from '@epikodelabs/switchboard';
 
-import { ReportsSidebarComponent } from '../demo-pages';
+import { ReportsSidebarComponent } from '../components/demo-pages';
 
 export const reportsFrame = frame(
   'reports',
   lazyView(() =>
-    import('../reports.page')
+    import('../components/reports.page')
       .then(module => module.ReportsPage),
   ),
   {

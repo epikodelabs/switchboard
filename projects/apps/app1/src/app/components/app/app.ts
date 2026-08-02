@@ -6,7 +6,7 @@ import {
   RouterOutlet,
   StreamixRouterLink,
 } from '@epikodelabs/switchboard';
-import { DemoSessionService, DemoUser } from './demo-session.service';
+import { DemoSessionService, DemoUser } from '../../services/demo-session.service';
 
 @Component({
   selector: 'app-root',

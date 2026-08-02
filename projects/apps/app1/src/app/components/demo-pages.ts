@@ -14,7 +14,7 @@ import {
   type AdminAudit,
   type WorkspaceSnapshot,
   DemoSessionService,
-} from './demo-session.service';
+} from '../services/demo-session.service';
 
 type ParamsInput = Record<string, unknown>;
 type QueryInput = Record<string, unknown>;
