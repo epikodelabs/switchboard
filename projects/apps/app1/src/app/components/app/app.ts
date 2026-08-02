@@ -1,62 +1,67 @@
+import { Component, DestroyRef, DoCheck, inject, signal } from '@angular/core';
 import {
-  Component,
-  DoCheck,
-  inject,
-  signal,
-} from '@angular/core';
-import {
+  ROUTER_LOCATION_CHANGE_EVENT,
   Router,
   RouterLink,
   RouterOutlet,
 } from '@epikodelabs/switchboard';
 
+interface HeaderSnapshot {
+  readonly frame: string;
+  readonly phase: string;
+  readonly address: string;
+  readonly transitioning: boolean;
+}
+
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [
-    RouterOutlet,
-    RouterLink,
-  ],
+  imports: [RouterOutlet, RouterLink],
   templateUrl: './app.html',
   styleUrl: './app.css',
 })
 export class App implements DoCheck {
   private readonly router = inject(Router);
+  private readonly destroyRef = inject(DestroyRef);
   private readonly headerPulseToken = signal<number | null>(null);
-  private lastHeaderState: string | null = null;
+  protected readonly headerState = signal<HeaderSnapshot>(this.readHeaderState());
 
-  ngDoCheck(): void {
-    const nextHeaderState = [
-      this.activeFrame(),
-      this.phaseLabel(),
-      this.publicAddress(),
-    ].join('|');
-
-    if (this.lastHeaderState !== null && this.lastHeaderState !== nextHeaderState) {
-      this.headerPulseToken.update(value => (value ?? 0) + 1);
+  constructor() {
+    if (typeof window === 'undefined') {
+      return;
     }
 
-    this.lastHeaderState = nextHeaderState;
+    const sync = () => this.syncHeaderState();
+
+    window.addEventListener(ROUTER_LOCATION_CHANGE_EVENT, sync);
+    window.addEventListener('popstate', sync);
+    window.addEventListener('routechange', sync as EventListener);
+
+    this.destroyRef.onDestroy(() => {
+      window.removeEventListener(ROUTER_LOCATION_CHANGE_EVENT, sync);
+      window.removeEventListener('popstate', sync);
+      window.removeEventListener('routechange', sync as EventListener);
+    });
+  }
+
+  ngDoCheck(): void {
+    this.syncHeaderState();
   }
 
   protected isTransitioning(): boolean {
-    return this.router.state.pending;
-  }
-
-  protected phaseLabel(): string {
-    return this.router.state.phase ?? 'idle';
+    return this.headerState().transitioning;
   }
 
   protected activeFrame(): string {
-    return String(
-      this.router.state.current?.config.name
-      ?? this.router.state.routeConfig?.name
-      ?? 'dock',
-    );
+    return this.headerState().frame;
+  }
+
+  protected phaseLabel(): string {
+    return this.headerState().phase;
   }
 
   protected publicAddress(): string {
-    return `${window.location.pathname}${window.location.search}`;
+    return this.headerState().address;
   }
 
   protected hasHeaderPulse(): boolean {
@@ -65,5 +70,34 @@ export class App implements DoCheck {
 
   protected currentHeaderPulseToken(): number {
     return this.headerPulseToken() ?? 0;
+  }
+
+  private syncHeaderState(): void {
+    const previous = this.headerState();
+    const next = this.readHeaderState();
+
+    if (
+      previous.frame === next.frame &&
+      previous.phase === next.phase &&
+      previous.address === next.address &&
+      previous.transitioning === next.transitioning
+    ) {
+      return;
+    }
+
+    this.headerState.set(next);
+
+    this.headerPulseToken.update((value) => (value ?? 0) + 1);
+  }
+
+  private readHeaderState(): HeaderSnapshot {
+    const state = this.router.state;
+
+    return {
+      frame: String(state.current?.config.name ?? state.routeConfig?.name ?? 'dock'),
+      phase: state.phase ?? 'idle',
+      address: this.router.displayUrl || '/',
+      transitioning: state.pending,
+    };
   }
 }

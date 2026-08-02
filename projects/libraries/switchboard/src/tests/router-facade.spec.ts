@@ -92,11 +92,11 @@ describe('Router: flat routes and layouts', () => {
 
   async function navigate(path: string): Promise<void> {
     await router.navigate({ path });
-    await new Promise(resolve => setTimeout(resolve, 0));
+    await new Promise((resolve) => setTimeout(resolve, 0));
   }
 
   async function settleInitialNavigation(): Promise<void> {
-    await new Promise(resolve => setTimeout(resolve, 0));
+    await new Promise((resolve) => setTimeout(resolve, 0));
   }
 
   beforeEach(() => {
@@ -122,9 +122,7 @@ describe('Router: flat routes and layouts', () => {
 
   it('supports a layout index route', async () => {
     const routes = [
-      layout('/admin', ParentComponent, [
-        route('', HomeComponent),
-      ]),
+      layout('/admin', ParentComponent, [route('', HomeComponent)]),
     ] as const satisfies NavigationTree;
 
     bootstrap(routes);
@@ -137,9 +135,7 @@ describe('Router: flat routes and layouts', () => {
 
   it('renders an eager layout around an eager leaf route', async () => {
     const routes = [
-      layout('/admin', ParentComponent, [
-        route('/child', ChildComponent),
-      ]),
+      layout('/admin', ParentComponent, [route('/child', ChildComponent)]),
     ] as const satisfies NavigationTree;
 
     bootstrap(routes);
@@ -152,9 +148,7 @@ describe('Router: flat routes and layouts', () => {
 
   it('inherits the layout path prefix', async () => {
     const routes = [
-      layout('/admin', ParentComponent, [
-        route('/settings', SettingsComponent),
-      ]),
+      layout('/admin', ParentComponent, [route('/settings', SettingsComponent)]),
     ] as const satisfies NavigationTree;
 
     bootstrap(routes);
@@ -166,9 +160,7 @@ describe('Router: flat routes and layouts', () => {
 
   it('renders an eager layout around a lazy leaf route', async () => {
     const routes = [
-      layout('/admin', ParentComponent, [
-        lazyRoute('/lazy-child', async () => ChildComponent),
-      ]),
+      layout('/admin', ParentComponent, [lazyRoute('/lazy-child', async () => ChildComponent)]),
     ] as const satisfies NavigationTree;
 
     bootstrap(routes);
@@ -181,9 +173,7 @@ describe('Router: flat routes and layouts', () => {
 
   it('renders a lazy layout around an eager leaf route', async () => {
     const routes = [
-      lazyLayout('/admin', async () => ParentComponent, [
-        route('/child', ChildComponent),
-      ]),
+      lazyLayout('/admin', async () => ParentComponent, [route('/child', ChildComponent)]),
     ] as const satisfies NavigationTree;
 
     bootstrap(routes);
@@ -212,9 +202,7 @@ describe('Router: flat routes and layouts', () => {
   it('composes multiple layouts without creating a route hierarchy', async () => {
     const routes = [
       layout('/app', ShellComponent, [
-        layout('/admin', ParentComponent, [
-          route('/child', ChildComponent),
-        ]),
+        layout('/admin', ParentComponent, [route('/child', ChildComponent)]),
       ]),
     ] as const satisfies NavigationTree;
 
@@ -287,20 +275,12 @@ describe('Router: flat routes and layouts', () => {
   });
 
   it('composes addressable frames directly inside a layout', async () => {
-    const childFrame = frame(
-      'child',
-      view(ChildComponent),
-      {
-        outlets: [
-          frameOutlet('sidebar', view(SettingsComponent)),
-        ],
-      },
-    );
+    const childFrame = frame('child', view(ChildComponent), {
+      outlets: [frameOutlet('sidebar', view(SettingsComponent))],
+    });
 
     const routes = [
-      layout('/app', ShellWithSidebarComponent, [
-        route('/child', childFrame),
-      ]),
+      layout('/app', ShellWithSidebarComponent, [route('/child', childFrame)]),
     ] as const satisfies NavigationTree;
 
     bootstrap(routes);
@@ -313,21 +293,13 @@ describe('Router: flat routes and layouts', () => {
   });
 
   it('supports declared navigation definitions with explicit addresses', async () => {
-    const childFrame = frame(
-      'child',
-      view(ChildComponent),
-      {
-        directEntry: true,
-      },
-    );
+    const childFrame = frame('child', view(ChildComponent), {
+      directEntry: true,
+    });
 
     const routes = navigation({
       frames: [childFrame] as const,
-      entries: [
-        layout('/app', ShellComponent, [
-          address('/child', childFrame),
-        ]),
-      ] as const,
+      entries: [layout('/app', ShellComponent, [address('/child', childFrame)])] as const,
     });
 
     bootstrap(routes);
@@ -339,21 +311,13 @@ describe('Router: flat routes and layouts', () => {
   });
 
   it('renders an internal-only frame placed inside a layout', async () => {
-    const childFrame = frame(
-      'child',
-      view(ChildComponent),
-      {
-        directEntry: true,
-      },
-    );
+    const childFrame = frame('child', view(ChildComponent), {
+      directEntry: true,
+    });
 
     const routes = navigation({
       frames: [childFrame] as const,
-      entries: [
-        layout('/app', ShellComponent, [
-          childFrame,
-        ]),
-      ] as const,
+      entries: [layout('/app', ShellComponent, [childFrame])] as const,
     });
 
     bootstrap(routes);
@@ -361,7 +325,7 @@ describe('Router: flat routes and layouts', () => {
     await router.navigate({
       frame: 'child',
     });
-    await new Promise(resolve => setTimeout(resolve, 0));
+    await new Promise((resolve) => setTimeout(resolve, 0));
 
     const content = getOutletContent();
     expect(content).toContain('<h2>Shell</h2>');
@@ -394,27 +358,19 @@ describe('Router: flat routes and layouts', () => {
   });
 
   it('redirects direct address-bar entry when a frame disallows direct entry', async () => {
-    const landingFrame = frame(
-      'landing',
-      view(HomeComponent),
-      {
-        directEntry: true,
-        transitions: ['private'],
-      },
-    );
-    const privateFrame = frame(
-      'private',
-      view(ChildComponent),
-      {
-        transitions: [],
-        directEntryRedirectTo: {
-          frame: 'landing',
-          params: {
-            projectId: 7,
-          },
+    const landingFrame = frame('landing', view(HomeComponent), {
+      directEntry: true,
+      transitions: ['private'],
+    });
+    const privateFrame = frame('private', view(ChildComponent), {
+      transitions: [],
+      directEntryRedirectTo: {
+        frame: 'landing',
+        params: {
+          projectId: 7,
         },
       },
-    );
+    });
     const routes = [
       route('/landing/:projectId', landingFrame, {
         paramsSchema: {
@@ -434,21 +390,13 @@ describe('Router: flat routes and layouts', () => {
   });
 
   it('allows direct entry through redirect routes that canonicalize into a frame', async () => {
-    const landingFrame = frame(
-      'landing',
-      view(HomeComponent),
-      {
-        directEntry: true,
-        transitions: ['workspace'],
-      },
-    );
-    const workspaceFrame = frame(
-      'workspace',
-      view(ChildComponent),
-      {
-        transitions: [],
-      },
-    );
+    const landingFrame = frame('landing', view(HomeComponent), {
+      directEntry: true,
+      transitions: ['workspace'],
+    });
+    const workspaceFrame = frame('workspace', view(ChildComponent), {
+      transitions: [],
+    });
     const routes = [
       route('/landing', landingFrame),
       redirectRoute('/legacy', '/workspace'),
@@ -466,21 +414,13 @@ describe('Router: flat routes and layouts', () => {
   });
 
   it('allows declared frame-to-frame transitions after initial entry', async () => {
-    const publicFrame = frame(
-      'public',
-      view(HomeComponent),
-      {
-        directEntry: true,
-        transitions: ['private'],
-      },
-    );
-    const privateFrame = frame(
-      'private',
-      view(ChildComponent),
-      {
-        transitions: ['public'],
-      },
-    );
+    const publicFrame = frame('public', view(HomeComponent), {
+      directEntry: true,
+      transitions: ['private'],
+    });
+    const privateFrame = frame('private', view(ChildComponent), {
+      transitions: ['public'],
+    });
     const routes = [
       route('/public', publicFrame),
       route('/private', privateFrame),
@@ -495,20 +435,17 @@ describe('Router: flat routes and layouts', () => {
   });
 
   it('supports named redirect targets in frame guards', async () => {
-    const settingsFrame = frame(
-      'settings',
-      view(SettingsComponent),
-    );
+    const settingsFrame = frame('settings', view(SettingsComponent));
     const adminFrame = frame(
       'admin',
-        view(ChildComponent, {
-          beforeEnter: [
-            () => ({
-              redirectTo: {
-                frame: 'settings',
-                query: {
-                  section: 'access',
-                },
+      view(ChildComponent, {
+        beforeEnter: [
+          () => ({
+            redirectTo: {
+              frame: 'settings',
+              query: {
+                section: 'access',
+              },
             },
             replace: true,
           }),
@@ -533,16 +470,10 @@ describe('Router: flat routes and layouts', () => {
   });
 
   it('accepts frame targets and carries payload through navigation state', async () => {
-    const settingsFrame = frame(
-      'settings',
-      view(SettingsComponent),
-      {
-        directEntry: true,
-      },
-    );
-    const routes = [
-      route('/settings', settingsFrame),
-    ] as const;
+    const settingsFrame = frame('settings', view(SettingsComponent), {
+      directEntry: true,
+    });
+    const routes = [route('/settings', settingsFrame)] as const;
 
     bootstrap(routes);
 
@@ -552,29 +483,22 @@ describe('Router: flat routes and layouts', () => {
         source: 'menu',
       },
     });
-    await new Promise(resolve => setTimeout(resolve, 0));
+    await new Promise((resolve) => setTimeout(resolve, 0));
 
     expect(router.state.path).toBe('/settings');
     expect(router.state.historyState).toEqual({
       source: 'menu',
     });
+    expect(router.displayUrl).toBe('/settings');
   });
 
   it('restores an internal-only frame from browser history state', async () => {
-    const childFrame = frame(
-      'child',
-      view(ChildComponent),
-      {
-        directEntry: true,
-      },
-    );
+    const childFrame = frame('child', view(ChildComponent), {
+      directEntry: true,
+    });
     const routes = navigation({
       frames: [childFrame] as const,
-      entries: [
-        layout('/app', ShellComponent, [
-          childFrame,
-        ]),
-      ] as const,
+      entries: [layout('/app', ShellComponent, [childFrame])] as const,
     });
 
     window.history.replaceState(
@@ -583,8 +507,7 @@ describe('Router: flat routes and layouts', () => {
           userState: {
             source: 'restore',
           },
-          matchHref:
-            '/.switchboard/frames/child',
+          matchHref: '/.switchboard/frames/child',
         },
       },
       '',
@@ -598,10 +521,7 @@ describe('Router: flat routes and layouts', () => {
     expect(router.state.historyState).toEqual({
       source: 'restore',
     });
+    expect(router.displayUrl).toBe('/');
     expect(window.location.pathname).toBe('/');
   });
 });
-
-
-
-

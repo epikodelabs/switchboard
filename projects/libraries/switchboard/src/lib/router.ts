@@ -884,10 +884,10 @@ export class Router<TRoutes extends NavigationSource = any> {
     return this.currentState;
   }
 
-  get url(): string {
-    const current = this.currentState.current;
+  get displayUrl(): string {
+    const location = getRouterLocation(this.document);
 
-    return current ? current.url.pathname + current.url.search + current.url.hash : '';
+    return `${location.pathname}${location.search}${location.hash}`;
   }
 
   connect(name: string, outlet: HTMLElement): void {
