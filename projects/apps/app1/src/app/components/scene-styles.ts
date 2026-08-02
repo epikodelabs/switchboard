@@ -7,9 +7,11 @@ export const sceneStyles = `
     border: 1px solid var(--line-soft);
     border-radius: 1.25rem;
     background:
-      linear-gradient(180deg, rgb(255 255 255 / 0.9), rgb(246 250 253 / 0.82)),
+      linear-gradient(180deg, rgb(12 26 44 / 0.98), rgb(7 17 30 / 0.94)),
       var(--panel-base);
-    box-shadow: var(--stage-shadow);
+    box-shadow:
+      var(--stage-shadow),
+      inset 0 0 0 1px rgb(255 255 255 / 0.03);
     overflow: hidden;
   }
 
@@ -19,8 +21,23 @@ export const sceneStyles = `
     inset: 0 auto auto 0;
     width: 14rem;
     height: 14rem;
-    background: radial-gradient(circle, rgb(0 143 180 / 0.14), transparent 70%);
+    background: radial-gradient(circle, rgb(71 216 255 / 0.14), transparent 70%);
     pointer-events: none;
+  }
+
+  .scene::after {
+    content: '';
+    position: absolute;
+    inset: auto 1.15rem 1rem auto;
+    width: 7rem;
+    height: 1px;
+    background: linear-gradient(90deg, rgb(71 216 255 / 0), rgb(71 216 255 / 0.6));
+    pointer-events: none;
+  }
+
+  .scene--flat::before,
+  .scene--flat::after {
+    content: none;
   }
 
   .scene-header {
@@ -56,10 +73,10 @@ export const sceneStyles = `
   .status-chip {
     min-width: 7rem;
     padding: 0.52rem 0.72rem;
-    border: 1px solid rgb(0 143 180 / 0.18);
+    border: 1px solid rgb(71 216 255 / 0.18);
     border-radius: 0.9rem;
-    background: rgb(255 255 255 / 0.74);
-    color: var(--signal-deep);
+    background: rgb(6 17 31 / 0.8);
+    color: var(--ink-strong);
     font-weight: 700;
     text-align: center;
   }
@@ -74,7 +91,8 @@ export const sceneStyles = `
     padding: 0.72rem 0.82rem;
     border: 1px solid var(--line-soft);
     border-radius: 0.95rem;
-    background: rgb(255 255 255 / 0.72);
+    background:
+      linear-gradient(180deg, rgb(13 25 41 / 0.92), rgb(7 16 29 / 0.88));
   }
 
   .metric span {
@@ -103,6 +121,7 @@ export const sceneStyles = `
     border: 1px solid var(--line-soft);
     border-radius: 1rem;
     background: var(--panel-strong);
+    box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.02);
   }
 
   .panel h3 {
@@ -174,17 +193,22 @@ export const sceneStyles = `
   .action-link,
   .action-button {
     display: inline-flex;
+    position: relative;
     align-items: center;
     justify-content: center;
     min-height: 2.5rem;
     padding: 0.6rem 0.88rem;
-    border: 1px solid rgb(0 143 180 / 0.16);
+    border: 1px solid rgb(71 216 255 / 0.16);
     border-radius: 999px;
-    background: rgb(255 255 255 / 0.82);
-    color: var(--signal-deep);
+    background: rgb(8 20 35 / 0.88);
+    color: var(--ink-strong);
     font-weight: 700;
     text-decoration: none;
     cursor: pointer;
+    overflow: hidden;
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.05),
+      0 0 0 1px rgb(71 216 255 / 0.03);
     transition:
       transform 160ms ease,
       box-shadow 160ms ease,
@@ -192,18 +216,42 @@ export const sceneStyles = `
       background-color 160ms ease;
   }
 
+  .action-link::before,
+  .action-button::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, rgb(255 255 255 / 0.08), rgb(255 255 255 / 0));
+    opacity: 0.55;
+    pointer-events: none;
+  }
+
   .action-button--accent,
   .action-link--accent {
     border-color: transparent;
     background: linear-gradient(135deg, var(--signal-cyan), var(--signal-teal));
-    color: #fff;
-    box-shadow: 0 14px 24px rgb(0 143 180 / 0.18);
+    color: #03111d;
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.18),
+      0 14px 28px rgb(71 216 255 / 0.18);
   }
 
   .action-link:hover,
   .action-button:hover {
     transform: translateY(-1px);
-    box-shadow: 0 12px 24px rgb(17 34 48 / 0.1);
+    border-color: rgb(71 216 255 / 0.26);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.06),
+      0 12px 24px rgb(0 0 0 / 0.24),
+      0 0 0 1px rgb(71 216 255 / 0.08);
+  }
+
+  .action-link:active,
+  .action-button:active {
+    transform: translateY(1px);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.03),
+      0 0 0 1px rgb(71 216 255 / 0.08);
   }
 
   @media (max-width: 760px) {
@@ -232,7 +280,8 @@ export const sidebarStyles = `
     padding: 1rem;
     border: 1px solid var(--line-soft);
     border-radius: 1.1rem;
-    background: rgb(255 255 255 / 0.76);
+    background:
+      linear-gradient(180deg, rgb(10 22 38 / 0.94), rgb(7 16 28 / 0.88));
   }
 
   .sidebar-card h3 {
@@ -259,8 +308,8 @@ export const sidebarStyles = `
     display: block;
     padding: 0.75rem 0.85rem;
     border-radius: 0.95rem;
-    background: rgb(0 143 180 / 0.08);
-    color: var(--signal-deep);
+    background: rgb(71 216 255 / 0.08);
+    color: var(--ink-strong);
     font-weight: 600;
     text-decoration: none;
   }

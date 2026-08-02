@@ -19,7 +19,7 @@ import {
   standalone: true,
   imports: [RouterLink],
   template: `
-    <section class="scene">
+    <section class="scene scene--flat">
       <header class="scene-header">
         <div>
           <p class="scene-eyebrow">Addressable frame</p>

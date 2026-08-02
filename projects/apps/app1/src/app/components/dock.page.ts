@@ -15,12 +15,13 @@ import { OperationsRoomService } from '../services/operations-room.service';
   template: `
     <section class="dock">
       <div class="dock__hero">
-        <p class="dock__eyebrow">Showcase</p>
-        <h1>Addressable frames, internal frames, and visible transition work.</h1>
+        <p class="dock__eyebrow">Orbital relay</p>
+        <h1>Frame traffic moving across a deep-space relay deck.</h1>
         <p class="dock__lede">
-          This app is a frame-first demo rather than a route playground. Mission and
-          analysis are addressable, handoff is internal-only, and debrief rejects
-          direct entry unless the graph reaches it through a transition.
+          This demo treats navigation like controlled frame transit. Mission and
+          analysis are public docking points, handoff is an internal transfer lane,
+          and debrief refuses direct insertion unless the graph actually delivered
+          the user there.
         </p>
 
         <div class="dock__actions">
@@ -70,29 +71,29 @@ import { OperationsRoomService } from '../services/operations-room.service';
         <article class="dock__card">
           <strong>Frame graph first</strong>
           <p>
-            Navigation targets use frame ids. URL projection stays available, but
-            the flow is described by transitions between frames.
+            Navigation begins with frame ids and transition edges. The address still
+            exists, but it no longer owns the model.
           </p>
         </article>
         <article class="dock__card">
           <strong>Internal handoff</strong>
           <p>
-            The handoff frame is mounted without an address entry. You move into it
-            with a frame target and payload while the browser address stays public.
+            The handoff frame has no public beacon. Transit enters it with a frame
+            target and payload while the visible address can stay stable.
           </p>
         </article>
         <article class="dock__card">
           <strong>Payload hop</strong>
           <p>
-            Mission and analysis open a packet object, then debrief consumes that
-            payload through history state instead of stuffing it into the address.
+            Mission and analysis emit a packet object, then debrief consumes it from
+            navigation state instead of leaking it into the address bar.
           </p>
         </article>
         <article class="dock__card">
           <strong>Visible pending phase</strong>
           <p>
-            Async prepares keep navigation pending long enough to inspect shell
-            motion, view transitions, and staged loading behavior.
+            Async prep keeps transit pending long enough to inspect shell motion,
+            staged loading, and a deliberate transition envelope.
           </p>
         </article>
       </section>
@@ -110,15 +111,31 @@ import { OperationsRoomService } from '../services/operations-room.service';
 
     .dock__hero,
     .dock__operator {
+      position: relative;
       padding: clamp(0.9rem, 1.2vw, 1.15rem);
       border: 1px solid var(--line-soft);
       border-radius: 1.25rem;
       background:
-        linear-gradient(145deg, rgb(255 255 255 / 0.92), rgb(243 249 252 / 0.8)),
+        linear-gradient(145deg, rgb(11 24 39 / 0.96), rgb(6 16 28 / 0.92)),
         var(--panel-base);
       box-shadow: var(--stage-shadow);
       overflow: hidden;
-      position: relative;
+    }
+
+    .dock__hero::before,
+    .dock__operator::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background:
+        repeating-linear-gradient(
+          90deg,
+          rgb(255 255 255 / 0.03) 0,
+          rgb(255 255 255 / 0.03) 1px,
+          transparent 1px,
+          transparent 2.4rem
+        );
+      pointer-events: none;
     }
 
     .dock__hero::after {
@@ -128,7 +145,7 @@ import { OperationsRoomService } from '../services/operations-room.service';
       width: 18rem;
       height: 18rem;
       border-radius: 999px;
-      background: radial-gradient(circle, rgb(0 143 180 / 0.18), transparent 70%);
+      background: radial-gradient(circle, rgb(71 216 255 / 0.18), transparent 70%);
       pointer-events: none;
     }
 
@@ -166,33 +183,62 @@ import { OperationsRoomService } from '../services/operations-room.service';
 
     .dock__button {
       display: inline-flex;
+      position: relative;
       align-items: center;
       justify-content: center;
       min-height: 2.45rem;
       padding: 0.58rem 0.82rem;
-      border: 1px solid rgb(0 143 180 / 0.16);
+      border: 1px solid rgb(71 216 255 / 0.16);
       border-radius: 999px;
-      background: rgb(255 255 255 / 0.82);
-      color: var(--signal-deep);
+      background: rgb(9 21 36 / 0.88);
+      color: var(--ink-strong);
       font-weight: 700;
       text-decoration: none;
       cursor: pointer;
+      overflow: hidden;
+      box-shadow:
+        inset 0 1px 0 rgb(255 255 255 / 0.05),
+        0 0 0 1px rgb(71 216 255 / 0.03);
       transition:
         transform 160ms ease,
-        box-shadow 160ms ease;
+        box-shadow 160ms ease,
+        border-color 160ms ease;
+    }
+
+    .dock__button::before,
+    .dock__toggle::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, rgb(255 255 255 / 0.08), rgb(255 255 255 / 0));
+      pointer-events: none;
     }
 
     .dock__button--solid {
       border-color: transparent;
       background: linear-gradient(135deg, var(--signal-cyan), var(--signal-teal));
-      color: #fff;
-      box-shadow: 0 14px 24px rgb(0 143 180 / 0.18);
+      color: #03111d;
+      box-shadow:
+        inset 0 1px 0 rgb(255 255 255 / 0.16),
+        0 14px 24px rgb(71 216 255 / 0.18);
     }
 
     .dock__button:hover,
     .dock__toggle:hover {
       transform: translateY(-1px);
-      box-shadow: 0 12px 24px rgb(17 34 48 / 0.1);
+      border-color: rgb(71 216 255 / 0.26);
+      box-shadow:
+        inset 0 1px 0 rgb(255 255 255 / 0.06),
+        0 12px 24px rgb(0 0 0 / 0.24),
+        0 0 0 1px rgb(71 216 255 / 0.08);
+    }
+
+    .dock__button:active,
+    .dock__toggle:active {
+      transform: translateY(1px);
+      box-shadow:
+        inset 0 1px 0 rgb(255 255 255 / 0.03),
+        0 0 0 1px rgb(71 216 255 / 0.08);
     }
 
     .dock__operator-row {
@@ -221,20 +267,29 @@ import { OperationsRoomService } from '../services/operations-room.service';
     }
 
     .dock__toggle {
+      position: relative;
       min-height: 2.2rem;
       padding: 0.5rem 0.72rem;
-      border: 1px solid rgb(0 143 180 / 0.16);
+      border: 1px solid rgb(71 216 255 / 0.16);
       border-radius: 999px;
-      background: rgb(255 255 255 / 0.84);
-      color: var(--signal-deep);
+      background: rgb(8 20 35 / 0.84);
+      color: var(--ink-strong);
       font-weight: 700;
       cursor: pointer;
+      overflow: hidden;
+      box-shadow:
+        inset 0 1px 0 rgb(255 255 255 / 0.05),
+        0 0 0 1px rgb(71 216 255 / 0.03);
+      transition:
+        transform 160ms ease,
+        box-shadow 160ms ease,
+        border-color 160ms ease;
     }
 
     .dock__toggle--active {
       border-color: transparent;
       background: linear-gradient(135deg, var(--signal-cyan), var(--signal-teal));
-      color: #fff;
+      color: #03111d;
     }
 
     .dock__grid {
@@ -247,7 +302,8 @@ import { OperationsRoomService } from '../services/operations-room.service';
       padding: 0.78rem 0.88rem;
       border: 1px solid var(--line-soft);
       border-radius: 1rem;
-      background: rgb(255 255 255 / 0.76);
+      background:
+        linear-gradient(180deg, rgb(10 22 37 / 0.94), rgb(6 15 26 / 0.9));
       box-shadow: var(--stage-shadow);
     }
 

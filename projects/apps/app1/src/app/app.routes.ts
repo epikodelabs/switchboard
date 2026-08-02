@@ -6,40 +6,37 @@ import {
 } from '@epikodelabs/switchboard';
 
 import {
-  adminFrame,
-  appShellFrame,
-  editorFrame,
-  introFrame,
-  reportsFrame,
-  settingsFrame,
-  workspaceFrame,
+  analysisFrame,
+  debriefFrame,
+  dockFrame,
+  handoffFrame,
+  missionFrame,
+  opsShellFrame,
 } from './frames';
 
 export const routes = navigation({
   frames: [
-    introFrame,
-    workspaceFrame,
-    settingsFrame,
-    editorFrame,
-    reportsFrame,
-    adminFrame,
+    dockFrame,
+    missionFrame,
+    analysisFrame,
+    handoffFrame,
+    debriefFrame,
   ] as const,
   entries: [
-    address('/', introFrame),
+    address('/', dockFrame),
     redirectRoute(
       '/legacy',
-      '/app/workspace/101?view=activity&page=2&filters=legacy',
+      '/ops/mission/207?lane=thermal&zoom=2',
     ),
-    layout('/app', appShellFrame, [
+    layout('/ops', opsShellFrame, [
       redirectRoute(
         '',
-        '/app/workspace/101?view=overview&page=1&filters=open&filters=recent',
+        '/ops/mission/207?lane=thermal&zoom=2',
       ),
-      address('/workspace/:projectId', workspaceFrame),
-      address('/settings', settingsFrame),
-      address('/editor/:draftId', editorFrame),
-      address('/reports', reportsFrame),
-      address('/admin', adminFrame),
+      address('/mission/:missionId', missionFrame),
+      address('/analysis/:missionId', analysisFrame),
+      handoffFrame,
+      address('/debrief/:missionId', debriefFrame),
     ]),
   ] as const,
 });

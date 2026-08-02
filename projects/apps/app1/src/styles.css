@@ -1,19 +1,28 @@
 :root {
-  color-scheme: light;
+  color-scheme: dark;
   --app-bg:
-    radial-gradient(circle at top left, rgb(222 234 255 / 0.95), transparent 32%),
-    radial-gradient(circle at top right, rgb(254 232 201 / 0.9), transparent 28%),
-    linear-gradient(180deg, #f5f7fb 0%, #edf2f9 100%);
-  --panel-color: rgb(255 255 255 / 0.76);
-  --panel-strong: rgb(255 255 255 / 0.92);
-  --border-color: rgb(54 86 131 / 0.12);
-  --accent-color: #2b5ce6;
-  --accent-deep: #1236b8;
-  --accent-soft: rgb(43 92 230 / 0.1);
-  --warning-soft: rgb(220 124 0 / 0.12);
-  --ink-strong: #162033;
-  --ink-body: #31405d;
-  --ink-soft: #61708c;
+    radial-gradient(circle at 18% 16%, rgb(84 224 255 / 0.18), transparent 22%),
+    radial-gradient(circle at 82% 12%, rgb(255 167 75 / 0.18), transparent 18%),
+    radial-gradient(circle at 50% 120%, rgb(49 255 196 / 0.12), transparent 28%),
+    radial-gradient(circle at 48% 38%, rgb(91 116 255 / 0.08), transparent 20%),
+    linear-gradient(180deg, #040712 0%, #07111d 34%, #091725 66%, #050a14 100%);
+  --panel-base: rgb(8 17 30 / 0.82);
+  --panel-strong: rgb(9 20 36 / 0.92);
+  --panel-deep: rgb(3 10 20 / 0.96);
+  --ink-strong: #ecf8ff;
+  --ink-body: #a9c0d2;
+  --ink-soft: #6f889c;
+  --line-soft: rgb(93 170 208 / 0.14);
+  --line-strong: rgb(93 170 208 / 0.24);
+  --signal-cyan: #47d8ff;
+  --signal-teal: #1dc9a4;
+  --signal-amber: #ffb15f;
+  --signal-red: #ff6f7f;
+  --signal-deep: #03111d;
+  --signal-glow: rgb(71 216 255 / 0.18);
+  --stage-shadow:
+    0 24px 60px rgb(0 0 0 / 0.42),
+    0 0 0 1px rgb(71 216 255 / 0.04);
 }
 
 * {
@@ -30,23 +39,25 @@ body {
   background: var(--app-bg);
   color: var(--ink-body);
   font-family:
-    'Segoe UI Variable Text',
     'Bahnschrift',
-    'Trebuchet MS',
+    'Aptos',
+    'Segoe UI Variable Text',
     sans-serif;
+  background-attachment: fixed;
 }
 
 h1,
 h2,
 h3,
 h4,
-strong {
-  color: var(--ink-strong);
+strong,
+button {
   font-family:
+    'Bahnschrift',
     'Aptos Display',
-    'Franklin Gothic Medium',
     'Segoe UI Variable Display',
     sans-serif;
+  font-weight: 600;
 }
 
 button,
@@ -58,4 +69,17 @@ select {
 
 a {
   color: inherit;
+}
+
+code {
+  font-family:
+    'Cascadia Code',
+    'Consolas',
+    monospace;
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 460ms;
+  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
 }
