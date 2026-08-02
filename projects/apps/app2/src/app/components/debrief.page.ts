@@ -19,9 +19,7 @@ import { DebriefSummary } from '../services/operations-room.service';
           <p class="scene-eyebrow">Guarded direct entry</p>
           <h1 class="scene-title">{{ summary()?.codeName }} debrief</h1>
           <p class="scene-copy">
-            Debrief is addressable, but it is not a direct-entry frame. Manual URL
-            entry should bounce back to the dock because this step only makes sense
-            after a handoff transition has produced a packet.
+            Direct entry is blocked; this frame only makes sense after handoff.
           </p>
         </div>
         <span class="status-chip">{{ queryValue('tab', 'summary') }}</span>

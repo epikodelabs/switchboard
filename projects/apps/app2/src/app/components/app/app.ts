@@ -29,7 +29,7 @@ export class App implements DoCheck {
   protected readonly room = inject(OperationsRoomService);
   private readonly sweepToken = signal(0);
   private readonly sweepActive = signal(false);
-  private lastPending = false;
+  private lastPhase: string | null = null;
   private resetTimeout: ReturnType<typeof setTimeout> | null = null;
   private sweepTimeout: ReturnType<typeof setTimeout> | null = null;
 
@@ -46,13 +46,13 @@ export class App implements DoCheck {
   }
 
   ngDoCheck(): void {
-    const pending = this.router.state.pending;
+    const phase = this.router.state.phase;
 
-    if (pending && !this.lastPending) {
+    if (phase !== null && this.lastPhase === null) {
       this.triggerSweep();
     }
 
-    this.lastPending = pending;
+    this.lastPhase = phase;
   }
 
   protected isTransitioning(): boolean {
@@ -72,11 +72,19 @@ export class App implements DoCheck {
   }
 
   protected activeFrame(): string {
-    return String(this.router.state.routeConfig?.name ?? 'dock');
+    return String(
+      this.router.state.current?.config.name
+      ?? this.router.state.routeConfig?.name
+      ?? 'dock',
+    );
   }
 
   protected publicAddress(): string {
     return `${window.location.pathname}${window.location.search}`;
+  }
+
+  protected pulseHeader(): void {
+    this.triggerSweep();
   }
 
   private triggerSweep(): void {

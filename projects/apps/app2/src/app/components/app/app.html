@@ -7,22 +7,32 @@
   <div class="console-shell__glow console-shell__glow--amber"></div>
 
   <header class="command-bar">
-    <a class="brand" [routerLink]="'/'">
+    @if (hasSweep()) {
+      @for (token of [currentSweepToken()]; track token) {
+        <div class="command-bar__fx" aria-hidden="true">
+          <span class="command-bar__scanner"></span>
+          <span class="command-bar__scanner command-bar__scanner--delayed"></span>
+        </div>
+      }
+    }
+
+    <a class="brand" [routerLink]="'/'" (click)="pulseHeader()">
       <span class="brand__mark">SB</span>
       <span class="brand__copy">
-        <strong>Switchboard App3</strong>
+        <strong>Switchboard App</strong>
         <small>Frame-first operations room</small>
       </span>
     </a>
 
     <nav class="command-nav" aria-label="Primary navigation">
-      <a [routerLink]="'/'">Dock</a>
+      <a [routerLink]="'/'" (click)="pulseHeader()">Dock</a>
       <a
         [routerLink]="{
           name: 'mission',
           params: { missionId: 207 },
           query: { lane: 'thermal', zoom: 2 }
         }"
+        (click)="pulseHeader()"
       >
         Mission 207
       </a>
@@ -32,10 +42,11 @@
           params: { missionId: 315 },
           query: { lens: 'echo', detail: 3 }
         }"
+        (click)="pulseHeader()"
       >
         Analysis 315
       </a>
-      <a [routerLink]="'/legacy'">Legacy redirect</a>
+      <a [routerLink]="'/legacy'" (click)="pulseHeader()">Legacy redirect</a>
     </nav>
 
     <section class="status-cluster" aria-label="Navigation status">
@@ -55,9 +66,15 @@
   </header>
 
   <div class="transition-rail" aria-hidden="true">
+    <div class="transition-rail__mesh"></div>
     @if (hasSweep()) {
       @for (token of [currentSweepToken()]; track token) {
-        <span class="transition-rail__pulse"></span>
+        <div class="transition-rail__fx">
+          <span class="transition-rail__pulse"></span>
+          <span class="transition-rail__pulse transition-rail__pulse--delayed"></span>
+          <span class="transition-rail__spark"></span>
+          <span class="transition-rail__spark transition-rail__spark--delayed"></span>
+        </div>
       }
     }
   </div>

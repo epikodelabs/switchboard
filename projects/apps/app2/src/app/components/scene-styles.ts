@@ -2,10 +2,10 @@ export const sceneStyles = `
   .scene {
     position: relative;
     display: grid;
-    gap: 1.15rem;
-    padding: clamp(1.1rem, 2vw, 1.6rem);
+    gap: 0.8rem;
+    padding: clamp(0.85rem, 1.4vw, 1.15rem);
     border: 1px solid var(--line-soft);
-    border-radius: 1.6rem;
+    border-radius: 1.25rem;
     background:
       linear-gradient(180deg, rgb(255 255 255 / 0.9), rgb(246 250 253 / 0.82)),
       var(--panel-base);
@@ -27,13 +27,13 @@ export const sceneStyles = `
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
-    gap: 1rem;
+    gap: 0.75rem;
   }
 
   .scene-eyebrow {
-    margin: 0 0 0.7rem;
+    margin: 0 0 0.45rem;
     color: var(--signal-cyan);
-    font-size: 0.76rem;
+    font-size: 0.72rem;
     font-weight: 700;
     letter-spacing: 0.16em;
     text-transform: uppercase;
@@ -42,21 +42,22 @@ export const sceneStyles = `
   .scene-title {
     margin: 0;
     color: var(--ink-strong);
-    font-size: clamp(2rem, 4vw, 3.2rem);
-    line-height: 0.96;
+    font-size: clamp(1.55rem, 2vw, 2.2rem);
+    line-height: 0.98;
   }
 
   .scene-copy {
     max-width: 44rem;
-    margin: 0.85rem 0 0;
-    line-height: 1.72;
+    margin: 0.4rem 0 0;
+    font-size: 0.94rem;
+    line-height: 1.5;
   }
 
   .status-chip {
-    min-width: 8.5rem;
-    padding: 0.7rem 0.9rem;
+    min-width: 7rem;
+    padding: 0.52rem 0.72rem;
     border: 1px solid rgb(0 143 180 / 0.18);
-    border-radius: 1rem;
+    border-radius: 0.9rem;
     background: rgb(255 255 255 / 0.74);
     color: var(--signal-deep);
     font-weight: 700;
@@ -66,13 +67,13 @@ export const sceneStyles = `
   .metric-strip {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
-    gap: 0.85rem;
+    gap: 0.65rem;
   }
 
   .metric {
-    padding: 0.95rem 1rem;
+    padding: 0.72rem 0.82rem;
     border: 1px solid var(--line-soft);
-    border-radius: 1.1rem;
+    border-radius: 0.95rem;
     background: rgb(255 255 255 / 0.72);
   }
 
@@ -86,37 +87,39 @@ export const sceneStyles = `
 
   .metric strong {
     display: block;
-    margin-top: 0.45rem;
+    margin-top: 0.28rem;
     color: var(--ink-strong);
-    font-size: 1.1rem;
+    font-size: 0.98rem;
   }
 
   .panel-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr));
-    gap: 1rem;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.7rem;
   }
 
   .panel {
-    padding: 1.1rem;
+    padding: 0.82rem 0.92rem;
     border: 1px solid var(--line-soft);
-    border-radius: 1.2rem;
+    border-radius: 1rem;
     background: var(--panel-strong);
   }
 
   .panel h3 {
-    margin: 0 0 0.8rem;
+    margin: 0 0 0.55rem;
     color: var(--ink-strong);
+    font-size: 0.96rem;
   }
 
   .panel p,
   .panel li {
-    line-height: 1.64;
+    line-height: 1.45;
+    font-size: 0.92rem;
   }
 
   .signal-list {
     display: grid;
-    gap: 0.75rem;
+    gap: 0.52rem;
     margin: 0;
     padding: 0;
     list-style: none;
@@ -140,7 +143,7 @@ export const sceneStyles = `
 
   .data-list {
     display: grid;
-    gap: 0.7rem;
+    gap: 0.48rem;
     margin: 0;
   }
 
@@ -165,7 +168,7 @@ export const sceneStyles = `
   .action-row {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.75rem;
+    gap: 0.55rem;
   }
 
   .action-link,
@@ -173,8 +176,8 @@ export const sceneStyles = `
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-height: 3rem;
-    padding: 0.8rem 1.05rem;
+    min-height: 2.5rem;
+    padding: 0.6rem 0.88rem;
     border: 1px solid rgb(0 143 180 / 0.16);
     border-radius: 999px;
     background: rgb(255 255 255 / 0.82);
@@ -206,6 +209,10 @@ export const sceneStyles = `
   @media (max-width: 760px) {
     .scene-header {
       flex-direction: column;
+    }
+
+    .panel-grid {
+      grid-template-columns: 1fr;
     }
 
     .status-chip {

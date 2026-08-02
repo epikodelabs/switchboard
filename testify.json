@@ -24,7 +24,7 @@
   "viteConfig": {
     "resolve": {
       "alias": {
-        "@epikodelabs/switchboard": "./dist/switchboard/fesm2022/epikodelabs-switchboard.mjs"
+        "@epikodelabs/switchboard": "./projects/libraries/switchboard/src/public-api.ts"
       }
     }
   },

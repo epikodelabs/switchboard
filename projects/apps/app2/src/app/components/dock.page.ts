@@ -18,7 +18,7 @@ import { OperationsRoomService } from '../services/operations-room.service';
         <p class="dock__eyebrow">Showcase</p>
         <h1>Addressable frames, internal frames, and visible transition work.</h1>
         <p class="dock__lede">
-          App3 is a frame-first demo rather than a route playground. Mission and
+          This app is a frame-first demo rather than a route playground. Mission and
           analysis are addressable, handoff is internal-only, and debrief rejects
           direct entry unless the graph reaches it through a transition.
         </p>
@@ -101,16 +101,18 @@ import { OperationsRoomService } from '../services/operations-room.service';
   styles: `
     .dock {
       display: grid;
-      gap: 1rem;
+      gap: 0.7rem;
       max-width: 92rem;
       margin: 0 auto;
+      min-height: calc(100vh - 7.2rem);
+      align-content: start;
     }
 
     .dock__hero,
     .dock__operator {
-      padding: clamp(1.2rem, 2vw, 1.8rem);
+      padding: clamp(0.9rem, 1.2vw, 1.15rem);
       border: 1px solid var(--line-soft);
-      border-radius: 1.8rem;
+      border-radius: 1.25rem;
       background:
         linear-gradient(145deg, rgb(255 255 255 / 0.92), rgb(243 249 252 / 0.8)),
         var(--panel-base);
@@ -132,9 +134,9 @@ import { OperationsRoomService } from '../services/operations-room.service';
 
     .dock__eyebrow,
     .dock__panel-label {
-      margin: 0 0 0.8rem;
+      margin: 0 0 0.45rem;
       color: var(--signal-cyan);
-      font-size: 0.78rem;
+      font-size: 0.72rem;
       font-weight: 700;
       letter-spacing: 0.16em;
       text-transform: uppercase;
@@ -144,30 +146,30 @@ import { OperationsRoomService } from '../services/operations-room.service';
       max-width: 52rem;
       margin: 0;
       color: var(--ink-strong);
-      font-size: clamp(2.4rem, 5vw, 4.5rem);
-      line-height: 0.93;
+      font-size: clamp(1.8rem, 3vw, 2.7rem);
+      line-height: 0.96;
     }
 
     .dock__lede {
       max-width: 48rem;
-      margin: 1rem 0 0;
-      font-size: 1.04rem;
-      line-height: 1.74;
+      margin: 0.5rem 0 0;
+      font-size: 0.94rem;
+      line-height: 1.45;
     }
 
     .dock__actions {
       display: flex;
       flex-wrap: wrap;
-      gap: 0.8rem;
-      margin-top: 1.7rem;
+      gap: 0.55rem;
+      margin-top: 0.9rem;
     }
 
     .dock__button {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      min-height: 3rem;
-      padding: 0.8rem 1.05rem;
+      min-height: 2.45rem;
+      padding: 0.58rem 0.82rem;
       border: 1px solid rgb(0 143 180 / 0.16);
       border-radius: 999px;
       background: rgb(255 255 255 / 0.82);
@@ -208,18 +210,19 @@ import { OperationsRoomService } from '../services/operations-room.service';
 
     .dock__operator-row span {
       color: var(--ink-soft);
-      margin-top: 0.3rem;
+      margin-top: 0.18rem;
+      font-size: 0.9rem;
     }
 
     .dock__toggle-row {
       display: flex;
       flex-wrap: wrap;
-      gap: 0.65rem;
+      gap: 0.5rem;
     }
 
     .dock__toggle {
-      min-height: 2.7rem;
-      padding: 0.68rem 0.92rem;
+      min-height: 2.2rem;
+      padding: 0.5rem 0.72rem;
       border: 1px solid rgb(0 143 180 / 0.16);
       border-radius: 999px;
       background: rgb(255 255 255 / 0.84);
@@ -237,26 +240,27 @@ import { OperationsRoomService } from '../services/operations-room.service';
     .dock__grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr));
-      gap: 1rem;
+      gap: 0.7rem;
     }
 
     .dock__card {
-      padding: 1.15rem;
+      padding: 0.78rem 0.88rem;
       border: 1px solid var(--line-soft);
-      border-radius: 1.3rem;
+      border-radius: 1rem;
       background: rgb(255 255 255 / 0.76);
       box-shadow: var(--stage-shadow);
     }
 
     .dock__card strong {
       display: block;
-      margin-bottom: 0.7rem;
+      margin-bottom: 0.45rem;
       color: var(--ink-strong);
     }
 
     .dock__card p {
       margin: 0;
-      line-height: 1.65;
+      line-height: 1.38;
+      font-size: 0.9rem;
     }
   `,
 })
