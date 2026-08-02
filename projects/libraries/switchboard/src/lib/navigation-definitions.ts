@@ -1,5 +1,8 @@
 ﻿import type { EnvironmentProviders, Provider, Type } from '@angular/core';
-import type { NamedNavigationTarget } from './navigation-targets';
+import type {
+  FrameNavigationTarget,
+  NamedNavigationTarget,
+} from './navigation-targets';
 import type { ParamSchemaRecord, QuerySchemaRecord } from './query-schema';
 import type {
   ActivatedRoute,
@@ -23,6 +26,7 @@ export type RouteRedirect = {
 export type RedirectTarget =
   | string
   | URL
+  | FrameNavigationTarget
   | NamedNavigationTarget;
 
 export type GuardResult =
@@ -119,7 +123,12 @@ export type RouteOptions<
 >;
 
 export interface FrameDefinitionOptions
-  extends FrameNavigationOptions {
+<
+  TParamsSchema extends ParamSchemaRecord | undefined = undefined,
+  TQuerySchema extends QuerySchemaRecord | undefined = undefined,
+> extends FrameNavigationOptions {
+  readonly paramsSchema?: TParamsSchema;
+  readonly querySchema?: TQuerySchema;
   readonly outlets?: readonly FrameOutlet[];
 }
 
@@ -132,7 +141,12 @@ export interface FrameOutlet<
 
 export interface FrameDefinition<
   TId extends string = string,
-> extends FrameDefinitionOptions {
+  TParamsSchema extends ParamSchemaRecord | undefined = undefined,
+  TQuerySchema extends QuerySchemaRecord | undefined = undefined,
+> extends FrameDefinitionOptions<
+    TParamsSchema,
+    TQuerySchema
+  > {
   readonly kind: 'defined-frame';
   readonly id: TId;
   readonly view: FrameView;
@@ -153,7 +167,7 @@ export type AddressOptions<
 
 export interface AddressDefinition<
   TPath extends string = string,
-  TFrame extends FrameDefinition = FrameDefinition,
+  TFrame extends FrameDefinition<any, any, any> = FrameDefinition<any, any, any>,
   TParamsSchema extends ParamSchemaRecord | undefined = ParamSchemaRecord | undefined,
   TQuerySchema extends QuerySchemaRecord | undefined = QuerySchemaRecord | undefined,
 > extends AddressOptions<
@@ -259,7 +273,7 @@ export type LayoutDefinition<
 // Any-instantiated route/layout primitives to avoid undefined-widening issues
 export type AnyRouteDefinition = RouteDefinition<any, any, any, any>;
 export type AnyLayoutDefinition = LayoutDefinition<any, any>;
-export type AnyFrameDefinition = FrameDefinition<any>;
+export type AnyFrameDefinition = FrameDefinition<any, any, any>;
 export type AnyAddressDefinition = AddressDefinition<any, any, any, any>;
 export type AnyFrameRouteDefinition = FrameRouteDefinition<any, any, any, any>;
 
@@ -269,4 +283,20 @@ export type NavigationEntry =
   | AnyAddressDefinition
   | AnyFrameRouteDefinition;
 export type NavigationTree = readonly NavigationEntry[];
+
+export interface NavigationDefinition<
+  TFrames extends readonly AnyFrameDefinition[] = readonly AnyFrameDefinition[],
+  TEntries extends NavigationTree = NavigationTree,
+> {
+  readonly kind: 'navigation';
+  readonly frames: TFrames;
+  readonly entries: TEntries;
+}
+
+export type AnyNavigationDefinition =
+  NavigationDefinition<any, any>;
+
+export type NavigationSource =
+  | NavigationTree
+  | AnyNavigationDefinition;
 

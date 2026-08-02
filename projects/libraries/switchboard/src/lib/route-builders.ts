@@ -14,6 +14,7 @@ import type {
   RedirectRouteDefinition,
   RenderableRoute,
   FrameOutlet,
+  NavigationDefinition,
   RouteOptions,
   NavigationTree,
   ViewDefinition,
@@ -119,11 +120,22 @@ export function view(
   };
 }
 
-function normalizeFrameDefinitionOptions(
+function normalizeFrameDefinitionOptions<
+  TParamsSchema extends
+    ParamSchemaRecord | undefined,
+  TQuerySchema extends
+    QuerySchemaRecord | undefined,
+>(
   options:
-    FrameDefinitionOptions
+    | FrameDefinitionOptions<
+        TParamsSchema,
+        TQuerySchema
+      >
     | undefined,
-): FrameDefinitionOptions {
+): FrameDefinitionOptions<
+  TParamsSchema,
+  TQuerySchema
+> {
   return options ?? {};
 }
 
@@ -140,18 +152,40 @@ export function lazyView(
 
 export function frame<
   const TId extends string,
+  const TParamsSchema extends
+    ParamSchemaRecord | undefined = undefined,
+  const TQuerySchema extends
+    QuerySchemaRecord | undefined = undefined,
 >(
   id: TId,
   component: Type<unknown> | FrameView,
-  options?: FrameDefinitionOptions,
-): FrameDefinition<TId>;
+  options?: FrameDefinitionOptions<
+    TParamsSchema,
+    TQuerySchema
+  >,
+): FrameDefinition<
+  TId,
+  TParamsSchema,
+  TQuerySchema
+>;
 export function frame<
   const TId extends string,
+  const TParamsSchema extends
+    ParamSchemaRecord | undefined = undefined,
+  const TQuerySchema extends
+    QuerySchemaRecord | undefined = undefined,
 >(
   id: TId,
   component: Type<unknown> | FrameView,
-  definition: FrameDefinitionOptions = {},
-): FrameDefinition<TId> {
+  definition: FrameDefinitionOptions<
+    TParamsSchema,
+    TQuerySchema
+  > = {},
+): FrameDefinition<
+  TId,
+  TParamsSchema,
+  TQuerySchema
+> {
   const options =
     normalizeFrameDefinitionOptions(
       definition,
@@ -162,10 +196,42 @@ export function frame<
     id,
     view: createFrameDefinitionView(component),
     outlets: options.outlets ?? [],
+    paramsSchema: options.paramsSchema,
+    querySchema: options.querySchema,
     transitions: options.transitions,
     directEntry: options.directEntry,
     directEntryRedirectTo:
       options.directEntryRedirectTo,
+  };
+}
+
+export function address<
+  const TPath extends string,
+  const TFrame extends
+    FrameDefinition<any, any, any>,
+  const TParamsSchema extends
+    ParamSchemaRecord | undefined = undefined,
+  const TQuerySchema extends
+    QuerySchemaRecord | undefined = undefined,
+>(
+  path: TPath,
+  frame: TFrame,
+  options: AddressOptions<
+    TFrame['id'],
+    TParamsSchema,
+    TQuerySchema
+  > = {},
+): AddressDefinition<
+  TPath,
+  TFrame,
+  TParamsSchema,
+  TQuerySchema
+> {
+  return {
+    kind: 'address',
+    path,
+    frame,
+    ...options,
   };
 }
 
@@ -193,7 +259,8 @@ export function route<
 >;
 export function route<
   const TPath extends string,
-  const TFrame extends FrameDefinition,
+  const TFrame extends
+    FrameDefinition<any, any, any>,
   const TParamsSchema extends
     ParamSchemaRecord | undefined = undefined,
   const TQuerySchema extends
@@ -263,17 +330,16 @@ export function route<
   TQuerySchema
 > | AddressDefinition<
   TPath,
-  FrameDefinition,
+  FrameDefinition<any, any, any>,
   TParamsSchema,
   TQuerySchema
 > {
   if (isDefinedFrame(component)) {
-    return {
-      kind: 'address',
+    return address(
       path,
-      frame: component,
-      ...options,
-    };
+      component,
+      options,
+    );
   }
 
   const route: RenderableRoute<
@@ -472,5 +538,25 @@ export function lazyLayout<
   };
 
   return layout;
+}
+
+export function navigation<
+  const TFrames extends
+    readonly FrameDefinition<any, any, any>[],
+  const TEntries extends NavigationTree,
+>(
+  definition: {
+    readonly frames: TFrames;
+    readonly entries: TEntries;
+  },
+): NavigationDefinition<
+  TFrames,
+  TEntries
+> {
+  return {
+    kind: 'navigation',
+    frames: definition.frames,
+    entries: definition.entries,
+  };
 }
 

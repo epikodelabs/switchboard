@@ -1,4 +1,4 @@
-﻿import type {
+import type {
   InferParamType,
   InferQueryInputType,
   InferQueryType,
@@ -7,9 +7,12 @@
 } from './query-schema';
 import type {
   AddressDefinition,
+  FrameDefinition,
   FrameRouteDefinition,
-  RouteDefinition,
+  NavigationDefinition,
+  NavigationSource,
   NavigationTree,
+  RouteDefinition,
 } from './navigation-definitions';
 
 /**
@@ -19,8 +22,8 @@ export type ExtractPathParams<T extends string> =
   T extends `${string}:${infer Param}/${infer Rest}`
     ? Param | ExtractPathParams<`/${Rest}`>
     : T extends `${string}:${infer Param}`
-    ? Param
-    : never;
+      ? Param
+      : never;
 
 type FrameRouteAsLeaf<TRoute> =
   TRoute extends FrameRouteDefinition<
@@ -37,6 +40,40 @@ type FrameRouteAsLeaf<TRoute> =
       >
     : never;
 
+type FrameParamsSchema<TFrame> =
+  TFrame extends FrameDefinition<
+    string,
+    infer TParamsSchema,
+    QuerySchemaRecord | undefined
+  >
+    ? TParamsSchema
+    : undefined;
+
+type FrameQuerySchema<TFrame> =
+  TFrame extends FrameDefinition<
+    string,
+    ParamSchemaRecord | undefined,
+    infer TQuerySchema
+  >
+    ? TQuerySchema
+    : undefined;
+
+type ResolveAddressParamsSchema<
+  TFrame,
+  TParamsSchema,
+> =
+  [TParamsSchema] extends [ParamSchemaRecord]
+    ? TParamsSchema
+    : FrameParamsSchema<TFrame>;
+
+type ResolveAddressQuerySchema<
+  TFrame,
+  TQuerySchema,
+> =
+  [TQuerySchema] extends [QuerySchemaRecord]
+    ? TQuerySchema
+    : FrameQuerySchema<TFrame>;
+
 type AddressAsLeaf<TAddress> =
   TAddress extends AddressDefinition<
     infer TPath extends string,
@@ -47,28 +84,48 @@ type AddressAsLeaf<TAddress> =
     ? RouteDefinition<
         TPath,
         TFrame['id'],
-        TParamsSchema,
-        TQuerySchema
+        ResolveAddressParamsSchema<
+          TFrame,
+          TParamsSchema
+        >,
+        ResolveAddressQuerySchema<
+          TFrame,
+          TQuerySchema
+        >
       >
     : never;
+
+type ResolveNavigationEntries<
+  TSource extends NavigationSource,
+> =
+  TSource extends NavigationDefinition<
+    readonly FrameDefinition<any, any, any>[],
+    infer TEntries
+  >
+    ? TEntries
+    : TSource extends NavigationTree
+      ? TSource
+      : never;
 
 /**
  * Recursively flattens all routes and layout entries into a union of leaf routes.
  */
-export type LeafRouteDefinitions<TRoutes extends NavigationTree> =
-  TRoutes[number] extends infer TEntry
+export type LeafRouteDefinitions<
+  TSource extends NavigationSource,
+> =
+  ResolveNavigationEntries<TSource>[number] extends infer TEntry
     ? TEntry extends { kind: 'route' }
       ? TEntry
       : TEntry extends { kind: 'address' }
-      ? AddressAsLeaf<TEntry>
-      : TEntry extends { kind: 'frame-route' }
-      ? FrameRouteAsLeaf<TEntry>
-      : TEntry extends {
-            kind: 'layout',
-            entries: infer TEntries extends NavigationTree,
-          }
-      ? LeafRouteDefinitions<TEntries>
-      : never
+        ? AddressAsLeaf<TEntry>
+        : TEntry extends { kind: 'frame-route' }
+          ? FrameRouteAsLeaf<TEntry>
+          : TEntry extends {
+                kind: 'layout',
+                entries: infer TEntries extends NavigationTree,
+              }
+            ? LeafRouteDefinitions<TEntries>
+            : never
     : never;
 
 type RouteName<TRoute> = TRoute extends RouteDefinition<
@@ -83,8 +140,10 @@ type RouteName<TRoute> = TRoute extends RouteDefinition<
 /**
  * Extracts route names safely across layout entries without deep recursion.
  */
-export type ExtractRouteNames<TRoutes extends NavigationTree> =
-  RouteName<LeafRouteDefinitions<TRoutes>>;
+export type ExtractRouteNames<
+  TSource extends NavigationSource,
+> =
+  RouteName<LeafRouteDefinitions<TSource>>;
 
 /**
  * Infers route path parameter types from paramsSchema or path template tokens.
@@ -135,17 +194,17 @@ type HasRequiredParams<TRoute> =
     ? keyof TParams extends never
       ? false
       : TParams extends Record<string, never>
-      ? false
-      : true
+        ? false
+        : true
     : false;
 
 /**
  * Maps options (params, query, search, navigation state) for a target route name.
  */
 export type RouteOptionsByName<
-  TRoutes extends NavigationTree,
+  TSource extends NavigationSource,
   TName extends string,
-> = LeafRouteDefinitions<TRoutes> extends infer TRoute
+> = LeafRouteDefinitions<TSource> extends infer TRoute
   ? TRoute extends RouteDefinition<string, TName, any, any>
     ? HasRequiredParams<TRoute> extends true
       ? {
@@ -166,20 +225,21 @@ export type RouteOptionsByName<
 /**
  * Strongly-typed navigation proxy for Router.
  */
-export type TypedNavigate<TRoutes extends NavigationTree> = {
-  [K in ExtractRouteNames<TRoutes>]: (
-    options?: RouteOptionsByName<TRoutes, K>,
+export type TypedNavigate<
+  TSource extends NavigationSource,
+> = {
+  [K in ExtractRouteNames<TSource>]: (
+    options?: RouteOptionsByName<TSource, K>,
   ) => Promise<boolean>;
 };
 
 /**
  * Strongly-typed href generator proxy for Router.
  */
-export type TypedHref<TRoutes extends NavigationTree> = {
-  [K in ExtractRouteNames<TRoutes>]: (
-    options?: RouteOptionsByName<TRoutes, K>,
+export type TypedHref<
+  TSource extends NavigationSource,
+> = {
+  [K in ExtractRouteNames<TSource>]: (
+    options?: RouteOptionsByName<TSource, K>,
   ) => string | null;
 };
-
-
-

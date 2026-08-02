@@ -2,6 +2,7 @@ import { inject } from '@angular/core';
 import {
   frame,
   frameOutlet,
+  s,
   view,
 } from '@epikodelabs/switchboard';
 
@@ -28,6 +29,12 @@ export const editorFrame = frame(
   }),
   {
     ...appFrameNavigation('editor'),
+    paramsSchema: {
+      draftId: s.number({ min: 1 }),
+    },
+    querySchema: {
+      mode: s.string('write'),
+    },
     outlets: [
       frameOutlet(
         'sidebar',

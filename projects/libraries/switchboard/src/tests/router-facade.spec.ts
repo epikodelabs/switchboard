@@ -3,18 +3,20 @@
 import { Component } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import {
+  address,
   frame,
   frameOutlet,
   frameRoute,
   layout,
   lazyLayout,
   lazyRoute,
+  navigation,
   route,
   provideRouter,
   RouterOutlet,
   s,
   Router,
-  type NavigationTree,
+  type NavigationSource,
   view,
 } from '@epikodelabs/switchboard';
 
@@ -65,7 +67,7 @@ describe('Router: flat routes and layouts', () => {
   let outlet: HTMLElement;
   let router: Router;
 
-  function bootstrap(routes: NavigationTree): void {
+  function bootstrap(routes: NavigationSource): void {
     TestBed.configureTestingModule({
       imports: [
         HomeComponent,
@@ -309,6 +311,32 @@ describe('Router: flat routes and layouts', () => {
     expect(content).toContain('<h3>Settings</h3>');
   });
 
+  it('supports declared navigation definitions with explicit addresses', async () => {
+    const childFrame = frame(
+      'child',
+      view(ChildComponent),
+      {
+        directEntry: true,
+      },
+    );
+
+    const routes = navigation({
+      frames: [childFrame] as const,
+      entries: [
+        layout('/app', ShellComponent, [
+          address('/child', childFrame),
+        ]),
+      ] as const,
+    });
+
+    bootstrap(routes);
+    await navigate('/app/child');
+
+    const content = getOutletContent();
+    expect(content).toContain('<h2>Shell</h2>');
+    expect(content).toContain('<h3>Child</h3>');
+  });
+
   it('keeps named outlet navigation working across layout re-renders', async () => {
     const routes = [
       layout('/app', ShellWithSidebarComponent, [
@@ -348,7 +376,7 @@ describe('Router: flat routes and layouts', () => {
       {
         transitions: [],
         directEntryRedirectTo: {
-          name: 'landing',
+          frame: 'landing',
           params: {
             projectId: 7,
           },
@@ -409,14 +437,14 @@ describe('Router: flat routes and layouts', () => {
     );
     const adminFrame = frame(
       'admin',
-      view(ChildComponent, {
-        beforeEnter: [
-          () => ({
-            redirectTo: {
-              name: 'settings',
-              query: {
-                section: 'access',
-              },
+        view(ChildComponent, {
+          beforeEnter: [
+            () => ({
+              redirectTo: {
+                frame: 'settings',
+                query: {
+                  section: 'access',
+                },
             },
             replace: true,
           }),
@@ -438,6 +466,34 @@ describe('Router: flat routes and layouts', () => {
     expect(router.state.path).toBe('/settings');
     expect(router.state.query['section']).toBe('access');
     expect(getOutletContent()).toContain('<h3>Settings</h3>');
+  });
+
+  it('accepts frame targets and carries payload through navigation state', async () => {
+    const settingsFrame = frame(
+      'settings',
+      view(SettingsComponent),
+      {
+        directEntry: true,
+      },
+    );
+    const routes = [
+      route('/settings', settingsFrame),
+    ] as const;
+
+    bootstrap(routes);
+
+    await router.navigate({
+      frame: 'settings',
+      payload: {
+        source: 'menu',
+      },
+    });
+    await new Promise(resolve => setTimeout(resolve, 0));
+
+    expect(router.state.path).toBe('/settings');
+    expect(router.state.historyState).toEqual({
+      source: 'menu',
+    });
   });
 });
 

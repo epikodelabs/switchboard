@@ -1,6 +1,7 @@
 import {
   frame,
   frameOutlet,
+  s,
   view,
 } from '@epikodelabs/switchboard';
 
@@ -15,6 +16,9 @@ export const settingsFrame = frame(
   view(SettingsPage),
   {
     ...appFrameNavigation('settings'),
+    querySchema: {
+      section: s.string('general'),
+    },
     outlets: [
       frameOutlet(
         'sidebar',

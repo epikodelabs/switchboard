@@ -89,6 +89,8 @@ export function buildAddressRoutes(
     id,
     view,
     outlets,
+    paramsSchema,
+    querySchema,
     transitions,
     directEntry,
     directEntryRedirectTo,
@@ -108,6 +110,12 @@ export function buildAddressRoutes(
     ...route(path, view, {
       ...options,
       name: id,
+      paramsSchema:
+        options.paramsSchema
+        ?? paramsSchema,
+      querySchema:
+        options.querySchema
+        ?? querySchema,
     }),
     frameNavigation,
   };

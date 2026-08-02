@@ -2,6 +2,7 @@ import { inject } from '@angular/core';
 import {
   frame,
   frameOutlet,
+  s,
   view,
 } from '@epikodelabs/switchboard';
 
@@ -31,6 +32,15 @@ export const workspaceFrame = frame(
   }),
   {
     ...appFrameNavigation('workspace'),
+    paramsSchema: {
+      projectId: s.number({ min: 1 }),
+    },
+    querySchema: {
+      view: s.string('overview'),
+      page: s.number({ default: 1, min: 1 }),
+      filters: s.array(),
+      draft: s.optional(s.boolean()),
+    },
     outlets: [
       frameOutlet(
         'sidebar',

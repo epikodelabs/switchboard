@@ -20,6 +20,7 @@ import {
 } from './adapter-utils';
 
 import type {
+  FrameNavigationTarget,
   NamedNavigationTarget,
   NavigationTarget,
 } from './navigation-targets';
@@ -54,7 +55,7 @@ import type {
   RedirectTarget,
   RouteDefinition,
   RouteOptions,
-  NavigationTree
+  NavigationSource,
 } from './navigation-definitions';
 
 import type {
@@ -125,8 +126,8 @@ export const ROUTE_CONTEXT =
   );
 
 interface RouterConfiguration<
-  TRoutes extends NavigationTree =
-    NavigationTree,
+  TRoutes extends NavigationSource =
+    NavigationSource,
 > extends RouterOptions {
   readonly routes: TRoutes;
 }
@@ -285,6 +286,22 @@ function buildNamedNavigationPath(
   return `${path}${query}`;
 }
 
+function toNamedNavigationTarget(
+  target:
+    NamedNavigationTarget
+    | FrameNavigationTarget,
+): NamedNavigationTarget {
+  if ('name' in target) {
+    return target;
+  }
+
+  return {
+    name: target.frame,
+    params: target.params,
+    query: target.query,
+  };
+}
+
 function resolveRedirectTarget(
   registry: RouteRegistry,
   target: RedirectTarget,
@@ -300,12 +317,18 @@ function resolveRedirectTarget(
   const path =
     buildNamedNavigationPath(
       registry,
-      target,
+      toNamedNavigationTarget(
+        target,
+      ),
     );
 
   if (!path) {
+    const label =
+      'name' in target
+        ? target.name
+        : target.frame;
     throw new Error(
-      `Cannot resolve redirect target "${target.name}".`,
+      `Cannot resolve redirect target "${label}".`,
     );
   }
 
@@ -336,7 +359,10 @@ function normalizeGuardResult(
     || (
       typeof result === 'object'
       && result !== null
-      && 'name' in result
+      && (
+        'name' in result
+        || 'frame' in result
+      )
     )
   ) {
     return resolveRedirectTarget(
@@ -842,12 +868,12 @@ function adaptRoute(
 }
 
 function adaptRoutes(
-  entries: NavigationTree,
+  source: NavigationSource,
   appRef: ApplicationRef,
   injector: EnvironmentInjector,
   registry: RouteRegistry,
 ): Route[] {
-  const compiled = compileRoutes(entries);
+  const compiled = compileRoutes(source);
   const groups = groupRoutes(compiled);
   // validateRouteGroups(groups); // This is now done inside createRouteRegistry
 
@@ -960,7 +986,7 @@ function interpolateNamedPath(
 }
 
 export class Router<
-  TRoutes extends NavigationTree =
+  TRoutes extends NavigationSource =
     any,
 > {
   private readonly appRef: ApplicationRef;
@@ -1286,6 +1312,16 @@ export class Router<
     options?:
       NavigationOptions,
   ): Promise<boolean> {
+    const navigationOptions =
+      typeof target === 'object'
+      && target !== null
+      && 'frame' in target
+      && options?.state === undefined
+        ? {
+            ...options,
+            state: target.payload,
+          }
+        : options;
     const href =
       this.href(target);
 
@@ -1299,7 +1335,7 @@ export class Router<
       .requireEngine()
       .navigate(
         href,
-        options,
+        navigationOptions,
       );
   }
 
@@ -1330,6 +1366,15 @@ export class Router<
       return this.resolveHref(
         target.path,
       );
+    }
+
+    if ('frame' in target) {
+      return this
+        .generateNamedHref(
+          toNamedNavigationTarget(
+            target,
+          ),
+        );
     }
 
     if ('name' in target) {
@@ -1501,7 +1546,7 @@ export class Router<
 
 export function provideRouter<
   const TRoutes extends
-    NavigationTree,
+    NavigationSource,
 >(
   routes: TRoutes,
   options:

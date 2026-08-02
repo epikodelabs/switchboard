@@ -1,9 +1,8 @@
-﻿import {
+import {
+  address,
   layout,
+  navigation,
   redirectRoute,
-  route,
-  s,
-  type NavigationTree,
 } from '@epikodelabs/switchboard';
 
 import {
@@ -16,43 +15,31 @@ import {
   workspaceFrame,
 } from './frames';
 
-export const routes = [
-  route('/', introFrame),
-  redirectRoute(
-    '/legacy',
-    '/app/workspace/101?view=activity&page=2&filters=legacy',
-  ),
-  layout('/app', appShellFrame, [
+export const routes = navigation({
+  frames: [
+    introFrame,
+    workspaceFrame,
+    settingsFrame,
+    editorFrame,
+    reportsFrame,
+    adminFrame,
+  ] as const,
+  entries: [
+    address('/', introFrame),
     redirectRoute(
-      '',
-      '/app/workspace/101?view=overview&page=1&filters=open&filters=recent',
+      '/legacy',
+      '/app/workspace/101?view=activity&page=2&filters=legacy',
     ),
-    route('/workspace/:projectId', workspaceFrame, {
-      paramsSchema: {
-        projectId: s.number({ min: 1 }),
-      },
-      querySchema: {
-        view: s.string('overview'),
-        page: s.number({ default: 1, min: 1 }),
-        filters: s.array(),
-        draft: s.optional(s.boolean()),
-      },
-    }),
-    route('/settings', settingsFrame, {
-      querySchema: {
-        section: s.string('general'),
-      },
-    }),
-    route('/editor/:draftId', editorFrame, {
-      paramsSchema: {
-        draftId: s.number({ min: 1 }),
-      },
-      querySchema: {
-        mode: s.string('write'),
-      },
-    }),
-    route('/reports', reportsFrame),
-    route('/admin', adminFrame),
-  ]),
-] as const satisfies NavigationTree;
-
+    layout('/app', appShellFrame, [
+      redirectRoute(
+        '',
+        '/app/workspace/101?view=overview&page=1&filters=open&filters=recent',
+      ),
+      address('/workspace/:projectId', workspaceFrame),
+      address('/settings', settingsFrame),
+      address('/editor/:draftId', editorFrame),
+      address('/reports', reportsFrame),
+      address('/admin', adminFrame),
+    ]),
+  ] as const,
+});

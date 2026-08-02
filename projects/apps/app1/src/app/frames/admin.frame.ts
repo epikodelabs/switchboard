@@ -22,7 +22,7 @@ export const adminFrame = frame(
         return session.adminAccess()
           || {
             redirectTo: {
-              name: 'settings',
+              frame: 'settings',
               query: {
                 section: 'access',
               },

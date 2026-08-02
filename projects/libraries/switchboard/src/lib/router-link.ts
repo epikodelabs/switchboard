@@ -139,7 +139,13 @@ export class RouterLink implements OnChanges {
       return;
     }
 
-    if (!this.href) {
+    const target =
+      this.resolveTarget();
+
+    if (
+      !target
+      || !this.href
+    ) {
       return;
     }
 
@@ -172,10 +178,18 @@ export class RouterLink implements OnChanges {
 
     event.preventDefault();
     void this.router.navigate(
-      this.href,
+      target,
       {
         replace: this.replaceUrl,
-        state: this.state,
+        state:
+          this.state
+          ?? (
+            typeof target === 'object'
+            && target !== null
+            && 'frame' in target
+              ? target.payload
+              : undefined
+          ),
       },
     );
   }
