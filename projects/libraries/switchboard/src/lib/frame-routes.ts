@@ -1,21 +1,21 @@
-import type { ParamSchemaRecord, QuerySchemaRecord } from './query-schema';
+﻿import type { ParamSchemaRecord, QuerySchemaRecord } from './query-schema';
 import { route } from './route-builders';
 import type {
-  StreamixAddress,
-  StreamixFrameNavigationOptions,
-  StreamixFrame,
-  StreamixFrameRoute,
-  StreamixFrameOutlet,
-  StreamixRouteOptions,
-  StreamixRoutes,
-} from './route-types';
+  AddressDefinition,
+  FrameNavigationOptions,
+  FrameView,
+  FrameRouteDefinition,
+  FrameOutlet,
+  RouteOptions,
+  NavigationTree,
+} from './navigation-definitions';
 
 export function frameOutlet<
   const TOutlet extends string,
 >(
   outlet: TOutlet,
-  view: StreamixFrameOutlet<TOutlet>['view'],
-): StreamixFrameOutlet<TOutlet> {
+  view: FrameOutlet<TOutlet>['view'],
+): FrameOutlet<TOutlet> {
   return {
     outlet,
     view,
@@ -29,14 +29,14 @@ export function frameRoute<
   const TQuerySchema extends QuerySchemaRecord | undefined = undefined,
 >(
   path: TPath,
-  view: StreamixFrame,
-  options: StreamixRouteOptions<
+  view: FrameView,
+  options: RouteOptions<
     TName,
     TParamsSchema,
     TQuerySchema
   > = {},
-  outlets: readonly StreamixFrameOutlet[] = [],
-): StreamixFrameRoute<
+  outlets: readonly FrameOutlet[] = [],
+): FrameRouteDefinition<
   TPath,
   TName,
   TParamsSchema,
@@ -52,8 +52,8 @@ export function frameRoute<
 }
 
 export function buildFrameRoutes(
-  definition: StreamixFrameRoute,
-): StreamixRoutes {
+  definition: FrameRouteDefinition,
+): NavigationTree {
   const {
     kind: _kind,
     path,
@@ -77,8 +77,8 @@ export function buildFrameRoutes(
 }
 
 export function buildAddressRoutes(
-  definition: StreamixAddress,
-): StreamixRoutes {
+  definition: AddressDefinition,
+): NavigationTree {
   const {
     path,
     frame,
@@ -94,7 +94,7 @@ export function buildAddressRoutes(
     directEntryRedirectTo,
   } = frame;
   const frameNavigation:
-    StreamixFrameNavigationOptions | undefined =
+    FrameNavigationOptions | undefined =
       transitions !== undefined
         || directEntry !== undefined
         || directEntryRedirectTo !== undefined
@@ -126,3 +126,4 @@ export {
   frameOutlet as defineFrameOutlet,
   frameRoute as defineFrameRoute,
 };
+

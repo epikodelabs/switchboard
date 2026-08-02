@@ -1,4 +1,4 @@
-export const OUTLET_ACTIVATE_EVENT = 'vanilla-router-activate';
+﻿export const OUTLET_ACTIVATE_EVENT = 'vanilla-router-activate';
 export const OUTLET_DEACTIVATE_EVENT = 'vanilla-router-deactivate';
 export const ROUTER_LOCATION_CHANGE_EVENT = 'vanilla-router-locationchange';
 
@@ -65,3 +65,5 @@ export function findContainingOutlet(
 ): HTMLElement | null {
   return node.closest<HTMLElement>(OUTLET_QUERY);
 }
+
+

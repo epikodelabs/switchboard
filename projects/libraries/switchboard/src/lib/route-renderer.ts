@@ -1,4 +1,4 @@
-import {
+﻿import {
   ApplicationRef,
   EnvironmentInjector,
   Injector,
@@ -12,8 +12,8 @@ import {
 } from './route-adapter';
 
 import type {
-  StreamixRouteProviders,
-} from './route-types';
+  NavigationProviders,
+} from './navigation-definitions';
 
 import {
   OUTLET_ACTIVATE_EVENT,
@@ -39,7 +39,7 @@ export interface ResolvedRouteView {
   readonly component:
     Type<unknown>;
   readonly providers?:
-    StreamixRouteProviders;
+    NavigationProviders;
   readonly label: string;
 }
 
@@ -53,7 +53,7 @@ interface RenderedLayer {
 
 function createScopedInjector(
   providers:
-    StreamixRouteProviders | undefined,
+    NavigationProviders | undefined,
   parent: EnvironmentInjector,
   label: string,
 ): EnvironmentInjector | undefined {
@@ -87,7 +87,7 @@ function createAngularComponent(
 ): RenderedRouteNode {
   const host =
     document.createElement(
-      'streamix-view',
+      'route-view',
     );
 
   const elementInjector =
@@ -171,8 +171,8 @@ function createAngularComponent(
 
       containingOutlet ??=
         (host as Node & {
-          __streamixOutlet?: HTMLElement;
-        }).__streamixOutlet ?? null;
+          __routeOutlet?: HTMLElement;
+        }).__routeOutlet ?? null;
 
       const outlet =
         containingOutlet ??
@@ -306,7 +306,7 @@ export function composeAngularRouteView(
           if (!outlet) {
             throw new Error(
               `Cannot render "${view.label}": ` +
-              `the parent layout has no router outlet` +
+              `the parent layout has no nav outlet` +
               (outletName ? ` named "${outletName}"` : ` (primary)`),
             );
           }
@@ -319,9 +319,9 @@ export function composeAngularRouteView(
           // disposal may detach this host before its own dispose() runs.
           const renderedNode =
             rendered.node as Node & {
-              __streamixOutlet?: HTMLElement;
+              __routeOutlet?: HTMLElement;
             };
-          renderedNode.__streamixOutlet = outlet;
+          renderedNode.__routeOutlet = outlet;
 
           if (
             rendered.component !==
@@ -493,3 +493,6 @@ export function composeAngularLeafRouteView(
     }
   };
 }
+
+
+

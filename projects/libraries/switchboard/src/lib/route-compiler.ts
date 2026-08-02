@@ -1,28 +1,28 @@
-import {
+﻿import {
   buildAddressRoutes,
   buildFrameRoutes,
 } from './frame-routes';
 import type {
-  StreamixAddress,
-  StreamixFrameNavigationOptions,
-  StreamixFrameRoute,
-  StreamixLayout,
-  StreamixRenderableRoute,
-  StreamixRoute,
-  StreamixRoutes,
-} from './route-types';
+  AddressDefinition,
+  FrameNavigationOptions,
+  FrameRouteDefinition,
+  LayoutDefinition,
+  RenderableRoute,
+  RouteDefinition,
+  NavigationTree,
+} from './navigation-definitions';
 
 export interface CompiledRoute {
-  readonly route: StreamixRoute;
+  readonly route: RouteDefinition;
   readonly path: string;
   readonly redirectTo?: string;
   readonly layouts:
-    readonly StreamixLayout[];
+    readonly LayoutDefinition[];
 }
 
 export interface CompiledRouteGroup {
   readonly path: string;
-  readonly layouts: readonly StreamixLayout[];
+  readonly layouts: readonly LayoutDefinition[];
   readonly primary: CompiledRoute;
   readonly outlets: readonly CompiledRoute[];
 }
@@ -76,10 +76,10 @@ export function compileRedirect(
 }
 
 export function compileRoutes(
-  entries: StreamixRoutes,
+  entries: NavigationTree,
   parentPath = '/',
   layouts:
-    readonly StreamixLayout[] = [],
+    readonly LayoutDefinition[] = [],
   output: CompiledRoute[] = []
 ): readonly CompiledRoute[] {
   for (const entry of entries) {
@@ -103,7 +103,7 @@ export function compileRoutes(
     if (entry.kind === 'address') {
       compileRoutes(
         buildAddressRoutes(
-          entry as StreamixAddress,
+          entry as AddressDefinition,
         ),
         parentPath,
         layouts,
@@ -115,7 +115,7 @@ export function compileRoutes(
 
     if (entry.kind === 'frame-route') {
       compileRoutes(
-        buildFrameRoutes(entry as StreamixFrameRoute),
+        buildFrameRoutes(entry as FrameRouteDefinition),
         parentPath,
         layouts,
         output,
@@ -249,7 +249,7 @@ function normalizePattern(
 }
 
 export interface RouteRegistryRecord {
-  readonly route: StreamixRoute;
+  readonly route: RouteDefinition;
   readonly fullPath: string;
 }
 
@@ -259,7 +259,7 @@ export interface FrameRouteRegistryRecord {
   readonly transitions: readonly string[];
   readonly directEntry: boolean;
   readonly directEntryRedirectTo?:
-    StreamixFrameNavigationOptions['directEntryRedirectTo'];
+    FrameNavigationOptions['directEntryRedirectTo'];
   readonly enforceGraph: boolean;
 }
 
@@ -282,14 +282,14 @@ export interface RouteRegistry {
 }
 
 function readFrameNavigation(
-  route: StreamixRoute,
+  route: RouteDefinition,
 ): {
   readonly frameId: string;
   readonly navigation:
-    StreamixFrameNavigationOptions | undefined;
+    FrameNavigationOptions | undefined;
 } | null {
   const renderableRoute =
-    route as StreamixRenderableRoute;
+    route as RenderableRoute;
 
   if (
     !route.name
@@ -306,7 +306,7 @@ function readFrameNavigation(
 }
 
 export function createRouteRegistry(
-  entries: StreamixRoutes,
+  entries: NavigationTree,
 ): RouteRegistry {
   const namedRoutes =
     new Map<
@@ -318,7 +318,7 @@ export function createRouteRegistry(
   validateRouteGroups(groups);
   
   const literalPaths =
-    new Map<string, StreamixRoute>();
+    new Map<string, RouteDefinition>();
   const framesById =
     new Map<
       string,
@@ -470,3 +470,4 @@ export function createRouteRegistry(
     },
   };
 }
+

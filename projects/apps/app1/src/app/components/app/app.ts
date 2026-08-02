@@ -1,10 +1,10 @@
-import {
+﻿import {
   Component,
   inject,
 } from '@angular/core';
 import {
   RouterOutlet,
-  StreamixRouterLink,
+  RouterLink,
 } from '@epikodelabs/switchboard';
 import { DemoSessionService, DemoUser } from '../../services/demo-session.service';
 
@@ -13,7 +13,7 @@ import { DemoSessionService, DemoUser } from '../../services/demo-session.servic
   standalone: true,
   imports: [
     RouterOutlet,
-    StreamixRouterLink,
+    RouterLink,
   ],
   templateUrl: './app.html',
   styleUrl: './app.css',
@@ -25,3 +25,6 @@ export class App {
     return this.session.currentUser();
   }
 }
+
+
+

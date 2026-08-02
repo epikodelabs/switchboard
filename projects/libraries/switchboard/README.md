@@ -1,4 +1,4 @@
-# @epikodelabs/switchboard
+﻿# @epikodelabs/switchboard
 
 `@epikodelabs/switchboard` is a typed Angular routing library for flat route definitions, layout composition, and frame-based lifecycle hooks.
 
@@ -46,7 +46,7 @@ That means:
 
 ```ts
 import { inject } from '@angular/core';
-import { frame, layout, route, s, type StreamixRoutes } from '@epikodelabs/switchboard';
+import { frame, layout, route, s, type NavigationTree } from '@epikodelabs/switchboard';
 
 const projectRoute = route(
   '/projects/:projectId',
@@ -82,7 +82,7 @@ export const routes = [
   layout('/app', AppShellComponent, [
     projectRoute,
   ]),
-] as const satisfies StreamixRoutes;
+] as const satisfies NavigationTree;
 ```
 
 If you use a named outlet, its companion route intentionally shares the same path as the primary route:
@@ -146,3 +146,6 @@ See `projects/apps/app1/src/app/app.routes.ts` for the current reference setup u
 - lazy routes
 - a shell layout
 - a coordinated `sidebar` outlet
+
+
+

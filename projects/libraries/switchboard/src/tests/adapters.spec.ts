@@ -1,9 +1,9 @@
-import { Component, Input } from '@angular/core';
+﻿import { Component, Input } from '@angular/core';
 
 import {
   adaptRouteComponent,
   bindRouteInputs,
-  type StreamixRouteProviders,
+  type NavigationProviders,
 } from '@epikodelabs/switchboard';
 
 @Component({
@@ -25,7 +25,7 @@ function createRoute(
   } as ActivatedRoute;
 }
 
-describe('Streamix router adapters', () => {
+describe('navigation adapters', () => {
   it('binds route inputs by source instead of flattening them', () => {
     const target = {
       setInput: jasmine.createSpy('setInput'),
@@ -90,7 +90,7 @@ describe('Streamix router adapters', () => {
   });
 
   it('returns the renderer-produced route component and passes route providers', () => {
-    const providers: StreamixRouteProviders = [
+    const providers: NavigationProviders = [
       {
         provide: 'ROUTE_MESSAGE',
         useValue: 'scoped',
@@ -124,3 +124,4 @@ describe('Streamix router adapters', () => {
     expect(routeComponent).toBe(rendered);
   });
 });
+

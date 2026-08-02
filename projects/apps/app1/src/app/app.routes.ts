@@ -1,9 +1,9 @@
-import {
+﻿import {
   layout,
   redirectRoute,
   route,
   s,
-  type StreamixRoutes,
+  type NavigationTree,
 } from '@epikodelabs/switchboard';
 
 import {
@@ -54,4 +54,5 @@ export const routes = [
     route('/reports', reportsFrame),
     route('/admin', adminFrame),
   ]),
-] as const satisfies StreamixRoutes;
+] as const satisfies NavigationTree;
+

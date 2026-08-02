@@ -1,4 +1,4 @@
-import type {
+﻿import type {
   InferParamType,
   InferQueryInputType,
   InferQueryType,
@@ -6,11 +6,11 @@ import type {
   QuerySchemaRecord,
 } from './query-schema';
 import type {
-  StreamixAddress,
-  StreamixFrameRoute,
-  StreamixRoute,
-  StreamixRoutes,
-} from './route-types';
+  AddressDefinition,
+  FrameRouteDefinition,
+  RouteDefinition,
+  NavigationTree,
+} from './navigation-definitions';
 
 /**
  * Extracts named parameter tokens from path string templates (e.g. "/users/:id")
@@ -23,13 +23,13 @@ export type ExtractPathParams<T extends string> =
     : never;
 
 type FrameRouteAsLeaf<TRoute> =
-  TRoute extends StreamixFrameRoute<
+  TRoute extends FrameRouteDefinition<
     infer TPath extends string,
     infer TName extends string | undefined,
     infer TParamsSchema,
     infer TQuerySchema
   >
-    ? StreamixRoute<
+    ? RouteDefinition<
         TPath,
         TName,
         TParamsSchema,
@@ -38,13 +38,13 @@ type FrameRouteAsLeaf<TRoute> =
     : never;
 
 type AddressAsLeaf<TAddress> =
-  TAddress extends StreamixAddress<
+  TAddress extends AddressDefinition<
     infer TPath extends string,
     infer TFrame,
     infer TParamsSchema,
     infer TQuerySchema
   >
-    ? StreamixRoute<
+    ? RouteDefinition<
         TPath,
         TFrame['id'],
         TParamsSchema,
@@ -55,7 +55,7 @@ type AddressAsLeaf<TAddress> =
 /**
  * Recursively flattens all routes and layout entries into a union of leaf routes.
  */
-export type StreamixLeafRoutes<TRoutes extends StreamixRoutes> =
+export type LeafRouteDefinitions<TRoutes extends NavigationTree> =
   TRoutes[number] extends infer TEntry
     ? TEntry extends { kind: 'route' }
       ? TEntry
@@ -65,13 +65,13 @@ export type StreamixLeafRoutes<TRoutes extends StreamixRoutes> =
       ? FrameRouteAsLeaf<TEntry>
       : TEntry extends {
             kind: 'layout',
-            entries: infer TEntries extends StreamixRoutes,
+            entries: infer TEntries extends NavigationTree,
           }
-      ? StreamixLeafRoutes<TEntries>
+      ? LeafRouteDefinitions<TEntries>
       : never
     : never;
 
-type RouteName<TRoute> = TRoute extends StreamixRoute<
+type RouteName<TRoute> = TRoute extends RouteDefinition<
   string,
   infer TName,
   ParamSchemaRecord | undefined,
@@ -83,14 +83,14 @@ type RouteName<TRoute> = TRoute extends StreamixRoute<
 /**
  * Extracts route names safely across layout entries without deep recursion.
  */
-export type ExtractRouteNames<TRoutes extends StreamixRoutes> =
-  RouteName<StreamixLeafRoutes<TRoutes>>;
+export type ExtractRouteNames<TRoutes extends NavigationTree> =
+  RouteName<LeafRouteDefinitions<TRoutes>>;
 
 /**
  * Infers route path parameter types from paramsSchema or path template tokens.
  */
 export type InferRouteParams<TRoute> =
-  TRoute extends StreamixRoute<
+  TRoute extends RouteDefinition<
     infer TPath extends string,
     string | undefined,
     infer TParamsSchema,
@@ -107,7 +107,7 @@ export type InferRouteParams<TRoute> =
  * Infers route query parameter types from querySchema or searchSchema.
  */
 export type InferRouteQuery<TRoute> =
-  TRoute extends StreamixRoute<
+  TRoute extends RouteDefinition<
     string,
     string | undefined,
     ParamSchemaRecord | undefined,
@@ -119,7 +119,7 @@ export type InferRouteQuery<TRoute> =
     : Record<string, unknown>;
 
 export type InferRouteQueryInput<TRoute> =
-  TRoute extends StreamixRoute<
+  TRoute extends RouteDefinition<
     string,
     string | undefined,
     ParamSchemaRecord | undefined,
@@ -143,10 +143,10 @@ type HasRequiredParams<TRoute> =
  * Maps options (params, query, search, navigation state) for a target route name.
  */
 export type RouteOptionsByName<
-  TRoutes extends StreamixRoutes,
+  TRoutes extends NavigationTree,
   TName extends string,
-> = StreamixLeafRoutes<TRoutes> extends infer TRoute
-  ? TRoute extends StreamixRoute<string, TName, any, any>
+> = LeafRouteDefinitions<TRoutes> extends infer TRoute
+  ? TRoute extends RouteDefinition<string, TName, any, any>
     ? HasRequiredParams<TRoute> extends true
       ? {
           readonly params: InferRouteParams<TRoute>;
@@ -164,19 +164,22 @@ export type RouteOptionsByName<
   : never;
 
 /**
- * Strongly-typed navigation proxy for StreamixRouter.
+ * Strongly-typed navigation proxy for Router.
  */
-export type TypedNavigate<TRoutes extends StreamixRoutes> = {
+export type TypedNavigate<TRoutes extends NavigationTree> = {
   [K in ExtractRouteNames<TRoutes>]: (
     options?: RouteOptionsByName<TRoutes, K>,
   ) => Promise<boolean>;
 };
 
 /**
- * Strongly-typed href generator proxy for StreamixRouter.
+ * Strongly-typed href generator proxy for Router.
  */
-export type TypedHref<TRoutes extends StreamixRoutes> = {
+export type TypedHref<TRoutes extends NavigationTree> = {
   [K in ExtractRouteNames<TRoutes>]: (
     options?: RouteOptionsByName<TRoutes, K>,
   ) => string | null;
 };
+
+
+

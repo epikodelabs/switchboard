@@ -1,12 +1,12 @@
-import {
+﻿import {
   Component,
   inject,
   input,
 } from '@angular/core';
 import {
   RouterOutlet,
-  StreamixRouter,
-  StreamixRouterLink,
+  Router,
+  RouterLink,
 } from '@epikodelabs/switchboard';
 
 import {
@@ -158,7 +158,7 @@ const sidebarStyles = `
 @Component({
   standalone: true,
   selector: 'app-intro-page',
-  imports: [StreamixRouterLink],
+  imports: [RouterLink],
   template: `
     <section class="hero">
       <p class="eyebrow">Sample application</p>
@@ -174,10 +174,10 @@ const sidebarStyles = `
         <div class="session-user">
           <div>
             <strong>{{ currentUser().name }}</strong>
-            <span>{{ currentUser().role }} · {{ currentUser().email }}</span>
+            <span>{{ currentUser().role }} | {{ currentUser().email }}</span>
           </div>
           <p>
-            Home workspace {{ currentUser().homeProjectId }} ·
+            Home workspace {{ currentUser().homeProjectId }} |
             admin {{ currentUser().canAccessAdmin ? 'enabled' : 'disabled' }}
           </p>
         </div>
@@ -410,7 +410,7 @@ const sidebarStyles = `
 })
 export class IntroPage {
   private readonly session = inject(DemoSessionService);
-  private readonly router = inject(StreamixRouter);
+  private readonly router = inject(Router);
   protected readonly users = this.session.users;
 
   protected currentUser(): DemoUser {
@@ -453,7 +453,7 @@ export class IntroPage {
   selector: 'app-demo-shell',
   imports: [
     RouterOutlet,
-    StreamixRouterLink,
+    RouterLink,
   ],
   template: `
     <section class="playground-shell">
@@ -464,7 +464,7 @@ export class IntroPage {
         <div class="control-card">
           <p class="outlet-label">Session user</p>
           <strong>{{ currentUser().name }}</strong>
-          <p>{{ currentUser().role }} · {{ currentUser().email }}</p>
+          <p>{{ currentUser().role }} | {{ currentUser().email }}</p>
           <div class="session-actions">
             @for (user of users; track user.id) {
               <button
@@ -735,7 +735,7 @@ export class DemoShellComponent {
 @Component({
   standalone: true,
   selector: 'app-workspace-page',
-  imports: [StreamixRouterLink],
+  imports: [RouterLink],
   template: `
     <section class="page">
       <header class="page-header">
@@ -832,7 +832,7 @@ export class DemoShellComponent {
 })
 export class WorkspacePage {
   private readonly session = inject(DemoSessionService);
-  private readonly router = inject(StreamixRouter);
+  private readonly router = inject(Router);
 
   protected readonly params = input<ParamsInput>({});
   protected readonly query = input<QueryInput>({});
@@ -878,7 +878,7 @@ export class WorkspacePage {
 @Component({
   standalone: true,
   selector: 'app-workspace-sidebar',
-  imports: [StreamixRouterLink],
+  imports: [RouterLink],
   template: `
     <section class="sidebar-card">
       <h3>Workspace sidebar</h3>
@@ -931,7 +931,7 @@ export class WorkspaceSidebarComponent {
 @Component({
   standalone: true,
   selector: 'app-settings-page',
-  imports: [StreamixRouterLink],
+  imports: [RouterLink],
   template: `
     <section class="page">
       <header class="page-header">
@@ -1018,7 +1018,7 @@ export class SettingsSidebarComponent {}
 @Component({
   standalone: true,
   selector: 'app-editor-page',
-  imports: [StreamixRouterLink],
+  imports: [RouterLink],
   template: `
     <section class="page">
       <header class="page-header">
@@ -1071,7 +1071,7 @@ export class SettingsSidebarComponent {}
 })
 export class EditorPage {
   protected readonly session = inject(DemoSessionService);
-  private readonly router = inject(StreamixRouter);
+  private readonly router = inject(Router);
 
   protected readonly params = input<ParamsInput>({});
   protected readonly query = input<QueryInput>({});
@@ -1182,3 +1182,7 @@ export class AdminSidebarComponent {}
   styles: [sidebarStyles],
 })
 export class ReportsSidebarComponent {}
+
+
+
+

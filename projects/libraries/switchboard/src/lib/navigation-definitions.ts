@@ -1,5 +1,5 @@
-import type { EnvironmentProviders, Provider, Type } from '@angular/core';
-import type { NamedNavigationTarget } from './navigation-types';
+﻿import type { EnvironmentProviders, Provider, Type } from '@angular/core';
+import type { NamedNavigationTarget } from './navigation-targets';
 import type { ParamSchemaRecord, QuerySchemaRecord } from './query-schema';
 import type {
   ActivatedRoute,
@@ -11,32 +11,32 @@ import type {
 export type MaybePromise<T> = T | PromiseLike<T>;
 export type Lazy<T> = () => MaybePromise<T | { readonly default: T }>;
 
-export type StreamixRouteProvider = Provider | EnvironmentProviders;
-export type StreamixRouteProviders = readonly StreamixRouteProvider[];
+export type NavigationProvider = Provider | EnvironmentProviders;
+export type NavigationProviders = readonly NavigationProvider[];
 
 export type RouteRedirect = {
   readonly redirectTo:
-    StreamixRedirectTarget;
+    RedirectTarget;
   readonly replace?: boolean;
 };
 
-export type StreamixRedirectTarget =
+export type RedirectTarget =
   | string
   | URL
   | NamedNavigationTarget;
 
-export type StreamixGuardResult =
+export type GuardResult =
   | boolean
-  | StreamixRedirectTarget
+  | RedirectTarget
   | RouteRedirect;
 
-export type StreamixCanActivateFn = (
+export type CanEnterFn = (
   route: NavigationContext,
-) => MaybePromise<StreamixGuardResult>;
+) => MaybePromise<GuardResult>;
 
-export type StreamixCanDeactivateFn = (
+export type CanLeaveFn = (
   route: DeactivationContext,
-) => MaybePromise<StreamixGuardResult>;
+) => MaybePromise<GuardResult>;
 
 export type FramePrepareResult =
   | void
@@ -50,41 +50,41 @@ export type FrameAfterEnterFn = (
   route: ActivatedRoute,
 ) => MaybePromise<void>;
 
-export interface StreamixFrameHooks {
-  readonly beforeEnter?: readonly StreamixCanActivateFn[];
-  readonly beforeLeave?: readonly StreamixCanDeactivateFn[];
+export interface FrameHooks {
+  readonly beforeEnter?: readonly CanEnterFn[];
+  readonly beforeLeave?: readonly CanLeaveFn[];
   readonly prepare?: readonly FramePrepareFn[];
   readonly afterEnter?: readonly FrameAfterEnterFn[];
 }
 
-export interface StreamixFrameNavigationOptions {
+export interface FrameNavigationOptions {
   readonly transitions?: readonly string[];
   readonly directEntry?: boolean;
   readonly directEntryRedirectTo?:
     NamedNavigationTarget;
 }
 
-export interface StreamixEagerView {
+export interface EagerViewDefinition {
   readonly component: Type<unknown>;
   readonly loadComponent?: never;
 }
 
-export interface StreamixLazyView {
+export interface LazyViewDefinition {
   readonly component?: never;
   readonly loadComponent: Lazy<Type<unknown>>;
 }
 
-export type StreamixView =
-  | StreamixEagerView
-  | StreamixLazyView;
+export type ViewDefinition =
+  | EagerViewDefinition
+  | LazyViewDefinition;
 
-export type StreamixFrame =
-  StreamixView &
-  StreamixFrameHooks & {
+export type FrameView =
+  ViewDefinition &
+  FrameHooks & {
     readonly kind: 'frame';
   };
 
-export interface StreamixRouteBase<
+export interface RouteDefinitionBase<
   TPath extends string = string,
   TName extends string | undefined = string | undefined,
   TParamsSchema extends ParamSchemaRecord | undefined = ParamSchemaRecord | undefined,
@@ -99,17 +99,17 @@ export interface StreamixRouteBase<
   readonly paramsSchema?: TParamsSchema;
   readonly querySchema?: TQuerySchema;
   readonly data?: Readonly<Record<string, unknown>>;
-  readonly providers?: StreamixRouteProviders;
-  readonly canActivate?: readonly StreamixCanActivateFn[];
-  readonly canDeactivate?: readonly StreamixCanDeactivateFn[];
+  readonly providers?: NavigationProviders;
+  readonly canActivate?: readonly CanEnterFn[];
+  readonly canDeactivate?: readonly CanLeaveFn[];
 }
 
-export type StreamixRouteOptions<
+export type RouteOptions<
   TName extends string | undefined = string | undefined,
   TParamsSchema extends ParamSchemaRecord | undefined = ParamSchemaRecord | undefined,
   TQuerySchema extends QuerySchemaRecord | undefined = QuerySchemaRecord | undefined,
 > = Omit<
-  StreamixRouteBase<
+  RouteDefinitionBase<
     string,
     TName,
     TParamsSchema,
@@ -118,32 +118,32 @@ export type StreamixRouteOptions<
   'kind' | 'path'
 >;
 
-export interface StreamixDefinedFrameOptions
-  extends StreamixFrameNavigationOptions {
-  readonly outlets?: readonly StreamixFrameOutlet[];
+export interface FrameDefinitionOptions
+  extends FrameNavigationOptions {
+  readonly outlets?: readonly FrameOutlet[];
 }
 
-export interface StreamixFrameOutlet<
+export interface FrameOutlet<
   TOutlet extends string = string,
 > {
   readonly outlet: TOutlet;
-  readonly view: StreamixFrame;
+  readonly view: FrameView;
 }
 
-export interface StreamixDefinedFrame<
+export interface FrameDefinition<
   TId extends string = string,
-> extends StreamixDefinedFrameOptions {
+> extends FrameDefinitionOptions {
   readonly kind: 'defined-frame';
   readonly id: TId;
-  readonly view: StreamixFrame;
+  readonly view: FrameView;
 }
 
-export type StreamixAddressOptions<
+export type AddressOptions<
   TName extends string = string,
   TParamsSchema extends ParamSchemaRecord | undefined = ParamSchemaRecord | undefined,
   TQuerySchema extends QuerySchemaRecord | undefined = QuerySchemaRecord | undefined,
 > = Omit<
-  StreamixRouteOptions<
+  RouteOptions<
     TName,
     TParamsSchema,
     TQuerySchema
@@ -151,12 +151,12 @@ export type StreamixAddressOptions<
   'name' | 'outlet'
 >;
 
-export interface StreamixAddress<
+export interface AddressDefinition<
   TPath extends string = string,
-  TFrame extends StreamixDefinedFrame = StreamixDefinedFrame,
+  TFrame extends FrameDefinition = FrameDefinition,
   TParamsSchema extends ParamSchemaRecord | undefined = ParamSchemaRecord | undefined,
   TQuerySchema extends QuerySchemaRecord | undefined = QuerySchemaRecord | undefined,
-> extends StreamixAddressOptions<
+> extends AddressOptions<
     TFrame['id'],
     TParamsSchema,
     TQuerySchema
@@ -166,26 +166,26 @@ export interface StreamixAddress<
   readonly frame: TFrame;
 }
 
-export interface StreamixFrameRoute<
+export interface FrameRouteDefinition<
   TPath extends string = string,
   TName extends string | undefined = string | undefined,
   TParamsSchema extends ParamSchemaRecord | undefined = ParamSchemaRecord | undefined,
   TQuerySchema extends QuerySchemaRecord | undefined = QuerySchemaRecord | undefined,
-> extends StreamixRouteOptions<
+> extends RouteOptions<
     TName,
     TParamsSchema,
     TQuerySchema
   > {
   readonly kind: 'frame-route';
   readonly path: TPath;
-  readonly view: StreamixFrame;
-  readonly outlets?: readonly StreamixFrameOutlet[];
+  readonly view: FrameView;
+  readonly outlets?: readonly FrameOutlet[];
 }
 
-export interface StreamixRedirectRoute<
+export interface RedirectRouteDefinition<
   TPath extends string = string,
   TName extends string | undefined = string | undefined,
-> extends StreamixRouteBase<
+> extends RouteDefinitionBase<
     TPath,
     TName,
     undefined,
@@ -194,78 +194,79 @@ export interface StreamixRedirectRoute<
   readonly redirectTo: string;
 }
 
-export type StreamixRenderableRoute<
+export type RenderableRoute<
   TPath extends string = string,
   TName extends string | undefined = string | undefined,
   TParamsSchema extends ParamSchemaRecord | undefined = ParamSchemaRecord | undefined,
   TQuerySchema extends QuerySchemaRecord | undefined = QuerySchemaRecord | undefined,
 > =
-  StreamixRouteBase<
+  RouteDefinitionBase<
     TPath,
     TName,
     TParamsSchema,
     TQuerySchema
   > &
-  StreamixView & {
-  readonly frame?: StreamixFrame;
-  readonly frameNavigation?: StreamixFrameNavigationOptions;
+  ViewDefinition & {
+  readonly frame?: FrameView;
+  readonly frameNavigation?: FrameNavigationOptions;
   readonly redirectTo?: undefined;
 };
 
-export type StreamixRoute<
+export type RouteDefinition<
   TPath extends string = string,
   TName extends string | undefined = string | undefined,
   TParamsSchema extends ParamSchemaRecord | undefined = ParamSchemaRecord | undefined,
   TQuerySchema extends QuerySchemaRecord | undefined = QuerySchemaRecord | undefined,
 > =
-  | StreamixRedirectRoute<
+  | RedirectRouteDefinition<
       TPath,
       TName
     >
-  | StreamixRenderableRoute<
+  | RenderableRoute<
       TPath,
       TName,
       TParamsSchema,
       TQuerySchema
     >;
 
-export interface StreamixLayoutBase<
+export interface LayoutDefinitionBase<
   TPath extends string = string,
-  TEntries extends StreamixRoutes = StreamixRoutes,
+  TEntries extends NavigationTree = NavigationTree,
 > {
   readonly kind: 'layout';
   readonly path: TPath;
   readonly entries: TEntries;
-  readonly providers?: StreamixRouteProviders;
+  readonly providers?: NavigationProviders;
 }
 
-export type StreamixLayoutOptions = Omit<
-  StreamixLayoutBase,
+export type LayoutOptions = Omit<
+  LayoutDefinitionBase,
   'kind' | 'path' | 'entries'
 >;
 
-export type StreamixLayout<
+export type LayoutDefinition<
   TPath extends string = string,
-  TEntries extends StreamixRoutes = StreamixRoutes,
+  TEntries extends NavigationTree = NavigationTree,
 > =
-  StreamixLayoutBase<
+  LayoutDefinitionBase<
     TPath,
     TEntries
   > &
-  StreamixView & {
-    readonly frame?: StreamixFrame;
+  ViewDefinition & {
+    readonly frame?: FrameView;
   };
 
 // Any-instantiated route/layout primitives to avoid undefined-widening issues
-export type AnyStreamixRoute = StreamixRoute<any, any, any, any>;
-export type AnyStreamixLayout = StreamixLayout<any, any>;
-export type AnyStreamixDefinedFrame = StreamixDefinedFrame<any>;
-export type AnyStreamixAddress = StreamixAddress<any, any, any, any>;
-export type AnyStreamixFrameRoute = StreamixFrameRoute<any, any, any, any>;
+export type AnyRouteDefinition = RouteDefinition<any, any, any, any>;
+export type AnyLayoutDefinition = LayoutDefinition<any, any>;
+export type AnyFrameDefinition = FrameDefinition<any>;
+export type AnyAddressDefinition = AddressDefinition<any, any, any, any>;
+export type AnyFrameRouteDefinition = FrameRouteDefinition<any, any, any, any>;
 
-export type StreamixRouteEntry =
-  | AnyStreamixRoute
-  | AnyStreamixLayout
-  | AnyStreamixAddress
-  | AnyStreamixFrameRoute;
-export type StreamixRoutes = readonly StreamixRouteEntry[];
+export type NavigationEntry =
+  | AnyRouteDefinition
+  | AnyLayoutDefinition
+  | AnyAddressDefinition
+  | AnyFrameRouteDefinition;
+export type NavigationTree = readonly NavigationEntry[];
+

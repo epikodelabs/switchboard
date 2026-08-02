@@ -1,4 +1,4 @@
-import {
+﻿import {
   DestroyRef,
   Directive,
   ElementRef,
@@ -7,11 +7,11 @@ import {
   inject,
 } from '@angular/core';
 
-import { StreamixRouter } from './streamix-router';
+import { Router } from './router';
 
 @Directive({ selector: 'router-outlet', standalone: true })
 export class RouterOutlet implements OnInit {
-  private readonly router = inject(StreamixRouter);
+  private readonly router = inject(Router);
   private readonly element = inject(ElementRef<HTMLElement>).nativeElement;
   private readonly destroyRef = inject(DestroyRef);
   private connectedName = '';
@@ -43,6 +43,10 @@ export class RouterOutlet implements OnInit {
   }
 
   private shouldConnect(name: string): boolean {
-    return name !== '' || this.element.closest('streamix-view') === null;
+    return name !== '' || this.element.closest('route-view') === null;
   }
 }
+
+
+
+

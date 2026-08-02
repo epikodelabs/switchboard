@@ -1,2 +1,3 @@
-/** Public API surface of the Streamix router. */
+﻿/** Public API surface of the navigation library. */
 export * from './lib';
+
