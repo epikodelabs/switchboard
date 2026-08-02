@@ -1,0 +1,80 @@
+:root {
+  color-scheme: light;
+  --app-bg:
+    radial-gradient(circle at 18% 18%, rgb(94 214 255 / 0.32), transparent 24%),
+    radial-gradient(circle at 82% 14%, rgb(255 187 74 / 0.26), transparent 20%),
+    radial-gradient(circle at 50% 100%, rgb(0 168 132 / 0.22), transparent 28%),
+    linear-gradient(180deg, #f5f8fb 0%, #e7eef5 52%, #dde7ef 100%);
+  --panel-base: rgb(255 255 255 / 0.76);
+  --panel-strong: rgb(255 255 255 / 0.92);
+  --panel-deep: rgb(13 28 40 / 0.88);
+  --ink-strong: #112230;
+  --ink-body: #304757;
+  --ink-soft: #6a7e8d;
+  --line-soft: rgb(20 47 65 / 0.12);
+  --line-strong: rgb(20 47 65 / 0.18);
+  --signal-cyan: #008fb4;
+  --signal-teal: #0b8a76;
+  --signal-amber: #d8891f;
+  --signal-red: #c65454;
+  --signal-deep: #082432;
+  --signal-glow: rgb(0 143 180 / 0.14);
+  --stage-shadow: 0 28px 64px rgb(15 31 45 / 0.12);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--app-bg);
+  color: var(--ink-body);
+  font-family:
+    'Aptos',
+    'Segoe UI Variable Text',
+    'Trebuchet MS',
+    sans-serif;
+}
+
+h1,
+h2,
+h3,
+h4,
+strong,
+button {
+  font-family:
+    'Aptos Display',
+    'Franklin Gothic Medium',
+    'Segoe UI Variable Display',
+    sans-serif;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+a {
+  color: inherit;
+}
+
+code {
+  font-family:
+    'Cascadia Code',
+    'Consolas',
+    monospace;
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 460ms;
+  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}

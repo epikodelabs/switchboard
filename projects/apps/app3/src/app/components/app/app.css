@@ -1,0 +1,220 @@
+:host {
+  display: block;
+  min-height: 100vh;
+}
+
+.console-shell {
+  position: relative;
+  min-height: 100vh;
+  padding: 1.25rem;
+  overflow: hidden;
+}
+
+.console-shell__glow {
+  position: fixed;
+  inset: auto;
+  width: 26rem;
+  height: 26rem;
+  border-radius: 999px;
+  filter: blur(24px);
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.console-shell__glow--cyan {
+  top: -7rem;
+  right: -6rem;
+  background: radial-gradient(circle, rgb(0 143 180 / 0.26), transparent 70%);
+}
+
+.console-shell__glow--amber {
+  bottom: -9rem;
+  left: -7rem;
+  background: radial-gradient(circle, rgb(216 137 31 / 0.18), transparent 72%);
+}
+
+.command-bar {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 1rem;
+  max-width: 92rem;
+  margin: 0 auto;
+  padding: 1rem 1.15rem;
+  border: 1px solid var(--line-soft);
+  border-radius: 1.6rem;
+  background:
+    linear-gradient(180deg, rgb(255 255 255 / 0.86), rgb(248 251 254 / 0.76)),
+    var(--panel-base);
+  box-shadow: var(--stage-shadow);
+  backdrop-filter: blur(18px);
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.9rem;
+  color: var(--ink-strong);
+  text-decoration: none;
+}
+
+.brand__mark {
+  display: grid;
+  place-items: center;
+  width: 3rem;
+  height: 3rem;
+  border-radius: 1rem;
+  background: linear-gradient(135deg, var(--signal-cyan), var(--signal-teal));
+  color: #fff;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.brand__copy strong,
+.brand__copy small {
+  display: block;
+}
+
+.brand__copy small {
+  color: var(--ink-soft);
+  font-size: 0.76rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.command-nav {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.65rem;
+}
+
+.command-nav a {
+  padding: 0.72rem 0.96rem;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  color: var(--ink-soft);
+  text-decoration: none;
+  transition:
+    transform 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease,
+    background-color 160ms ease;
+}
+
+.command-nav a:hover {
+  transform: translateY(-1px);
+  border-color: rgb(0 143 180 / 0.16);
+  background: rgb(255 255 255 / 0.9);
+  color: var(--signal-deep);
+}
+
+.status-cluster {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.65rem;
+}
+
+.status-chip {
+  min-width: 7rem;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid var(--line-soft);
+  border-radius: 1rem;
+  background: rgb(255 255 255 / 0.74);
+}
+
+.status-chip--wide {
+  min-width: 14rem;
+}
+
+.status-chip span,
+.status-chip strong {
+  display: block;
+}
+
+.status-chip span {
+  color: var(--ink-soft);
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.status-chip strong {
+  margin-top: 0.32rem;
+  color: var(--ink-strong);
+  font-size: 0.92rem;
+}
+
+.transition-rail {
+  position: relative;
+  z-index: 1;
+  max-width: 92rem;
+  height: 0.32rem;
+  margin: 0.85rem auto 1.1rem;
+  border-radius: 999px;
+  background: rgb(17 34 48 / 0.08);
+  overflow: hidden;
+}
+
+.transition-rail span {
+  display: block;
+  width: 28%;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--signal-cyan), var(--signal-amber));
+  transform: translateX(-130%);
+  opacity: 0;
+}
+
+.console-shell--transitioning .transition-rail span {
+  animation: rail-pulse 920ms cubic-bezier(0.18, 1, 0.32, 1) 1 forwards;
+}
+
+.console-shell--transitioning .command-bar {
+  box-shadow:
+    0 18px 42px rgb(15 31 45 / 0.12),
+    0 0 0 1px rgb(0 143 180 / 0.08);
+}
+
+@keyframes rail-pulse {
+  from {
+    transform: translateX(-130%);
+    opacity: 0;
+  }
+
+  20%,
+  80% {
+    opacity: 1;
+  }
+
+  to {
+    transform: translateX(420%);
+    opacity: 0;
+  }
+}
+
+@media (max-width: 1080px) {
+  .command-bar {
+    grid-template-columns: 1fr;
+  }
+
+  .command-nav,
+  .status-cluster {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 760px) {
+  .console-shell {
+    padding: 1rem;
+  }
+
+  .status-chip,
+  .status-chip--wide {
+    min-width: 0;
+    width: 100%;
+  }
+}
