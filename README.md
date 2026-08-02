@@ -1,40 +1,54 @@
 # Switchboard
 
-This workspace includes a manual route playground app under `projects/apps/app1` for checking real browser navigation scenarios against the Switchboard library.
+Switchboard is a frame-first navigation library for Angular.
 
-## Playground
+This workspace contains:
 
-Run the sample app with:
-
-```bash
-npm run start:playground
-```
-
-The playground covers:
-
-- flat layout composition under `/app`
-- typed params and query parsing on `/app/workspace/:projectId`
-- grouped named outlets with a persistent sidebar outlet
-- redirects through `/legacy` and the `/app` index route
-- lazy component loading on `/app/reports`
-- `beforeEnter` and `beforeLeave` behavior on `/app/admin` and `/app/editor/:draftId`
-
-Build the sample app with:
-
-```bash
-npm run build:playground
-```
+- the library source in `projects/libraries/switchboard`
+- the current showcase app in `projects/apps/app1`
 
 ## Library
 
-Build the Switchboard library with:
+Build the library:
 
 ```bash
 npm run build
 ```
 
-Run the existing library tests with:
+Run the library test suite:
 
 ```bash
 npm test
 ```
+
+## Showcase App
+
+`app1` is the current reference app. It demonstrates the frame-first model used by the library:
+
+- one frame per file
+- addressable frames declared with `address(...)`
+- internal-only frames that still participate in the frame graph
+- transitions declared between frames
+- direct-entry control and redirect-on-invalid-entry behavior
+- typed params and query schemas
+- outlet companions declared on the frame itself
+- payload handoff through navigation state instead of the address bar
+- lazy frame loading and `prepare` hooks
+
+Run the app:
+
+```bash
+npm run start:playground
+```
+
+Build the app:
+
+```bash
+npm run build:playground
+```
+
+Useful places to inspect:
+
+- `projects/apps/app1/src/app/app.routes.ts`
+- `projects/apps/app1/src/app/frames`
+- `projects/libraries/switchboard/src/lib`

@@ -1,151 +1,135 @@
-﻿# @epikodelabs/switchboard
+# Switchboard
 
-`@epikodelabs/switchboard` is a typed Angular routing library for flat route definitions, layout composition, and frame-based lifecycle hooks.
+Switchboard is a frame-first Angular navigation library.
 
-It is designed to keep route identity, URL shape, rendering, and lifecycle together.
+Instead of treating the URL as the primary model, Switchboard lets you define a graph of frames and then project public addresses onto the parts of that graph that should be directly addressable.
 
-## Core ideas
+## Core Ideas
 
-### Path
+### `frame(...)`
 
-`path` is the URL contract. It is used for matching and link generation.
+A frame is the primary navigation unit.
 
-### Name
+It owns:
 
-`name` is the app-level identity for a primary route. It exists so application code can address a route symbolically instead of coupling everything to literal URLs.
+- a stable frame id
+- the rendered view
+- typed params and query schemas
+- optional companion outlets
+- allowed transitions to other frames
+- direct-entry rules
 
-Typical uses:
+### `view(...)` and `lazyView(...)`
 
-- `router.navigate({ name: 'settings' })`
-- `router.navigateTo.settings(...)`
-- `router.hrefTo.settings(...)`
-- `[routerLink]="{ name: 'settings' }"`
+A view binds a component to frame lifecycle behavior such as `prepare`.
 
-### Frame
+### `address(...)`
 
-A `frame` wraps a component together with route lifecycle hooks:
+An address projects a public path onto a frame.
 
-- `beforeEnter`
-- `beforeLeave`
-- `prepare`
-- `afterEnter`
+Not every frame needs one. Internal frames can exist in the graph without being directly addressable from the URL.
 
-This replaces the need to scatter route behavior across Angular guard and resolver classes.
+### `navigation(...)`
 
-## Route model
+`navigation(...)` collects the frame catalog and the address/layout entries that expose parts of that catalog.
 
-Primary routes define navigation behavior. Secondary outlet entries exist only to render additional content for the same matched primary route.
+### `layout(...)`
 
-That means:
-
-- primary routes may have `name`
-- secondary outlet routes should stay subordinate to the primary route
-- layouts compose UI shells, not navigation state machines
+Layouts compose shell UI around address entries. They are composition boundaries, not the source of frame identity.
 
 ## Example
 
 ```ts
 import { inject } from '@angular/core';
-import { frame, layout, route, s, type NavigationTree } from '@epikodelabs/switchboard';
+import {
+  address,
+  frame,
+  frameOutlet,
+  layout,
+  navigation,
+  s,
+  view,
+} from '@epikodelabs/switchboard';
 
-const projectRoute = route(
-  '/projects/:projectId',
-  frame(ProjectPage, {
-    beforeEnter: [
-      () => inject(SessionService).authenticated()
-        ? true
-        : { redirectTo: '/auth/login', replace: true },
-    ],
+const missionFrame = frame(
+  'mission',
+  view(MissionPage, {
     prepare: [
-      context => ({
-        project: inject(ProjectStore).load(
-          Number(context.params['projectId'] ?? 0),
+      async context => ({
+        snapshot: await inject(MissionService).load(
+          Number(context.params['missionId'] ?? 0),
         ),
       }),
     ],
-    afterEnter: [
-      route => inject(AnalyticsService).trackProjectVisit(route.path),
-    ],
   }),
   {
-    name: 'project',
+    directEntry: true,
+    transitions: ['analysis', 'handoff'],
     paramsSchema: {
-      projectId: s.number({ min: 1 }),
+      missionId: s.number({ min: 1 }),
     },
     querySchema: {
-      tab: s.string('overview'),
+      lane: s.string('thermal'),
     },
+    outlets: [
+      frameOutlet('sidebar', view(MissionSidebarComponent)),
+    ],
   },
 );
 
-export const routes = [
-  layout('/app', AppShellComponent, [
-    projectRoute,
-  ]),
-] as const satisfies NavigationTree;
+const handoffFrame = frame(
+  'handoff',
+  view(HandoffPage),
+  {
+    transitions: ['mission', 'analysis', 'debrief'],
+  },
+);
+
+export const routes = navigation({
+  frames: [
+    missionFrame,
+    handoffFrame,
+  ] as const,
+  entries: [
+    layout('/ops', view(OpsShellPage), [
+      address('/mission/:missionId', missionFrame),
+      handoffFrame,
+    ]),
+  ] as const,
+});
 ```
 
-If you use a named outlet, its companion route intentionally shares the same path as the primary route:
+In that model:
 
-```ts
-route('/projects/:projectId', ProjectSidebarComponent, {
-  outlet: 'sidebar',
-})
-```
+- `mission` is publicly addressable
+- `handoff` is part of the frame graph but has no public address
+- transitions define where navigation is allowed to move next
 
-That route is not a second independently matched page. It is extra content rendered alongside the primary route for the same URL.
+## What The Current App Demonstrates
 
-## Why this shape
+See `projects/apps/app1` for a working reference of:
 
-Switchboard tries to keep the model simple:
+- addressable frames
+- internal-only frames
+- named outlet companions declared per frame
+- lazy frame loading
+- payload transfer through `history.state`
+- direct-entry rejection and redirect
+- frame-first navigation under a shell layout
 
-- URL matching by `path`
-- app-level addressing by `name`
-- lifecycle by `frame`
-- shell composition by `layout`
+Start there with:
 
-That gives you one route definition instead of separate route config, resolver classes, guard classes, and ad hoc data-loading conventions.
+- `projects/apps/app1/src/app/app.routes.ts`
+- `projects/apps/app1/src/app/frames`
 
-## Limitations vs Angular Router
+## Notes
 
-Switchboard is intentionally narrower than Angular Router. The current tradeoffs are:
+Switchboard still supports route-style concerns such as paths, redirects, params, and query parsing. The difference is that these are projections and policies around frames, not the primary source of truth.
 
-- standalone-first components and directives
-- no `NgModule` router integration such as `RouterModule.forRoot()` or `RouterModule.forChild()`
-- no `loadChildren` / lazy `NgModule` boundaries; lazy loading is component- or layout-based
-- no class-based guards or resolver classes; the model is function-based hooks and `inject()`
-- no `CanLoad`; route lifecycle is expressed through `beforeEnter`, `beforeLeave`, `prepare`, and `afterEnter`
-- no matrix-parameter model
-- no Angular `Route` object compatibility layer; Switchboard uses its own route definitions
-- no full Angular route tree semantics; layouts are composition primitives, not nested router-state nodes
+If you need broad Angular Router feature parity, Switchboard is intentionally narrower. It is a better fit when you want:
 
-There are also explicit restrictions around secondary outlets:
-
-- secondary outlet entries cannot define their own `name`
-- secondary outlet entries cannot define `paramsSchema` or `querySchema`
-- secondary outlet entries cannot redirect
-- secondary outlet entries must share the exact path of their primary route
-- primary routes own group-level preload and view-transition behavior
-
-So the library is a better fit when you want a smaller, typed routing surface with explicit lifecycle hooks, and a worse fit when you need broad Angular Router feature parity.
-
-## Testing
-
-This workspace uses the Testify Jasmine harness for library specs:
-
-```bash
-npm test
-```
-
-## Demo app
-
-See `projects/apps/app1/src/app/app.routes.ts` for the current reference setup using:
-
-- primary routes with typed params and query schemas
-- frame-based `prepare` and guards
-- lazy routes
-- a shell layout
-- a coordinated `sidebar` outlet
-
-
-
+- explicit frame identity
+- transition-constrained navigation
+- functional lifecycle hooks
+- typed navigation and address generation
+- shell composition without adopting Angular Router's full route-tree model
