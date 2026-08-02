@@ -2,7 +2,7 @@ import { inject } from '@angular/core';
 import {
   frame,
   frameOutlet,
-  frameRoute,
+  view,
 } from '@epikodelabs/switchboard';
 
 import {
@@ -11,9 +11,9 @@ import {
 } from '../demo-pages';
 import { DemoSessionService } from '../demo-session.service';
 
-export const adminFrame = frameRoute(
-  '/admin',
-  frame(AdminPage, {
+export const adminFrame = frame(
+  'admin',
+  view(AdminPage, {
     beforeEnter: [
       () => {
         const session = inject(DemoSessionService);
@@ -34,12 +34,17 @@ export const adminFrame = frameRoute(
     ],
   }),
   {
-    name: 'admin',
+    transitions: [
+      'workspace',
+      'settings',
+      'editor',
+      'reports',
+    ],
+    outlets: [
+      frameOutlet(
+        'sidebar',
+        view(AdminSidebarComponent),
+      ),
+    ],
   },
-  [
-    frameOutlet(
-      'sidebar',
-      frame(AdminSidebarComponent),
-    ),
-  ],
 );

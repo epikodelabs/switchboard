@@ -1,5 +1,5 @@
-import { frame } from '@epikodelabs/switchboard';
+import { view } from '@epikodelabs/switchboard';
 
 import { DemoShellComponent } from '../demo-pages';
 
-export const appShellFrame = frame(DemoShellComponent);
+export const appShellFrame = view(DemoShellComponent);

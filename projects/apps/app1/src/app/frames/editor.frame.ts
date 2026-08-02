@@ -2,8 +2,7 @@ import { inject } from '@angular/core';
 import {
   frame,
   frameOutlet,
-  frameRoute,
-  s,
+  view,
 } from '@epikodelabs/switchboard';
 
 import {
@@ -12,9 +11,9 @@ import {
 } from '../demo-pages';
 import { DemoSessionService } from '../demo-session.service';
 
-export const editorFrame = frameRoute(
-  '/editor/:draftId',
-  frame(EditorPage, {
+export const editorFrame = frame(
+  'editor',
+  view(EditorPage, {
     beforeLeave: [
       () => {
         const session = inject(DemoSessionService);
@@ -27,18 +26,17 @@ export const editorFrame = frameRoute(
     ],
   }),
   {
-    name: 'editor',
-    paramsSchema: {
-      draftId: s.number({ min: 1 }),
-    },
-    querySchema: {
-      mode: s.string('write'),
-    },
+    transitions: [
+      'workspace',
+      'settings',
+      'reports',
+      'admin',
+    ],
+    outlets: [
+      frameOutlet(
+        'sidebar',
+        view(EditorSidebarComponent),
+      ),
+    ],
   },
-  [
-    frameOutlet(
-      'sidebar',
-      frame(EditorSidebarComponent),
-    ),
-  ],
 );

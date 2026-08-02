@@ -1,6 +1,8 @@
 import type { ParamSchemaRecord, QuerySchemaRecord } from './query-schema';
 import { route } from './route-builders';
 import type {
+  StreamixAddress,
+  StreamixFrameNavigationOptions,
   StreamixFrame,
   StreamixFrameRoute,
   StreamixFrameOutlet,
@@ -66,6 +68,53 @@ export function buildFrameRoutes(
       view,
       options,
     ),
+    ...(outlets ?? []).map(outlet =>
+      route(path, outlet.view, {
+        outlet: outlet.outlet,
+      }),
+    ),
+  ];
+}
+
+export function buildAddressRoutes(
+  definition: StreamixAddress,
+): StreamixRoutes {
+  const {
+    path,
+    frame,
+    kind: _kind,
+    ...options
+  } = definition;
+  const {
+    id,
+    view,
+    outlets,
+    transitions,
+    directEntry,
+    directEntryRedirectTo,
+  } = frame;
+  const frameNavigation:
+    StreamixFrameNavigationOptions | undefined =
+      transitions !== undefined
+        || directEntry !== undefined
+        || directEntryRedirectTo !== undefined
+        ? {
+            transitions,
+            directEntry,
+            directEntryRedirectTo,
+          }
+        : undefined;
+  const primaryRoute = {
+    ...route(path, view, {
+      ...options,
+      name: id,
+    }),
+    frameId: id,
+    frameNavigation,
+  };
+
+  return [
+    primaryRoute,
     ...(outlets ?? []).map(outlet =>
       route(path, outlet.view, {
         outlet: outlet.outlet,

@@ -1,6 +1,8 @@
 import {
   layout,
   redirectRoute,
+  route,
+  s,
   type StreamixRoutes,
 } from '@epikodelabs/switchboard';
 
@@ -15,7 +17,7 @@ import {
 } from './frames';
 
 export const routes = [
-  introFrame,
+  route('/', introFrame),
   redirectRoute(
     '/legacy',
     '/app/workspace/101?view=activity&page=2&filters=legacy',
@@ -25,10 +27,31 @@ export const routes = [
       '',
       '/app/workspace/101?view=overview&page=1&filters=open&filters=recent',
     ),
-    workspaceFrame,
-    settingsFrame,
-    editorFrame,
-    reportsFrame,
-    adminFrame,
+    route('/workspace/:projectId', workspaceFrame, {
+      paramsSchema: {
+        projectId: s.number({ min: 1 }),
+      },
+      querySchema: {
+        view: s.string('overview'),
+        page: s.number({ default: 1, min: 1 }),
+        filters: s.array(),
+        draft: s.optional(s.boolean()),
+      },
+    }),
+    route('/settings', settingsFrame, {
+      querySchema: {
+        section: s.string('general'),
+      },
+    }),
+    route('/editor/:draftId', editorFrame, {
+      paramsSchema: {
+        draftId: s.number({ min: 1 }),
+      },
+      querySchema: {
+        mode: s.string('write'),
+      },
+    }),
+    route('/reports', reportsFrame),
+    route('/admin', adminFrame),
   ]),
 ] as const satisfies StreamixRoutes;

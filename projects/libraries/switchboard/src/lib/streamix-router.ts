@@ -29,6 +29,8 @@ import {
   CompiledRouteGroup,
   compileRoutes,
   createRouteRegistry,
+  type FrameRouteRegistry,
+  type FrameRouteRegistryRecord,
   groupRoutes,
 } from './route-compiler';
 
@@ -512,6 +514,118 @@ function adaptFrameTransitions(
   return transitions;
 }
 
+function resolveFrameRouteRecord(
+  frames: FrameRouteRegistry,
+  route: ActivatedRoute | null,
+): FrameRouteRegistryRecord | null {
+  const frameId =
+    route?.config.name;
+
+  if (
+    frameId
+    && frames.byId.has(frameId)
+  ) {
+    return (
+      frames.byId.get(
+        frameId,
+      ) ?? null
+    );
+  }
+
+  const sourceRoute =
+    route?.config.sourceRoute as
+      | StreamixRoute
+      | undefined;
+
+  if (!sourceRoute) {
+    return null;
+  }
+
+  return (
+    frames.byRoute.get(
+      sourceRoute,
+    ) ?? null
+  );
+}
+
+function adaptFrameGraphTransitions(
+  frames: FrameRouteRegistry,
+): readonly NavigationTransitionDefinition[] {
+  if (
+    frames.byId.size === 0
+  ) {
+    return [];
+  }
+
+  return [
+    {
+      to: route =>
+        !!resolveFrameRouteRecord(
+          frames,
+          route,
+        )?.enforceGraph,
+      beforeEnter: [
+        transition => {
+          const targetFrame =
+            resolveFrameRouteRecord(
+              frames,
+              transition.to,
+            );
+
+          if (
+            !targetFrame?.enforceGraph
+          ) {
+            return true;
+          }
+
+          const sourceFrame =
+            resolveFrameRouteRecord(
+              frames,
+              transition.from,
+            );
+
+          if (
+            sourceFrame
+            && sourceFrame.frameId === targetFrame.frameId
+          ) {
+            return true;
+          }
+
+          if (
+            sourceFrame?.transitions.includes(
+              targetFrame.frameId,
+            )
+          ) {
+            return true;
+          }
+
+          if (
+            targetFrame.directEntry
+          ) {
+            return true;
+          }
+
+          const redirectTo =
+            targetFrame.directEntryRedirectTo
+            ?? frames.defaultEntryPath;
+
+          if (
+            !redirectTo
+            || redirectTo === targetFrame.fullPath
+          ) {
+            return false;
+          }
+
+          return {
+            redirectTo,
+            replace: true,
+          };
+        },
+      ],
+    },
+  ];
+}
+
 function adaptParamsParser(
   route: StreamixRoute,
   injector: EnvironmentInjector,
@@ -876,6 +990,9 @@ export class StreamixRouter<
 
         transitions:
           [
+            ...adaptFrameGraphTransitions(
+              this.registry.frames,
+            ),
             ...adaptFrameTransitions(
               this.registry.groups,
               this.injector,
@@ -1348,9 +1465,13 @@ export {
   type StreamixRouteOptions
 };
 
-  export {
-    layout,
-    lazyLayout, lazyRoute,
-    redirectRoute, route
-  } from './route-builders';
-  
+export {
+  frame,
+  layout,
+  lazyLayout,
+  lazyRoute,
+  lazyView,
+  redirectRoute,
+  route,
+  view,
+} from './route-builders';

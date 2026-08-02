@@ -38,6 +38,12 @@ export interface StreamixFrameHooks {
   readonly afterEnter?: readonly FrameAfterEnterFn[];
 }
 
+export interface StreamixFrameNavigationOptions {
+  readonly transitions?: readonly string[];
+  readonly directEntry?: boolean;
+  readonly directEntryRedirectTo?: string;
+}
+
 export interface StreamixEagerView {
   readonly component: Type<unknown>;
   readonly loadComponent?: never;
@@ -92,11 +98,52 @@ export type StreamixRouteOptions<
   'kind' | 'path'
 >;
 
+export interface StreamixDefinedFrameOptions
+  extends StreamixFrameNavigationOptions {
+  readonly outlets?: readonly StreamixFrameOutlet[];
+}
+
 export interface StreamixFrameOutlet<
   TOutlet extends string = string,
 > {
   readonly outlet: TOutlet;
   readonly view: StreamixFrame;
+}
+
+export interface StreamixDefinedFrame<
+  TId extends string = string,
+> extends StreamixDefinedFrameOptions {
+  readonly kind: 'defined-frame';
+  readonly id: TId;
+  readonly view: StreamixFrame;
+}
+
+export type StreamixAddressOptions<
+  TName extends string = string,
+  TParamsSchema extends ParamSchemaRecord | undefined = ParamSchemaRecord | undefined,
+  TQuerySchema extends QuerySchemaRecord | undefined = QuerySchemaRecord | undefined,
+> = Omit<
+  StreamixRouteOptions<
+    TName,
+    TParamsSchema,
+    TQuerySchema
+  >,
+  'name' | 'outlet'
+>;
+
+export interface StreamixAddress<
+  TPath extends string = string,
+  TFrame extends StreamixDefinedFrame = StreamixDefinedFrame,
+  TParamsSchema extends ParamSchemaRecord | undefined = ParamSchemaRecord | undefined,
+  TQuerySchema extends QuerySchemaRecord | undefined = QuerySchemaRecord | undefined,
+> extends StreamixAddressOptions<
+    TFrame['id'],
+    TParamsSchema,
+    TQuerySchema
+  > {
+  readonly kind: 'address';
+  readonly path: TPath;
+  readonly frame: TFrame;
 }
 
 export interface StreamixFrameRoute<
@@ -141,6 +188,8 @@ export type StreamixRenderableRoute<
   > &
   StreamixView & {
   readonly frame?: StreamixFrame;
+  readonly frameId?: string;
+  readonly frameNavigation?: StreamixFrameNavigationOptions;
   readonly redirectTo?: undefined;
 };
 
@@ -191,10 +240,13 @@ export type StreamixLayout<
 // Any-instantiated route/layout primitives to avoid undefined-widening issues
 export type AnyStreamixRoute = StreamixRoute<any, any, any, any>;
 export type AnyStreamixLayout = StreamixLayout<any, any>;
+export type AnyStreamixDefinedFrame = StreamixDefinedFrame<any>;
+export type AnyStreamixAddress = StreamixAddress<any, any, any, any>;
 export type AnyStreamixFrameRoute = StreamixFrameRoute<any, any, any, any>;
 
 export type StreamixRouteEntry =
   | AnyStreamixRoute
   | AnyStreamixLayout
+  | AnyStreamixAddress
   | AnyStreamixFrameRoute;
 export type StreamixRoutes = readonly StreamixRouteEntry[];

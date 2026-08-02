@@ -1,25 +1,30 @@
 import {
   frame,
   frameOutlet,
-  frameRoute,
-  lazyFrame,
+  lazyView,
+  view,
 } from '@epikodelabs/switchboard';
 
 import { ReportsSidebarComponent } from '../demo-pages';
 
-export const reportsFrame = frameRoute(
-  '/reports',
-  lazyFrame(() =>
+export const reportsFrame = frame(
+  'reports',
+  lazyView(() =>
     import('../reports.page')
       .then(module => module.ReportsPage),
   ),
   {
-    name: 'reports',
+    transitions: [
+      'workspace',
+      'settings',
+      'editor',
+      'admin',
+    ],
+    outlets: [
+      frameOutlet(
+        'sidebar',
+        view(ReportsSidebarComponent),
+      ),
+    ],
   },
-  [
-    frameOutlet(
-      'sidebar',
-      frame(ReportsSidebarComponent),
-    ),
-  ],
 );

@@ -1,7 +1,13 @@
-import { buildFrameRoutes } from './frame-routes';
+import {
+  buildAddressRoutes,
+  buildFrameRoutes,
+} from './frame-routes';
 import type {
+  StreamixAddress,
+  StreamixFrameNavigationOptions,
   StreamixFrameRoute,
   StreamixLayout,
+  StreamixRenderableRoute,
   StreamixRoute,
   StreamixRoutes,
 } from './route-types';
@@ -88,6 +94,19 @@ export function compileRoutes(
           ...layouts,
           entry,
         ]),
+        output,
+      );
+
+      continue;
+    }
+
+    if (entry.kind === 'address') {
+      compileRoutes(
+        buildAddressRoutes(
+          entry as StreamixAddress,
+        ),
+        parentPath,
+        layouts,
         output,
       );
 
@@ -234,6 +253,26 @@ export interface RouteRegistryRecord {
   readonly fullPath: string;
 }
 
+export interface FrameRouteRegistryRecord {
+  readonly frameId: string;
+  readonly fullPath: string;
+  readonly transitions: readonly string[];
+  readonly directEntry: boolean;
+  readonly directEntryRedirectTo?: string;
+  readonly enforceGraph: boolean;
+}
+
+export interface FrameRouteRegistry {
+  readonly byId:
+    ReadonlyMap<string, FrameRouteRegistryRecord>;
+  readonly byRoute:
+    ReadonlyMap<
+      StreamixRoute,
+      FrameRouteRegistryRecord
+    >;
+  readonly defaultEntryPath: string | null;
+}
+
 export interface RouteRegistry {
   readonly namedRoutes:
     ReadonlyMap<
@@ -242,6 +281,30 @@ export interface RouteRegistry {
     >;
   readonly groups:
     readonly CompiledRouteGroup[];
+  readonly frames:
+    FrameRouteRegistry;
+}
+
+function readFrameNavigation(
+  route: StreamixRoute,
+): {
+  readonly frameId: string;
+  readonly navigation:
+    StreamixFrameNavigationOptions | undefined;
+} | null {
+  const renderableRoute =
+    route as StreamixRenderableRoute;
+
+  if (!renderableRoute.frameId) {
+    return null;
+  }
+
+  return {
+    frameId:
+      renderableRoute.frameId,
+    navigation:
+      renderableRoute.frameNavigation,
+  };
 }
 
 export function createRouteRegistry(
@@ -258,6 +321,16 @@ export function createRouteRegistry(
   
   const literalPaths =
     new Map<string, StreamixRoute>();
+  const framesById =
+    new Map<
+      string,
+      FrameRouteRegistryRecord
+    >();
+  const framesByRoute =
+    new Map<
+      StreamixRoute,
+      FrameRouteRegistryRecord
+    >();
 
   const patterns =
     new Map<string, string>();
@@ -320,8 +393,92 @@ export function createRouteRegistry(
     );
   }
 
+  let defaultEntryPath:
+    string | null = null;
+
+  for (const group of groups) {
+    const frameRoute =
+      readFrameNavigation(
+        group.primary.route,
+      );
+
+    if (!frameRoute) {
+      continue;
+    }
+
+    const record:
+      FrameRouteRegistryRecord = {
+        frameId:
+          frameRoute.frameId,
+        fullPath:
+          group.path,
+        transitions:
+          Object.freeze([
+            ...(frameRoute.navigation?.transitions ?? []),
+          ]),
+        directEntry:
+          frameRoute.navigation?.directEntry === true,
+        directEntryRedirectTo:
+          frameRoute.navigation?.directEntryRedirectTo,
+        enforceGraph:
+          frameRoute.navigation !== undefined,
+      };
+
+    if (
+      framesById.has(
+        record.frameId,
+      )
+    ) {
+      throw new Error(
+        `Duplicate frame id "${record.frameId}".`,
+      );
+    }
+
+    framesById.set(
+      record.frameId,
+      record,
+    );
+    framesByRoute.set(
+      group.primary.route,
+      record,
+    );
+
+    if (
+      defaultEntryPath === null
+      && record.directEntry
+    ) {
+      defaultEntryPath =
+        record.fullPath;
+    }
+  }
+
+  for (const frame of framesById.values()) {
+    for (const targetId of frame.transitions) {
+      if (
+        targetId === frame.frameId
+      ) {
+        continue;
+      }
+
+      if (
+        !framesById.has(
+          targetId,
+        )
+      ) {
+        throw new Error(
+          `Frame "${frame.frameId}" references unknown transition target "${targetId}".`,
+        );
+      }
+    }
+  }
+
   return {
     namedRoutes,
     groups,
+    frames: {
+      byId: framesById,
+      byRoute: framesByRoute,
+      defaultEntryPath,
+    },
   };
 }

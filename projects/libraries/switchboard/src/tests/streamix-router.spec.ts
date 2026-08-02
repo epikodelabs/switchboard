@@ -9,11 +9,12 @@ import {
   layout,
   lazyLayout,
   lazyRoute,
+  route,
   provideStreamixRouter,
   RouterOutlet,
-  route,
   StreamixRouter,
   type StreamixRoutes,
+  view,
 } from '@epikodelabs/switchboard';
 
 ensureAngularTestEnvironment();
@@ -87,6 +88,10 @@ describe('StreamixRouter: flat routes and layouts', () => {
 
   async function navigate(path: string): Promise<void> {
     await router.navigate({ path });
+    await new Promise(resolve => setTimeout(resolve, 0));
+  }
+
+  async function settleInitialNavigation(): Promise<void> {
     await new Promise(resolve => setTimeout(resolve, 0));
   }
 
@@ -277,12 +282,18 @@ describe('StreamixRouter: flat routes and layouts', () => {
     expect(content).toContain('<h3>Settings</h3>');
   });
 
-  it('composes frame routes directly inside a layout', async () => {
+  it('composes addressable frames directly inside a layout', async () => {
+    const childFrame = frame(
+      'child',
+      view(ChildComponent),
+      [
+        frameOutlet('sidebar', view(SettingsComponent)),
+      ],
+    );
+
     const routes = [
       layout('/app', ShellWithSidebarComponent, [
-        frameRoute('/child', frame(ChildComponent), {}, [
-          frameOutlet('sidebar', frame(SettingsComponent)),
-        ]),
+        route('/child', childFrame),
       ]),
     ] as const satisfies StreamixRoutes;
 
@@ -317,5 +328,64 @@ describe('StreamixRouter: flat routes and layouts', () => {
     expect(content).toContain('<h3>Settings</h3>');
     expect(content).toContain('<h1>Home</h1>');
     expect(router.state.path).toBe('/app/settings');
+  });
+
+  it('redirects direct address-bar entry when a frame disallows direct entry', async () => {
+    const publicFrame = frame(
+      'public',
+      view(HomeComponent),
+      {
+        directEntry: true,
+        transitions: ['private'],
+      },
+    );
+    const privateFrame = frame(
+      'private',
+      view(ChildComponent),
+      {
+        transitions: [],
+      },
+    );
+    const routes = [
+      route('/public', publicFrame),
+      route('/private', privateFrame),
+    ] as const satisfies StreamixRoutes;
+
+    window.history.replaceState(null, '', '/private');
+
+    bootstrap(routes);
+    await settleInitialNavigation();
+
+    expect(router.state.path).toBe('/public');
+    expect(getOutletContent()).toContain('<h1>Home</h1>');
+  });
+
+  it('allows declared frame-to-frame transitions after initial entry', async () => {
+    const publicFrame = frame(
+      'public',
+      view(HomeComponent),
+      {
+        directEntry: true,
+        transitions: ['private'],
+      },
+    );
+    const privateFrame = frame(
+      'private',
+      view(ChildComponent),
+      {
+        transitions: ['public'],
+      },
+    );
+    const routes = [
+      route('/public', publicFrame),
+      route('/private', privateFrame),
+    ] as const satisfies StreamixRoutes;
+
+    bootstrap(routes);
+    await navigate('/public');
+    await navigate('/private');
+
+    expect(router.state.path).toBe('/private');
+    expect(getOutletContent()).toContain('<h3>Child</h3>');
   });
 });

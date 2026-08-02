@@ -6,6 +6,7 @@ import type {
   QuerySchemaRecord,
 } from './query-schema';
 import type {
+  StreamixAddress,
   StreamixFrameRoute,
   StreamixRoute,
   StreamixRoutes,
@@ -36,6 +37,21 @@ type FrameRouteAsLeaf<TRoute> =
       >
     : never;
 
+type AddressAsLeaf<TAddress> =
+  TAddress extends StreamixAddress<
+    infer TPath extends string,
+    infer TFrame,
+    infer TParamsSchema,
+    infer TQuerySchema
+  >
+    ? StreamixRoute<
+        TPath,
+        TFrame['id'],
+        TParamsSchema,
+        TQuerySchema
+      >
+    : never;
+
 /**
  * Recursively flattens all routes and layout entries into a union of leaf routes.
  */
@@ -43,6 +59,8 @@ export type StreamixLeafRoutes<TRoutes extends StreamixRoutes> =
   TRoutes[number] extends infer TEntry
     ? TEntry extends { kind: 'route' }
       ? TEntry
+      : TEntry extends { kind: 'address' }
+      ? AddressAsLeaf<TEntry>
       : TEntry extends { kind: 'frame-route' }
       ? FrameRouteAsLeaf<TEntry>
       : TEntry extends {

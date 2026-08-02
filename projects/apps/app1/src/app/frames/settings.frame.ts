@@ -1,8 +1,7 @@
 import {
   frame,
   frameOutlet,
-  frameRoute,
-  s,
+  view,
 } from '@epikodelabs/switchboard';
 
 import {
@@ -10,19 +9,21 @@ import {
   SettingsSidebarComponent,
 } from '../demo-pages';
 
-export const settingsFrame = frameRoute(
-  '/settings',
-  frame(SettingsPage),
+export const settingsFrame = frame(
+  'settings',
+  view(SettingsPage),
   {
-    name: 'settings',
-    querySchema: {
-      section: s.string('general'),
-    },
+    transitions: [
+      'workspace',
+      'editor',
+      'reports',
+      'admin',
+    ],
+    outlets: [
+      frameOutlet(
+        'sidebar',
+        view(SettingsSidebarComponent),
+      ),
+    ],
   },
-  [
-    frameOutlet(
-      'sidebar',
-      frame(SettingsSidebarComponent),
-    ),
-  ],
 );

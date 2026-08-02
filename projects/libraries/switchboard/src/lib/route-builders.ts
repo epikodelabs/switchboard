@@ -2,6 +2,10 @@ import type { Type } from '@angular/core';
 
 import type { ParamSchemaRecord, QuerySchemaRecord } from './query-schema';
 import type {
+  StreamixAddress,
+  StreamixAddressOptions,
+  StreamixDefinedFrame,
+  StreamixDefinedFrameOptions,
   Lazy,
   StreamixFrame,
   StreamixFrameHooks,
@@ -9,6 +13,7 @@ import type {
   StreamixLayoutOptions,
   StreamixRedirectRoute,
   StreamixRenderableRoute,
+  StreamixFrameOutlet,
   StreamixRouteOptions,
   StreamixRoutes,
   StreamixView,
@@ -21,6 +26,15 @@ function isFrame(
     && value !== null
     && 'kind' in value
     && value.kind === 'frame';
+}
+
+function isDefinedFrame(
+  value: unknown,
+): value is StreamixDefinedFrame {
+  return typeof value === 'object'
+    && value !== null
+    && 'kind' in value
+    && value.kind === 'defined-frame';
 }
 
 function isEagerFrame(
@@ -58,6 +72,19 @@ function createViewRecord(
   };
 }
 
+function createFrameDefinitionView(
+  view: Type<unknown> | StreamixFrame,
+): StreamixFrame {
+  if (isFrame(view)) {
+    return view;
+  }
+
+  return {
+    kind: 'frame',
+    component: view,
+  };
+}
+
 function createLazyViewRecord(
   view: Lazy<Type<unknown>> | StreamixFrame,
 ): ViewRecord {
@@ -81,7 +108,7 @@ function createLazyViewRecord(
   };
 }
 
-export function frame(
+export function view(
   component: Type<unknown>,
   hooks: StreamixFrameHooks = {},
 ): StreamixFrame {
@@ -92,7 +119,26 @@ export function frame(
   };
 }
 
-export function lazyFrame(
+function normalizeFrameDefinitionOptions(
+  optionsOrOutlets:
+    | StreamixDefinedFrameOptions
+    | readonly StreamixFrameOutlet[]
+    | undefined,
+): StreamixDefinedFrameOptions {
+  if (Array.isArray(optionsOrOutlets)) {
+    return {
+      outlets: optionsOrOutlets,
+    };
+  }
+
+  return (
+    optionsOrOutlets as
+      | StreamixDefinedFrameOptions
+      | undefined
+  ) ?? {};
+}
+
+export function lazyView(
   loadComponent: Lazy<Type<unknown>>,
   hooks: StreamixFrameHooks = {},
 ): StreamixFrame {
@@ -100,6 +146,60 @@ export function lazyFrame(
     kind: 'frame',
     loadComponent,
     ...hooks,
+  };
+}
+
+export function frame<
+  const TId extends string,
+>(
+  id: TId,
+  component: Type<unknown>,
+  outlets?: readonly StreamixFrameOutlet[],
+): StreamixDefinedFrame<TId>;
+export function frame<
+  const TId extends string,
+>(
+  id: TId,
+  component: Type<unknown>,
+  options?: StreamixDefinedFrameOptions,
+): StreamixDefinedFrame<TId>;
+export function frame<
+  const TId extends string,
+>(
+  id: TId,
+  component: StreamixFrame,
+  outlets?: readonly StreamixFrameOutlet[],
+): StreamixDefinedFrame<TId>;
+export function frame<
+  const TId extends string,
+>(
+  id: TId,
+  component: StreamixFrame,
+  options?: StreamixDefinedFrameOptions,
+): StreamixDefinedFrame<TId>;
+export function frame<
+  const TId extends string,
+>(
+  id: TId,
+  component: Type<unknown> | StreamixFrame,
+  optionsOrOutlets:
+    | StreamixDefinedFrameOptions
+    | readonly StreamixFrameOutlet[] = {},
+): StreamixDefinedFrame<TId> {
+  const options =
+    normalizeFrameDefinitionOptions(
+      optionsOrOutlets,
+    );
+
+  return {
+    kind: 'defined-frame',
+    id,
+    view: createFrameDefinitionView(component),
+    outlets: options.outlets ?? [],
+    transitions: options.transitions,
+    directEntry: options.directEntry,
+    directEntryRedirectTo:
+      options.directEntryRedirectTo,
   };
 }
 
@@ -122,6 +222,27 @@ export function route<
 ): StreamixRenderableRoute<
   TPath,
   TName,
+  TParamsSchema,
+  TQuerySchema
+>;
+export function route<
+  const TPath extends string,
+  const TFrame extends StreamixDefinedFrame,
+  const TParamsSchema extends
+    ParamSchemaRecord | undefined = undefined,
+  const TQuerySchema extends
+    QuerySchemaRecord | undefined = undefined,
+>(
+  path: TPath,
+  frame: TFrame,
+  options?: StreamixAddressOptions<
+    TFrame['id'],
+    TParamsSchema,
+    TQuerySchema
+  >,
+): StreamixAddress<
+  TPath,
+  TFrame,
   TParamsSchema,
   TQuerySchema
 >;
@@ -157,18 +278,38 @@ export function route<
     QuerySchemaRecord | undefined = undefined,
 >(
   path: TPath,
-  component: Type<unknown> | StreamixFrame,
-  options: StreamixRouteOptions<
-    TName,
-    TParamsSchema,
-    TQuerySchema
-  > = {},
+  component: Type<unknown> | StreamixFrame | StreamixDefinedFrame,
+  options:
+    | StreamixRouteOptions<
+        TName,
+        TParamsSchema,
+        TQuerySchema
+      >
+    | StreamixAddressOptions<
+        string,
+        TParamsSchema,
+        TQuerySchema
+      > = {},
 ): StreamixRenderableRoute<
   TPath,
   TName,
   TParamsSchema,
   TQuerySchema
+> | StreamixAddress<
+  TPath,
+  StreamixDefinedFrame,
+  TParamsSchema,
+  TQuerySchema
 > {
+  if (isDefinedFrame(component)) {
+    return {
+      kind: 'address',
+      path,
+      frame: component,
+      ...options,
+    };
+  }
+
   const route: StreamixRenderableRoute<
     TPath,
     TName,
@@ -195,28 +336,6 @@ export function lazyRoute<
 >(
   path: TPath,
   loadComponent: Lazy<Type<unknown>>,
-  options?: StreamixRouteOptions<
-    TName,
-    TParamsSchema,
-    TQuerySchema
-  >,
-): StreamixRenderableRoute<
-  TPath,
-  TName,
-  TParamsSchema,
-  TQuerySchema
->;
-export function lazyRoute<
-  const TPath extends string,
-  const TName extends
-    string | undefined = undefined,
-  const TParamsSchema extends
-    ParamSchemaRecord | undefined = undefined,
-  const TQuerySchema extends
-    QuerySchemaRecord | undefined = undefined,
->(
-  path: TPath,
-  loadComponent: StreamixFrame,
   options?: StreamixRouteOptions<
     TName,
     TParamsSchema,

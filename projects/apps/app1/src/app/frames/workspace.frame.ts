@@ -2,8 +2,7 @@ import { inject } from '@angular/core';
 import {
   frame,
   frameOutlet,
-  frameRoute,
-  s,
+  view,
 } from '@epikodelabs/switchboard';
 
 import {
@@ -12,9 +11,9 @@ import {
 } from '../demo-pages';
 import { DemoSessionService } from '../demo-session.service';
 
-export const workspaceFrame = frameRoute(
-  '/workspace/:projectId',
-  frame(WorkspacePage, {
+export const workspaceFrame = frame(
+  'workspace',
+  view(WorkspacePage, {
     prepare: [
       context => {
         const projectId = Number(
@@ -30,21 +29,17 @@ export const workspaceFrame = frameRoute(
     ],
   }),
   {
-    name: 'workspace',
-    paramsSchema: {
-      projectId: s.number({ min: 1 }),
-    },
-    querySchema: {
-      view: s.string('overview'),
-      page: s.number({ default: 1, min: 1 }),
-      filters: s.array(),
-      draft: s.optional(s.boolean()),
-    },
+    transitions: [
+      'settings',
+      'editor',
+      'reports',
+      'admin',
+    ],
+    outlets: [
+      frameOutlet(
+        'sidebar',
+        view(WorkspaceSidebarComponent),
+      ),
+    ],
   },
-  [
-    frameOutlet(
-      'sidebar',
-      frame(WorkspaceSidebarComponent),
-    ),
-  ],
 );
