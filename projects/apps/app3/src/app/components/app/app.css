@@ -152,24 +152,34 @@
   position: relative;
   z-index: 1;
   max-width: 92rem;
-  height: 0.32rem;
+  height: 0.42rem;
   margin: 0.85rem auto 1.1rem;
   border-radius: 999px;
-  background: rgb(17 34 48 / 0.08);
+  background:
+    linear-gradient(90deg, rgb(17 34 48 / 0.08), rgb(17 34 48 / 0.04)),
+    rgb(17 34 48 / 0.08);
   overflow: hidden;
 }
 
-.transition-rail span {
+.transition-rail__pulse {
   display: block;
-  width: 28%;
+  width: 36%;
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, var(--signal-cyan), var(--signal-amber));
+  background:
+    linear-gradient(
+      90deg,
+      rgb(0 143 180 / 0) 0%,
+      rgb(0 143 180 / 0.9) 18%,
+      rgb(255 255 255 / 0.95) 50%,
+      rgb(216 137 31 / 0.9) 82%,
+      rgb(216 137 31 / 0) 100%
+    );
   transform: translateX(-130%);
   opacity: 0;
-}
-
-.console-shell--transitioning .transition-rail span {
+  box-shadow:
+    0 0 18px rgb(0 143 180 / 0.38),
+    0 0 28px rgb(216 137 31 / 0.22);
   animation: rail-pulse 920ms cubic-bezier(0.18, 1, 0.32, 1) 1 forwards;
 }
 

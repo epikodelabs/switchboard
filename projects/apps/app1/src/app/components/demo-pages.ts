@@ -480,7 +480,7 @@ export class IntroPage {
         </div>
 
         <nav class="scenario-nav" aria-label="Scenario navigation">
-          @for (item of navItems(); track item.label) {
+          @for (item of navItems(); track $index) {
             <a class="nav-card" [routerLink]="item.target">
               <strong>{{ item.label }}</strong>
               <span>{{ item.description }}</span>

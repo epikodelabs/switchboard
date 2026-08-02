@@ -56,7 +56,7 @@ import {
         <article class="panel">
           <h3>Hot spots</h3>
           <ul class="signal-list">
-            @for (spot of snapshot()?.hotSpots ?? []; track spot) {
+            @for (spot of snapshot()?.hotSpots ?? []; track $index) {
               <li>{{ spot }}</li>
             }
           </ul>

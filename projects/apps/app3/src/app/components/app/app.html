@@ -55,7 +55,11 @@
   </header>
 
   <div class="transition-rail" aria-hidden="true">
-    <span></span>
+    @if (hasSweep()) {
+      @for (token of [currentSweepToken()]; track token) {
+        <span class="transition-rail__pulse"></span>
+      }
+    }
   </div>
 
   <router-outlet />

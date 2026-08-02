@@ -1,6 +1,9 @@
 import {
   Component,
+  DestroyRef,
+  DoCheck,
   inject,
+  signal,
 } from '@angular/core';
 import {
   Router,
@@ -68,7 +71,7 @@ import { OperationsRoomService } from '../services/operations-room.service';
         <div class="ops-shell__card">
           <p class="ops-shell__label">Recent events</p>
           <ul class="ops-shell__feed">
-            @for (event of room.eventFeed(); track event) {
+            @for (event of room.eventFeed(); track $index) {
               <li>{{ event }}</li>
             }
           </ul>
@@ -76,7 +79,14 @@ import { OperationsRoomService } from '../services/operations-room.service';
       </aside>
 
       <main class="ops-shell__stage">
-        <router-outlet />
+        @if (hasSweep()) {
+          @for (token of [currentSweepToken()]; track token) {
+            <div class="ops-shell__sweep" aria-hidden="true"></div>
+          }
+        }
+        <div class="ops-shell__content">
+          <router-outlet />
+        </div>
       </main>
     </section>
   `,
@@ -112,33 +122,49 @@ import { OperationsRoomService } from '../services/operations-room.service';
 
     .ops-shell__stage {
       position: relative;
+      isolation: isolate;
       overflow: hidden;
       transition:
-        transform 220ms ease,
         box-shadow 220ms ease,
         filter 220ms ease;
     }
 
-    .ops-shell__stage::after {
-      content: '';
+    .ops-shell__content {
+      position: relative;
+      z-index: 1;
+    }
+
+    .ops-shell__sweep {
       position: absolute;
-      inset: 0;
+      top: -12%;
+      bottom: -12%;
+      left: -44%;
+      width: 44%;
       background:
-        linear-gradient(110deg, transparent 30%, rgb(255 255 255 / 0.5) 50%, transparent 70%);
+        linear-gradient(
+          96deg,
+          rgb(0 143 180 / 0) 0%,
+          rgb(0 143 180 / 0.2) 18%,
+          rgb(255 255 255 / 0.94) 44%,
+          rgb(255 255 255 / 0.99) 50%,
+          rgb(216 137 31 / 0.52) 63%,
+          rgb(216 137 31 / 0) 100%
+        );
       opacity: 0;
       pointer-events: none;
+      z-index: 2;
+      transform: skewX(-18deg);
+      box-shadow:
+        0 0 28px rgb(255 255 255 / 0.34),
+        0 0 42px rgb(0 143 180 / 0.18);
+      animation: stage-sweep 980ms cubic-bezier(0.18, 1, 0.32, 1) 1 forwards;
     }
 
     .ops-shell--transitioning .ops-shell__stage {
-      transform: scale(0.996) translateY(-1px);
-      filter: saturate(1.05);
+      filter: saturate(1.04);
       box-shadow:
         var(--stage-shadow),
         0 0 0 1px rgb(0 143 180 / 0.08);
-    }
-
-    .ops-shell--transitioning .ops-shell__stage::after {
-      animation: stage-sweep 880ms cubic-bezier(0.18, 1, 0.32, 1) 1 forwards;
     }
 
     .ops-shell__card,
@@ -240,17 +266,21 @@ import { OperationsRoomService } from '../services/operations-room.service';
 
     @keyframes stage-sweep {
       from {
-        transform: translateX(-100%);
+        transform: translateX(0) skewX(-18deg);
         opacity: 0;
       }
 
-      20%,
-      80% {
+      12% {
+        opacity: 0.98;
+      }
+
+      24%,
+      76% {
         opacity: 1;
       }
 
       to {
-        transform: translateX(100%);
+        transform: translateX(355%) skewX(-18deg);
         opacity: 0;
       }
     }
@@ -262,9 +292,37 @@ import { OperationsRoomService } from '../services/operations-room.service';
     }
   `,
 })
-export class OpsShellPage {
+export class OpsShellPage implements DoCheck {
   private readonly router = inject(Router);
+  private readonly destroyRef = inject(DestroyRef);
   protected readonly room = inject(OperationsRoomService);
+  private readonly sweepToken = signal(0);
+  private readonly sweepActive = signal(false);
+  private lastPending = false;
+  private resetTimeout: ReturnType<typeof setTimeout> | null = null;
+  private sweepTimeout: ReturnType<typeof setTimeout> | null = null;
+
+  constructor() {
+    this.destroyRef.onDestroy(() => {
+      if (this.resetTimeout !== null) {
+        clearTimeout(this.resetTimeout);
+      }
+
+      if (this.sweepTimeout !== null) {
+        clearTimeout(this.sweepTimeout);
+      }
+    });
+  }
+
+  ngDoCheck(): void {
+    const pending = this.router.state.pending;
+
+    if (pending && !this.lastPending) {
+      this.triggerSweep();
+    }
+
+    this.lastPending = pending;
+  }
 
   protected currentOperator() {
     return this.room.currentOperator();
@@ -291,7 +349,38 @@ export class OpsShellPage {
     return this.router.state.pending;
   }
 
+  protected hasSweep(): boolean {
+    return this.sweepActive();
+  }
+
+  protected currentSweepToken(): number {
+    return this.sweepToken();
+  }
+
   protected activeFrame(): string {
     return String(this.router.state.routeConfig?.name ?? 'dock');
+  }
+
+  private triggerSweep(): void {
+    this.sweepActive.set(false);
+
+    if (this.resetTimeout !== null) {
+      clearTimeout(this.resetTimeout);
+    }
+
+    if (this.sweepTimeout !== null) {
+      clearTimeout(this.sweepTimeout);
+    }
+
+    this.resetTimeout = setTimeout(() => {
+      this.sweepToken.update(value => value + 1);
+      this.sweepActive.set(true);
+      this.resetTimeout = null;
+    }, 16);
+
+    this.sweepTimeout = setTimeout(() => {
+      this.sweepActive.set(false);
+      this.sweepTimeout = null;
+    }, 980);
   }
 }
