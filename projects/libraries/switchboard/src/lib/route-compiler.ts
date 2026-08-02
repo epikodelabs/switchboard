@@ -258,18 +258,14 @@ export interface FrameRouteRegistryRecord {
   readonly fullPath: string;
   readonly transitions: readonly string[];
   readonly directEntry: boolean;
-  readonly directEntryRedirectTo?: string;
+  readonly directEntryRedirectTo?:
+    StreamixFrameNavigationOptions['directEntryRedirectTo'];
   readonly enforceGraph: boolean;
 }
 
 export interface FrameRouteRegistry {
   readonly byId:
     ReadonlyMap<string, FrameRouteRegistryRecord>;
-  readonly byRoute:
-    ReadonlyMap<
-      StreamixRoute,
-      FrameRouteRegistryRecord
-    >;
   readonly defaultEntryPath: string | null;
 }
 
@@ -295,13 +291,15 @@ function readFrameNavigation(
   const renderableRoute =
     route as StreamixRenderableRoute;
 
-  if (!renderableRoute.frameId) {
+  if (
+    !route.name
+    || !renderableRoute.frameNavigation
+  ) {
     return null;
   }
 
   return {
-    frameId:
-      renderableRoute.frameId,
+    frameId: route.name,
     navigation:
       renderableRoute.frameNavigation,
   };
@@ -324,11 +322,6 @@ export function createRouteRegistry(
   const framesById =
     new Map<
       string,
-      FrameRouteRegistryRecord
-    >();
-  const framesByRoute =
-    new Map<
-      StreamixRoute,
       FrameRouteRegistryRecord
     >();
 
@@ -438,10 +431,6 @@ export function createRouteRegistry(
       record.frameId,
       record,
     );
-    framesByRoute.set(
-      group.primary.route,
-      record,
-    );
 
     if (
       defaultEntryPath === null
@@ -477,7 +466,6 @@ export function createRouteRegistry(
     groups,
     frames: {
       byId: framesById,
-      byRoute: framesByRoute,
       defaultEntryPath,
     },
   };

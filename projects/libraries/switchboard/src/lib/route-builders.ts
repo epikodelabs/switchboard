@@ -120,22 +120,11 @@ export function view(
 }
 
 function normalizeFrameDefinitionOptions(
-  optionsOrOutlets:
-    | StreamixDefinedFrameOptions
-    | readonly StreamixFrameOutlet[]
+  options:
+    StreamixDefinedFrameOptions
     | undefined,
 ): StreamixDefinedFrameOptions {
-  if (Array.isArray(optionsOrOutlets)) {
-    return {
-      outlets: optionsOrOutlets,
-    };
-  }
-
-  return (
-    optionsOrOutlets as
-      | StreamixDefinedFrameOptions
-      | undefined
-  ) ?? {};
+  return options ?? {};
 }
 
 export function lazyView(
@@ -153,28 +142,7 @@ export function frame<
   const TId extends string,
 >(
   id: TId,
-  component: Type<unknown>,
-  outlets?: readonly StreamixFrameOutlet[],
-): StreamixDefinedFrame<TId>;
-export function frame<
-  const TId extends string,
->(
-  id: TId,
-  component: Type<unknown>,
-  options?: StreamixDefinedFrameOptions,
-): StreamixDefinedFrame<TId>;
-export function frame<
-  const TId extends string,
->(
-  id: TId,
-  component: StreamixFrame,
-  outlets?: readonly StreamixFrameOutlet[],
-): StreamixDefinedFrame<TId>;
-export function frame<
-  const TId extends string,
->(
-  id: TId,
-  component: StreamixFrame,
+  component: Type<unknown> | StreamixFrame,
   options?: StreamixDefinedFrameOptions,
 ): StreamixDefinedFrame<TId>;
 export function frame<
@@ -182,13 +150,11 @@ export function frame<
 >(
   id: TId,
   component: Type<unknown> | StreamixFrame,
-  optionsOrOutlets:
-    | StreamixDefinedFrameOptions
-    | readonly StreamixFrameOutlet[] = {},
+  definition: StreamixDefinedFrameOptions = {},
 ): StreamixDefinedFrame<TId> {
   const options =
     normalizeFrameDefinitionOptions(
-      optionsOrOutlets,
+      definition,
     );
 
   return {

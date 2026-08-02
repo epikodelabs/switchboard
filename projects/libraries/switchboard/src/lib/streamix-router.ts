@@ -31,6 +31,7 @@ import {
   createRouteRegistry,
   type FrameRouteRegistry,
   type FrameRouteRegistryRecord,
+  type RouteRegistry,
   groupRoutes,
 } from './route-compiler';
 
@@ -43,10 +44,14 @@ import {
 import type {
   FramePrepareFn,
   MaybePromise,
+  StreamixCanActivateFn,
+  StreamixCanDeactivateFn,
   StreamixFrame,
   StreamixLayout,
   StreamixLayoutOptions,
   StreamixRenderableRoute,
+  StreamixGuardResult,
+  StreamixRedirectTarget,
   StreamixRoute,
   StreamixRouteOptions,
   StreamixRoutes
@@ -79,8 +84,6 @@ import {
 
 import {
   LoadedRoute,
-  type CanActivateFn,
-  type CanDeactivateFn,
   createRouter,
   type ActivatedRoute,
   type NavigationTransitionFn,
@@ -246,12 +249,120 @@ function execute<
   );
 }
 
+function buildNamedNavigationPath(
+  registry: RouteRegistry,
+  target: NamedNavigationTarget,
+): string | null {
+  const record =
+    registry.namedRoutes.get(
+      target.name,
+    );
+
+  if (!record) {
+    return null;
+  }
+
+  const path =
+    interpolateNamedPath(
+      record.fullPath,
+      target.params ?? {},
+      record.route.paramsSchema,
+    );
+
+  if (!path) {
+    return null;
+  }
+
+  const query =
+    record.route.querySchema &&
+    target.query
+      ? serializeQuery(
+          record.route.querySchema,
+          target.query,
+        )
+      : '';
+
+  return `${path}${query}`;
+}
+
+function resolveRedirectTarget(
+  registry: RouteRegistry,
+  target: StreamixRedirectTarget,
+): string {
+  if (target instanceof URL) {
+    return target.href;
+  }
+
+  if (typeof target === 'string') {
+    return target;
+  }
+
+  const path =
+    buildNamedNavigationPath(
+      registry,
+      target,
+    );
+
+  if (!path) {
+    throw new Error(
+      `Cannot resolve redirect target "${target.name}".`,
+    );
+  }
+
+  return path;
+}
+
+function normalizeGuardResult(
+  registry: RouteRegistry,
+  result: StreamixGuardResult,
+):
+  | boolean
+  | string
+  | {
+      readonly redirectTo: string;
+      readonly replace?: boolean;
+    } {
+  if (result === false) {
+    return false;
+  }
+
+  if (result === true) {
+    return true;
+  }
+
+  if (
+    typeof result === 'string'
+    || result instanceof URL
+    || (
+      typeof result === 'object'
+      && result !== null
+      && 'name' in result
+    )
+  ) {
+    return resolveRedirectTarget(
+      registry,
+      result as StreamixRedirectTarget,
+    );
+  }
+
+  return {
+    ...result,
+    redirectTo:
+      resolveRedirectTarget(
+        registry,
+        result.redirectTo,
+      ),
+  };
+}
+
 function adaptCanActivate(
   handlers:
-    readonly CanActivateFn[] |
+    readonly StreamixCanActivateFn[] |
     undefined,
   injector:
     EnvironmentInjector,
+  registry:
+    RouteRegistry,
 ): Route['canActivate'] {
   return handlers?.map(
     handler =>
@@ -263,42 +374,22 @@ function adaptCanActivate(
             context,
           );
 
-        if (value instanceof URL) {
-          return value.href;
-        }
-
-        if (
-          value &&
-          typeof value ===
-            'object' &&
-          'redirectTo' in value
-        ) {
-          const rawRedirect =
-            value.redirectTo as any;
-          const redirectTo =
-            rawRedirect instanceof URL
-              ? rawRedirect.href
-              : String(rawRedirect);
-
-          return {
-            ...value,
-            redirectTo,
-          };
-        }
-
-        return value as
-          | boolean
-          | string;
+        return normalizeGuardResult(
+          registry,
+          value,
+        );
       },
   );
 }
 
 function adaptCanDeactivate(
   handlers:
-    readonly CanDeactivateFn[] |
+    readonly StreamixCanDeactivateFn[] |
     undefined,
   injector:
     EnvironmentInjector,
+  registry:
+    RouteRegistry,
 ): Route['canDeactivate'] {
   return handlers?.map(
     handler =>
@@ -310,68 +401,54 @@ function adaptCanDeactivate(
             context,
           );
 
-        if (value instanceof URL) {
-          return value.href;
-        }
-
-        if (
-          value &&
-          typeof value ===
-            'object' &&
-          'redirectTo' in value
-        ) {
-          const rawRedirect =
-            value.redirectTo as any;
-          const redirectTo =
-            rawRedirect instanceof URL
-              ? rawRedirect.href
-              : String(rawRedirect);
-
-          return {
-            ...value,
-            redirectTo,
-          };
-        }
-
-        return value as
-          | boolean
-          | string;
+        return normalizeGuardResult(
+          registry,
+          value,
+        );
       },
   );
 }
 
 function adaptFrameBeforeEnter(
-  handler: CanActivateFn,
+  handler: StreamixCanActivateFn,
   injector: EnvironmentInjector,
+  registry: RouteRegistry,
 ): NavigationTransitionFn {
-  return transition =>
-    execute(
-      injector,
-      handler,
-      {
-        ...transition.to,
-        signal: transition.signal,
-      },
+  return async transition =>
+    normalizeGuardResult(
+      registry,
+      await execute(
+        injector,
+        handler,
+        {
+          ...transition.to,
+          signal: transition.signal,
+        },
+      ),
     );
 }
 
 function adaptFrameBeforeLeave(
-  handler: CanDeactivateFn,
+  handler: StreamixCanDeactivateFn,
   injector: EnvironmentInjector,
+  registry: RouteRegistry,
 ): NavigationTransitionFn {
-  return transition => {
+  return async transition => {
     if (!transition.from) {
       return true;
     }
 
-    return execute(
-      injector,
-      handler,
-      {
-        ...transition.from,
-        nextUrl: transition.to.url,
-        signal: transition.signal,
-      },
+    return normalizeGuardResult(
+      registry,
+      await execute(
+        injector,
+        handler,
+        {
+          ...transition.from,
+          nextUrl: transition.to.url,
+          signal: transition.signal,
+        },
+      ),
     );
   };
 }
@@ -452,6 +529,7 @@ function adaptFramePreparers(
 function adaptFrameTransitions(
   groups: readonly CompiledRouteGroup[],
   injector: EnvironmentInjector,
+  registry: RouteRegistry,
 ): readonly NavigationTransitionDefinition[] {
   const transitions: NavigationTransitionDefinition[] = [];
 
@@ -486,9 +564,15 @@ function adaptFrameTransitions(
 
       transitions.push({
         to: route =>
-          route?.config.sourceRoute === primaryRoute,
+          primaryRoute.name
+            ? route?.config.name === primaryRoute.name
+            : route?.config.sourceRoute === primaryRoute,
         beforeEnter: current.beforeEnter?.map(handler =>
-          adaptFrameBeforeEnter(handler, injector),
+          adaptFrameBeforeEnter(
+            handler,
+            injector,
+            registry,
+          ),
         ),
         afterEnter: current.afterEnter?.map(handler =>
           adaptFrameAfterEnter(handler, injector),
@@ -503,9 +587,15 @@ function adaptFrameTransitions(
 
       transitions.push({
         from: route =>
-          route?.config.sourceRoute === primaryRoute,
+          primaryRoute.name
+            ? route?.config.name === primaryRoute.name
+            : route?.config.sourceRoute === primaryRoute,
         beforeLeave: current.beforeLeave.map(handler =>
-          adaptFrameBeforeLeave(handler, injector),
+          adaptFrameBeforeLeave(
+            handler,
+            injector,
+            registry,
+          ),
         ),
       });
     }
@@ -532,25 +622,14 @@ function resolveFrameRouteRecord(
     );
   }
 
-  const sourceRoute =
-    route?.config.sourceRoute as
-      | StreamixRoute
-      | undefined;
-
-  if (!sourceRoute) {
-    return null;
-  }
-
-  return (
-    frames.byRoute.get(
-      sourceRoute,
-    ) ?? null
-  );
+  return null;
 }
 
 function adaptFrameGraphTransitions(
-  frames: FrameRouteRegistry,
+  registry: RouteRegistry,
 ): readonly NavigationTransitionDefinition[] {
+  const { frames } = registry;
+
   if (
     frames.byId.size === 0
   ) {
@@ -607,7 +686,11 @@ function adaptFrameGraphTransitions(
 
           const redirectTo =
             targetFrame.directEntryRedirectTo
-            ?? frames.defaultEntryPath;
+              ? resolveRedirectTarget(
+                  registry,
+                  targetFrame.directEntryRedirectTo,
+                )
+              : frames.defaultEntryPath;
 
           if (
             !redirectTo
@@ -686,6 +769,7 @@ function adaptRoute(
   sharedPreparers: readonly PrepareRouteDataFn[] | undefined,
   appRef: ApplicationRef,
   injector: EnvironmentInjector,
+  registry: RouteRegistry,
 ): Route {
   const tokens = {
     routeToken: STREAMIX_ROUTE,
@@ -731,8 +815,16 @@ function adaptRoute(
                 tokens,
                 views,
               ),
-        canActivate: adaptCanActivate(route.canActivate, injector),
-        canDeactivate: adaptCanDeactivate(route.canDeactivate, injector),
+        canActivate: adaptCanActivate(
+          route.canActivate,
+          injector,
+          registry,
+        ),
+        canDeactivate: adaptCanDeactivate(
+          route.canDeactivate,
+          injector,
+          registry,
+        ),
         prepare: [
           ...(sharedPreparers ?? []),
           ...(adaptFramePreparers(
@@ -753,6 +845,7 @@ function adaptRoutes(
   entries: StreamixRoutes,
   appRef: ApplicationRef,
   injector: EnvironmentInjector,
+  registry: RouteRegistry,
 ): Route[] {
   const compiled = compileRoutes(entries);
   const groups = groupRoutes(compiled);
@@ -775,6 +868,7 @@ function adaptRoutes(
         sharedPreparers,
         appRef,
         injector,
+        registry,
       );
   
       const outlets = group.outlets.map((compiled: CompiledRoute) =>
@@ -786,6 +880,7 @@ function adaptRoutes(
           sharedPreparers,
           appRef,
           injector,
+          registry,
         ),
       );
   
@@ -963,6 +1058,7 @@ export class StreamixRouter<
             this.configuration.routes,
             this.appRef,
             this.injector,
+            this.registry,
           ),
 
         baseHref:
@@ -991,11 +1087,12 @@ export class StreamixRouter<
         transitions:
           [
             ...adaptFrameGraphTransitions(
-              this.registry.frames,
+              this.registry,
             ),
             ...adaptFrameTransitions(
               this.registry.groups,
               this.injector,
+              this.registry,
             ),
           ],
 
@@ -1310,39 +1407,15 @@ export class StreamixRouter<
     target:
       NamedNavigationTarget,
   ): string | null {
-    const record =
-      this.registry.namedRoutes
-        .get(target.name);
-
-    if (!record) {
-      return null;
-    }
-
-    const path =
-      interpolateNamedPath(
-        record.fullPath,
-        target.params ?? {},
-        record.route
-          .paramsSchema,
+    const href =
+      buildNamedNavigationPath(
+        this.registry,
+        target,
       );
 
-    if (!path) {
-      return null;
-    }
-
-    const query =
-      record.route.querySchema &&
-      target.query
-        ? serializeQuery(
-            record.route
-              .querySchema,
-            target.query,
-          )
-        : '';
-
-    return this.resolveHref(
-      `${path}${query}`,
-    );
+    return href
+      ? this.resolveHref(href)
+      : null;
   }
 
   private createNavigateProxy():

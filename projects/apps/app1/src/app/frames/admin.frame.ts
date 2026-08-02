@@ -10,6 +10,7 @@ import {
   AdminSidebarComponent,
 } from '../components/demo-pages';
 import { DemoSessionService } from '../services/demo-session.service';
+import { appFrameNavigation } from './frame-graph';
 
 export const adminFrame = frame(
   'admin',
@@ -20,7 +21,12 @@ export const adminFrame = frame(
 
         return session.adminAccess()
           || {
-            redirectTo: '/app/settings?section=access',
+            redirectTo: {
+              name: 'settings',
+              query: {
+                section: 'access',
+              },
+            },
             replace: true,
           };
       },
@@ -34,12 +40,7 @@ export const adminFrame = frame(
     ],
   }),
   {
-    transitions: [
-      'workspace',
-      'settings',
-      'editor',
-      'reports',
-    ],
+    ...appFrameNavigation('admin'),
     outlets: [
       frameOutlet(
         'sidebar',

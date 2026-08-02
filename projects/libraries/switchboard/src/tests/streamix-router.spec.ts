@@ -12,6 +12,7 @@ import {
   route,
   provideStreamixRouter,
   RouterOutlet,
+  s,
   StreamixRouter,
   type StreamixRoutes,
   view,
@@ -286,9 +287,11 @@ describe('StreamixRouter: flat routes and layouts', () => {
     const childFrame = frame(
       'child',
       view(ChildComponent),
-      [
-        frameOutlet('sidebar', view(SettingsComponent)),
-      ],
+      {
+        outlets: [
+          frameOutlet('sidebar', view(SettingsComponent)),
+        ],
+      },
     );
 
     const routes = [
@@ -331,8 +334,8 @@ describe('StreamixRouter: flat routes and layouts', () => {
   });
 
   it('redirects direct address-bar entry when a frame disallows direct entry', async () => {
-    const publicFrame = frame(
-      'public',
+    const landingFrame = frame(
+      'landing',
       view(HomeComponent),
       {
         directEntry: true,
@@ -344,10 +347,20 @@ describe('StreamixRouter: flat routes and layouts', () => {
       view(ChildComponent),
       {
         transitions: [],
+        directEntryRedirectTo: {
+          name: 'landing',
+          params: {
+            projectId: 7,
+          },
+        },
       },
     );
     const routes = [
-      route('/public', publicFrame),
+      route('/landing/:projectId', landingFrame, {
+        paramsSchema: {
+          projectId: s.number({ min: 1 }),
+        },
+      }),
       route('/private', privateFrame),
     ] as const satisfies StreamixRoutes;
 
@@ -356,7 +369,7 @@ describe('StreamixRouter: flat routes and layouts', () => {
     bootstrap(routes);
     await settleInitialNavigation();
 
-    expect(router.state.path).toBe('/public');
+    expect(router.state.path).toBe('/landing/7');
     expect(getOutletContent()).toContain('<h1>Home</h1>');
   });
 
@@ -387,5 +400,43 @@ describe('StreamixRouter: flat routes and layouts', () => {
 
     expect(router.state.path).toBe('/private');
     expect(getOutletContent()).toContain('<h3>Child</h3>');
+  });
+
+  it('supports named redirect targets in frame guards', async () => {
+    const settingsFrame = frame(
+      'settings',
+      view(SettingsComponent),
+    );
+    const adminFrame = frame(
+      'admin',
+      view(ChildComponent, {
+        beforeEnter: [
+          () => ({
+            redirectTo: {
+              name: 'settings',
+              query: {
+                section: 'access',
+              },
+            },
+            replace: true,
+          }),
+        ],
+      }),
+    );
+    const routes = [
+      route('/settings', settingsFrame, {
+        querySchema: {
+          section: s.string('general'),
+        },
+      }),
+      route('/admin', adminFrame),
+    ] as const satisfies StreamixRoutes;
+
+    bootstrap(routes);
+    await navigate('/admin');
+
+    expect(router.state.path).toBe('/settings');
+    expect(router.state.query['section']).toBe('access');
+    expect(getOutletContent()).toContain('<h3>Settings</h3>');
   });
 });

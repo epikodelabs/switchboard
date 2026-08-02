@@ -6,6 +6,7 @@ import {
 } from '@epikodelabs/switchboard';
 
 import { ReportsSidebarComponent } from '../components/demo-pages';
+import { appFrameNavigation } from './frame-graph';
 
 export const reportsFrame = frame(
   'reports',
@@ -14,12 +15,7 @@ export const reportsFrame = frame(
       .then(module => module.ReportsPage),
   ),
   {
-    transitions: [
-      'workspace',
-      'settings',
-      'editor',
-      'admin',
-    ],
+    ...appFrameNavigation('reports'),
     outlets: [
       frameOutlet(
         'sidebar',

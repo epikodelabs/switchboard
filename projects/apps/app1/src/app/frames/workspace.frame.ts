@@ -10,6 +10,7 @@ import {
   WorkspaceSidebarComponent,
 } from '../components/demo-pages';
 import { DemoSessionService } from '../services/demo-session.service';
+import { appFrameNavigation } from './frame-graph';
 
 export const workspaceFrame = frame(
   'workspace',
@@ -29,12 +30,7 @@ export const workspaceFrame = frame(
     ],
   }),
   {
-    transitions: [
-      'settings',
-      'editor',
-      'reports',
-      'admin',
-    ],
+    ...appFrameNavigation('workspace'),
     outlets: [
       frameOutlet(
         'sidebar',

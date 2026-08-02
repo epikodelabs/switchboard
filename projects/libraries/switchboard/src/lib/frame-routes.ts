@@ -109,7 +109,6 @@ export function buildAddressRoutes(
       ...options,
       name: id,
     }),
-    frameId: id,
     frameNavigation,
   };
 

@@ -1,9 +1,9 @@
 import type { EnvironmentProviders, Provider, Type } from '@angular/core';
+import type { NamedNavigationTarget } from './navigation-types';
 import type { ParamSchemaRecord, QuerySchemaRecord } from './query-schema';
 import type {
   ActivatedRoute,
-  CanActivateFn as RouterCanActivateFn,
-  CanDeactivateFn as RouterCanDeactivateFn,
+  DeactivationContext,
   NavigationContext,
   RouteData,
 } from './vanilla-router';
@@ -15,9 +15,28 @@ export type StreamixRouteProvider = Provider | EnvironmentProviders;
 export type StreamixRouteProviders = readonly StreamixRouteProvider[];
 
 export type RouteRedirect = {
-  readonly redirectTo: string | URL;
+  readonly redirectTo:
+    StreamixRedirectTarget;
   readonly replace?: boolean;
 };
+
+export type StreamixRedirectTarget =
+  | string
+  | URL
+  | NamedNavigationTarget;
+
+export type StreamixGuardResult =
+  | boolean
+  | StreamixRedirectTarget
+  | RouteRedirect;
+
+export type StreamixCanActivateFn = (
+  route: NavigationContext,
+) => MaybePromise<StreamixGuardResult>;
+
+export type StreamixCanDeactivateFn = (
+  route: DeactivationContext,
+) => MaybePromise<StreamixGuardResult>;
 
 export type FramePrepareResult =
   | void
@@ -32,8 +51,8 @@ export type FrameAfterEnterFn = (
 ) => MaybePromise<void>;
 
 export interface StreamixFrameHooks {
-  readonly beforeEnter?: readonly RouterCanActivateFn[];
-  readonly beforeLeave?: readonly RouterCanDeactivateFn[];
+  readonly beforeEnter?: readonly StreamixCanActivateFn[];
+  readonly beforeLeave?: readonly StreamixCanDeactivateFn[];
   readonly prepare?: readonly FramePrepareFn[];
   readonly afterEnter?: readonly FrameAfterEnterFn[];
 }
@@ -41,7 +60,8 @@ export interface StreamixFrameHooks {
 export interface StreamixFrameNavigationOptions {
   readonly transitions?: readonly string[];
   readonly directEntry?: boolean;
-  readonly directEntryRedirectTo?: string;
+  readonly directEntryRedirectTo?:
+    NamedNavigationTarget;
 }
 
 export interface StreamixEagerView {
@@ -80,8 +100,8 @@ export interface StreamixRouteBase<
   readonly querySchema?: TQuerySchema;
   readonly data?: Readonly<Record<string, unknown>>;
   readonly providers?: StreamixRouteProviders;
-  readonly canActivate?: readonly RouterCanActivateFn[];
-  readonly canDeactivate?: readonly RouterCanDeactivateFn[];
+  readonly canActivate?: readonly StreamixCanActivateFn[];
+  readonly canDeactivate?: readonly StreamixCanDeactivateFn[];
 }
 
 export type StreamixRouteOptions<
@@ -188,7 +208,6 @@ export type StreamixRenderableRoute<
   > &
   StreamixView & {
   readonly frame?: StreamixFrame;
-  readonly frameId?: string;
   readonly frameNavigation?: StreamixFrameNavigationOptions;
   readonly redirectTo?: undefined;
 };

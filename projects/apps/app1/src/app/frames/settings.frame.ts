@@ -8,17 +8,13 @@ import {
   SettingsPage,
   SettingsSidebarComponent,
 } from '../components/demo-pages';
+import { appFrameNavigation } from './frame-graph';
 
 export const settingsFrame = frame(
   'settings',
   view(SettingsPage),
   {
-    transitions: [
-      'workspace',
-      'editor',
-      'reports',
-      'admin',
-    ],
+    ...appFrameNavigation('settings'),
     outlets: [
       frameOutlet(
         'sidebar',
