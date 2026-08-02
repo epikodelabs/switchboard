@@ -144,7 +144,6 @@ export class RouterLink implements OnChanges {
 
     if (
       !target
-      || !this.href
     ) {
       return;
     }

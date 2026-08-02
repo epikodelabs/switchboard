@@ -11,6 +11,7 @@ import {
   lazyLayout,
   lazyRoute,
   navigation,
+  redirectRoute,
   route,
   provideRouter,
   RouterOutlet,
@@ -337,6 +338,37 @@ describe('Router: flat routes and layouts', () => {
     expect(content).toContain('<h3>Child</h3>');
   });
 
+  it('renders an internal-only frame placed inside a layout', async () => {
+    const childFrame = frame(
+      'child',
+      view(ChildComponent),
+      {
+        directEntry: true,
+      },
+    );
+
+    const routes = navigation({
+      frames: [childFrame] as const,
+      entries: [
+        layout('/app', ShellComponent, [
+          childFrame,
+        ]),
+      ] as const,
+    });
+
+    bootstrap(routes);
+
+    await router.navigate({
+      frame: 'child',
+    });
+    await new Promise(resolve => setTimeout(resolve, 0));
+
+    const content = getOutletContent();
+    expect(content).toContain('<h2>Shell</h2>');
+    expect(content).toContain('<h3>Child</h3>');
+    expect(window.location.pathname).toBe('/');
+  });
+
   it('keeps named outlet navigation working across layout re-renders', async () => {
     const routes = [
       layout('/app', ShellWithSidebarComponent, [
@@ -399,6 +431,38 @@ describe('Router: flat routes and layouts', () => {
 
     expect(router.state.path).toBe('/landing/7');
     expect(getOutletContent()).toContain('<h1>Home</h1>');
+  });
+
+  it('allows direct entry through redirect routes that canonicalize into a frame', async () => {
+    const landingFrame = frame(
+      'landing',
+      view(HomeComponent),
+      {
+        directEntry: true,
+        transitions: ['workspace'],
+      },
+    );
+    const workspaceFrame = frame(
+      'workspace',
+      view(ChildComponent),
+      {
+        transitions: [],
+      },
+    );
+    const routes = [
+      route('/landing', landingFrame),
+      redirectRoute('/legacy', '/workspace'),
+      route('/workspace', workspaceFrame),
+    ] as const;
+
+    window.history.replaceState(null, '', '/legacy');
+
+    bootstrap(routes);
+    await settleInitialNavigation();
+
+    expect(router.state.path).toBe('/workspace');
+    expect(window.location.pathname).toBe('/workspace');
+    expect(getOutletContent()).toContain('<h3>Child</h3>');
   });
 
   it('allows declared frame-to-frame transitions after initial entry', async () => {
@@ -494,6 +558,47 @@ describe('Router: flat routes and layouts', () => {
     expect(router.state.historyState).toEqual({
       source: 'menu',
     });
+  });
+
+  it('restores an internal-only frame from browser history state', async () => {
+    const childFrame = frame(
+      'child',
+      view(ChildComponent),
+      {
+        directEntry: true,
+      },
+    );
+    const routes = navigation({
+      frames: [childFrame] as const,
+      entries: [
+        layout('/app', ShellComponent, [
+          childFrame,
+        ]),
+      ] as const,
+    });
+
+    window.history.replaceState(
+      {
+        __aether_switchboard__: {
+          userState: {
+            source: 'restore',
+          },
+          matchHref:
+            '/.switchboard/frames/child',
+        },
+      },
+      '',
+      '/',
+    );
+
+    bootstrap(routes);
+    await settleInitialNavigation();
+
+    expect(getOutletContent()).toContain('<h3>Child</h3>');
+    expect(router.state.historyState).toEqual({
+      source: 'restore',
+    });
+    expect(window.location.pathname).toBe('/');
   });
 });
 

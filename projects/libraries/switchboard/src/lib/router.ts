@@ -125,6 +125,17 @@ export const ROUTE_CONTEXT =
     'ROUTE_CONTEXT',
   );
 
+const INTERNAL_FRAME_PATH_PREFIX =
+  '/.switchboard/frames/';
+const INTERNAL_FRAME_PARAM_PREFIX =
+  '__frame_param_';
+
+interface ResolvedNavigationInstruction {
+  readonly matchTarget: string;
+  readonly displayTarget?: string | URL;
+  readonly href: string | null;
+}
+
 interface RouterConfiguration<
   TRoutes extends NavigationSource =
     NavigationSource,
@@ -284,6 +295,212 @@ function buildNamedNavigationPath(
       : '';
 
   return `${path}${query}`;
+}
+
+function isInternalFramePath(
+  path: string,
+): boolean {
+  return path.startsWith(
+    INTERNAL_FRAME_PATH_PREFIX,
+  );
+}
+
+function appendQueryValues(
+  searchParams: URLSearchParams,
+  values:
+    Readonly<Record<string, unknown>>,
+): void {
+  for (const [key, value] of Object.entries(values)) {
+    if (value === null || value === undefined) {
+      continue;
+    }
+
+    if (Array.isArray(value)) {
+      for (const entry of value) {
+        if (entry === null || entry === undefined) {
+          continue;
+        }
+
+        searchParams.append(
+          key,
+          String(entry),
+        );
+      }
+
+      continue;
+    }
+
+    searchParams.set(
+      key,
+      String(value),
+    );
+  }
+}
+
+function readInternalFrameParams(
+  url: URL,
+): Readonly<Record<string, string>> {
+  const params:
+    Record<string, string> = {};
+
+  url.searchParams.forEach(
+    (value, key) => {
+      if (
+        key.startsWith(
+          INTERNAL_FRAME_PARAM_PREFIX,
+        )
+      ) {
+        params[
+          key.slice(
+            INTERNAL_FRAME_PARAM_PREFIX.length,
+          )
+        ] = value;
+      }
+    },
+  );
+
+  return Object.freeze(params);
+}
+
+function readVisibleQuery(
+  url: URL,
+): Readonly<Record<string, string>> {
+  const values:
+    Record<string, string> = {};
+
+  url.searchParams.forEach(
+    (value, key) => {
+      if (
+        key.startsWith(
+          INTERNAL_FRAME_PARAM_PREFIX,
+        )
+      ) {
+        return;
+      }
+
+      values[key] = value;
+    },
+  );
+
+  return Object.freeze(values);
+}
+
+function buildFrameNavigationInstruction(
+  registry: RouteRegistry,
+  target:
+    NamedNavigationTarget
+    | FrameNavigationTarget,
+  currentHref: string,
+): ResolvedNavigationInstruction | null {
+  const frameId =
+    'name' in target
+      ? target.name
+      : target.frame;
+  const frameRecord =
+    registry.frames.byId.get(
+      frameId,
+    );
+
+  if (!frameRecord) {
+    const href =
+      buildNamedNavigationPath(
+        registry,
+        toNamedNavigationTarget(
+          target,
+        ),
+      );
+
+    return href
+      ? {
+          matchTarget: href,
+          href,
+        }
+      : null;
+  }
+
+  if (frameRecord.addressPath !== null) {
+    const href =
+      buildNamedNavigationPath(
+        registry,
+        toNamedNavigationTarget(
+          target,
+        ),
+      );
+
+    return href
+      ? {
+          matchTarget: href,
+          href,
+        }
+      : null;
+  }
+
+  const url =
+    new URL(
+      frameRecord.matchPath,
+      'https://switchboard.internal',
+    );
+  const params =
+    target.params;
+
+  if (params) {
+    if (frameRecord.route.paramsSchema) {
+      const serialized =
+        serializeParams(
+          frameRecord.route.paramsSchema,
+          params as InferParamType<ParamSchemaRecord>,
+        );
+
+      for (const [key, value] of Object.entries(serialized)) {
+        if (value === undefined) {
+          continue;
+        }
+
+        url.searchParams.set(
+          `${INTERNAL_FRAME_PARAM_PREFIX}${key}`,
+          value,
+        );
+      }
+    } else {
+      appendQueryValues(
+        url.searchParams,
+        params as Readonly<Record<string, unknown>>,
+      );
+    }
+  }
+
+  if (
+    frameRecord.route.querySchema
+    && target.query
+  ) {
+    const serializedQuery =
+      serializeQuery(
+        frameRecord.route.querySchema,
+        target.query,
+      );
+    const queryParams =
+      new URLSearchParams(
+        serializedQuery.startsWith('?')
+          ? serializedQuery.slice(1)
+          : serializedQuery,
+      );
+
+    queryParams.forEach(
+      (value, key) => {
+        url.searchParams.append(
+          key,
+          value,
+        );
+      },
+    );
+  }
+
+  return {
+    matchTarget:
+      `${url.pathname}${url.search}${url.hash}`,
+    displayTarget: currentHref,
+    href: null,
+  };
 }
 
 function toNamedNavigationTarget(
@@ -705,6 +922,13 @@ function adaptFrameGraphTransitions(
           }
 
           if (
+            !sourceFrame
+            && transition.redirectCount > 0
+          ) {
+            return true;
+          }
+
+          if (
             targetFrame.directEntry
           ) {
             return true;
@@ -720,7 +944,10 @@ function adaptFrameGraphTransitions(
 
           if (
             !redirectTo
-            || redirectTo === targetFrame.fullPath
+            || redirectTo === (
+              targetFrame.addressPath
+              ?? targetFrame.matchPath
+            )
           ) {
             return false;
           }
@@ -742,10 +969,21 @@ function adaptParamsParser(
   const schema = route.paramsSchema;
   if (!schema) return undefined;
 
-  return (params, _url, _signal) =>
+  return (params, url, _signal) =>
     runInInjectionContext(
       injector,
-      () => Promise.resolve(parseParamsRecord(schema, params)),
+      () => Promise.resolve(
+        parseParamsRecord(
+          schema,
+          isInternalFramePath(
+            route.path,
+          )
+            ? readInternalFrameParams(
+                url,
+              )
+            : params,
+        ),
+      ),
     );
 }
 
@@ -754,12 +992,28 @@ function adaptQueryParser(
   injector: EnvironmentInjector,
 ): LoadedRoute['parseQuery'] {
   const schema = route.querySchema;
-  if (!schema) return undefined;
+  if (
+    !schema
+    && !isInternalFramePath(
+      route.path,
+    )
+  ) {
+    return undefined;
+  }
 
   return (url, _signal) =>
     runInInjectionContext(
       injector,
-      () => Promise.resolve(parseQueryRecord(schema, url)),
+      () => Promise.resolve(
+        schema
+          ? parseQueryRecord(
+              schema,
+              url,
+            )
+          : readVisibleQuery(
+              url,
+            ),
+      ),
     );
 }
 
@@ -1312,29 +1566,37 @@ export class Router<
     options?:
       NavigationOptions,
   ): Promise<boolean> {
-    const navigationOptions =
-      typeof target === 'object'
-      && target !== null
-      && 'frame' in target
-      && options?.state === undefined
-        ? {
-            ...options,
-            state: target.payload,
-          }
-        : options;
-    const href =
-      this.href(target);
-
-    if (href === null) {
+    const instruction =
+      this.resolveNavigationInstruction(
+        target,
+      );
+    if (!instruction) {
       return Promise.resolve(
         false,
       );
     }
 
+    const navigationOptions =
+      typeof target === 'object'
+      && target !== null
+      && 'frame' in target
+      && options?.state === undefined
+          ? {
+              ...options,
+              state: target.payload,
+              displayTarget:
+                instruction.displayTarget,
+            }
+          : {
+              ...options,
+              displayTarget:
+                instruction.displayTarget,
+            };
+
     return this
       .requireEngine()
       .navigate(
-        href,
+        instruction.matchTarget,
         navigationOptions,
       );
   }
@@ -1370,18 +1632,16 @@ export class Router<
 
     if ('frame' in target) {
       return this
-        .generateNamedHref(
-          toNamedNavigationTarget(
-            target,
-          ),
-        );
+        .resolveNavigationInstruction(
+          target,
+        )?.href ?? null;
     }
 
     if ('name' in target) {
       return this
-        .generateNamedHref(
+        .resolveNavigationInstruction(
           target,
-        );
+        )?.href ?? null;
     }
 
     return null;
@@ -1461,6 +1721,60 @@ export class Router<
     return href
       ? this.resolveHref(href)
       : null;
+  }
+
+  private resolveNavigationInstruction(
+    target:
+      NavigationTarget,
+  ): ResolvedNavigationInstruction | null {
+    if (
+      typeof target ===
+        'string'
+      || target instanceof URL
+    ) {
+      const href =
+        this.resolveHref(
+          target,
+        );
+
+      return {
+        matchTarget: href,
+        href,
+      };
+    }
+
+    if ('path' in target) {
+      const href =
+        this.resolveHref(
+          target.path,
+        );
+
+      return {
+        matchTarget: href,
+        href,
+      };
+    }
+
+    const instruction =
+      buildFrameNavigationInstruction(
+        this.registry,
+        target,
+        `${getRouterLocation(this.document).pathname}${getRouterLocation(this.document).search}${getRouterLocation(this.document).hash}`,
+      );
+
+    if (!instruction) {
+      return null;
+    }
+
+    return {
+      ...instruction,
+      href:
+        instruction.href
+          ? this.resolveHref(
+              instruction.href,
+            )
+          : null,
+    };
   }
 
   private createNavigateProxy():

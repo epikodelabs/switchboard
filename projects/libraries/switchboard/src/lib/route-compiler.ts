@@ -1,6 +1,7 @@
-﻿import {
+import {
   buildAddressRoutes,
   buildFrameRoutes,
+  buildInternalFrameRoutes,
 } from './frame-routes';
 import type {
   AddressDefinition,
@@ -10,14 +11,15 @@ import type {
   FrameRouteDefinition,
   LayoutDefinition,
   NavigationSource,
+  NavigationTree,
   RenderableRoute,
   RouteDefinition,
-  NavigationTree,
 } from './navigation-definitions';
 
 export interface CompiledRoute {
   readonly route: RouteDefinition;
   readonly path: string;
+  readonly addressPath: string | null;
   readonly redirectTo?: string;
   readonly layouts:
     readonly LayoutDefinition[];
@@ -104,12 +106,18 @@ function resolveDeclaredFrames(
     : [];
 }
 
+export function createInternalFramePath(
+  frameId: string,
+): string {
+  return `/.switchboard/frames/${encodeURIComponent(frameId)}`;
+}
+
 export function compileRoutes(
   source: NavigationSource,
   parentPath = '/',
   layouts:
     readonly LayoutDefinition[] = [],
-  output: CompiledRoute[] = []
+  output: CompiledRoute[] = [],
 ): readonly CompiledRoute[] {
   const entries =
     resolveNavigationEntries(source);
@@ -147,7 +155,9 @@ export function compileRoutes(
 
     if (entry.kind === 'frame-route') {
       compileRoutes(
-        buildFrameRoutes(entry as FrameRouteDefinition),
+        buildFrameRoutes(
+          entry as FrameRouteDefinition,
+        ),
         parentPath,
         layouts,
         output,
@@ -156,12 +166,40 @@ export function compileRoutes(
       continue;
     }
 
-    output.push({
-      route: entry,
-      path: joinRoutePath(
+    if (entry.kind === 'defined-frame') {
+      const compiledFrameRoutes =
+        compileRoutes(
+          buildInternalFrameRoutes(
+            entry,
+            createInternalFramePath(
+              entry.id,
+            ),
+          ),
+          '/',
+          layouts,
+          [],
+        );
+
+      for (const compiledRoute of compiledFrameRoutes) {
+        output.push({
+          ...compiledRoute,
+          addressPath: null,
+        });
+      }
+
+      continue;
+    }
+
+    const path =
+      joinRoutePath(
         parentPath,
         entry.path,
-      ),
+      );
+
+    output.push({
+      route: entry,
+      path,
+      addressPath: path,
       redirectTo: compileRedirect(
         parentPath,
         entry.redirectTo,
@@ -287,8 +325,10 @@ export interface RouteRegistryRecord {
 
 export interface FrameRouteRegistryRecord {
   readonly frameId: string;
-  readonly fullPath: string;
+  readonly matchPath: string;
+  readonly addressPath: string | null;
   readonly route: RouteDefinition;
+  readonly frame: AnyFrameDefinition | null;
   readonly transitions: readonly string[];
   readonly directEntry: boolean;
   readonly directEntryRedirectTo?:
@@ -362,7 +402,9 @@ export function createRouteRegistry(
     );
   }
 
-  const groups = groupRoutes(compileRoutes(source));
+  const groups = groupRoutes(
+    compileRoutes(source),
+  );
   validateRouteGroups(groups);
 
   const literalPaths =
@@ -379,6 +421,7 @@ export function createRouteRegistry(
     const {
       route,
       path,
+      addressPath,
     } of groups.flatMap(g => [g.primary, ...g.outlets])
   ) {
     const previous =
@@ -409,7 +452,10 @@ export function createRouteRegistry(
 
     patterns.set(pattern, path);
 
-    if (!route.name) {
+    if (
+      !route.name
+      || addressPath === null
+    ) {
       continue;
     }
 
@@ -427,7 +473,7 @@ export function createRouteRegistry(
       route.name,
       {
         route,
-        fullPath: path,
+        fullPath: addressPath,
       },
     );
   }
@@ -449,10 +495,16 @@ export function createRouteRegistry(
       FrameRouteRegistryRecord = {
         frameId:
           frameRoute.frameId,
-        fullPath:
+        matchPath:
           group.path,
+        addressPath:
+          group.primary.addressPath,
         route:
           group.primary.route,
+        frame:
+          declaredFrameIds.get(
+            frameRoute.frameId,
+          ) ?? null,
         transitions:
           Object.freeze([
             ...(frameRoute.navigation?.transitions ?? []),
@@ -492,16 +544,17 @@ export function createRouteRegistry(
     if (
       defaultEntryPath === null
       && record.directEntry
+      && record.addressPath !== null
     ) {
       defaultEntryPath =
-        record.fullPath;
+        record.addressPath;
     }
   }
 
   for (const frameId of declaredFrameIds.keys()) {
     if (!framesById.has(frameId)) {
       throw new Error(
-        `Declared frame "${frameId}" has no address projection.`,
+        `Declared frame "${frameId}" is not placed in the navigation entries.`,
       );
     }
   }
@@ -535,4 +588,3 @@ export function createRouteRegistry(
     },
   };
 }
-

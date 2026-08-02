@@ -2,6 +2,7 @@
 import { route } from './route-builders';
 import type {
   AddressDefinition,
+  FrameDefinition,
   FrameNavigationOptions,
   FrameView,
   FrameRouteDefinition,
@@ -116,6 +117,51 @@ export function buildAddressRoutes(
       querySchema:
         options.querySchema
         ?? querySchema,
+    }),
+    frameNavigation,
+  };
+
+  return [
+    primaryRoute,
+    ...(outlets ?? []).map(outlet =>
+      route(path, outlet.view, {
+        outlet: outlet.outlet,
+      }),
+    ),
+  ];
+}
+
+export function buildInternalFrameRoutes(
+  definition: FrameDefinition,
+  path: string,
+): NavigationTree {
+  const {
+    id,
+    view,
+    outlets,
+    paramsSchema,
+    querySchema,
+    transitions,
+    directEntry,
+    directEntryRedirectTo,
+  } = definition;
+  const frameNavigation:
+    FrameNavigationOptions | undefined =
+      transitions !== undefined
+        || directEntry !== undefined
+        || directEntryRedirectTo !== undefined
+        ? {
+            transitions,
+            directEntry,
+            directEntryRedirectTo,
+          }
+        : undefined;
+
+  const primaryRoute = {
+    ...route(path, view, {
+      name: id,
+      paramsSchema,
+      querySchema,
     }),
     frameNavigation,
   };

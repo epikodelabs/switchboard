@@ -65,7 +65,11 @@ export interface RenderedRouteNode {
 export type GuardResult =
   | boolean
   | string
-  | { redirectTo: string; replace?: boolean };
+  | {
+      redirectTo: string;
+      replace?: boolean;
+      displayTarget?: string | URL;
+    };
 
 export type CanActivateFn = (
   route: NavigationContext,
@@ -129,6 +133,7 @@ export interface NavigationTransition {
   readonly from: ActivatedRoute | null;
   readonly to: ActivatedRoute;
   readonly signal: AbortSignal;
+  readonly redirectCount: number;
 }
 
 export type NavigationTransitionFn = (
@@ -153,6 +158,7 @@ export type NavigationPhase = 'recognizing' | 'guarding' | 'resolving' | 'loadin
 export interface NavigationOptions {
   replace?: boolean;
   state?: unknown;
+  displayTarget?: string | URL;
 }
 
 export type ScrollRestorationMode = 'restore' | 'top' | 'preserve';
@@ -223,6 +229,57 @@ export interface RouterConfig {
   onStateChange?: (state: RouterState) => void;
 }
 
+const INTERNAL_HISTORY_STATE_KEY =
+  '__aether_switchboard__';
+
+interface InternalHistoryStateEnvelope {
+  readonly userState: unknown;
+  readonly matchHref?: string;
+}
+
+function createHistoryStateEnvelope(
+  userState: unknown,
+  matchHref?: string,
+): unknown {
+  if (!matchHref) {
+    return userState ?? null;
+  }
+
+  return {
+    [INTERNAL_HISTORY_STATE_KEY]: {
+      userState: userState ?? null,
+      matchHref,
+    } satisfies InternalHistoryStateEnvelope,
+  };
+}
+
+function readHistoryStateEnvelope(
+  state: unknown,
+): InternalHistoryStateEnvelope {
+  if (
+    typeof state === 'object'
+    && state !== null
+    && INTERNAL_HISTORY_STATE_KEY in state
+  ) {
+    const envelope =
+      (state as Record<string, unknown>)[
+        INTERNAL_HISTORY_STATE_KEY
+      ];
+
+    if (
+      typeof envelope === 'object'
+      && envelope !== null
+      && 'userState' in envelope
+    ) {
+      return envelope as InternalHistoryStateEnvelope;
+    }
+  }
+
+  return {
+    userState: state ?? null,
+  };
+}
+
 interface NavigationCompletion {
   settled: boolean;
   resolve(success: boolean): void;
@@ -231,6 +288,7 @@ interface NavigationCompletion {
 interface NavigationRequest {
   readonly id: number;
   readonly url: URL;
+  readonly matchUrl: URL;
   readonly redirectCount: number;
   readonly completion: NavigationCompletion;
   readonly historyUpdate: HistoryUpdate;
@@ -267,6 +325,7 @@ interface NavigationRedirect {
   request: NavigationRequest;
   redirectTo: string;
   replace: boolean;
+  displayTarget?: string | URL;
 }
 
 interface NavigationBlocked {
@@ -309,6 +368,7 @@ class RoutePreparationError extends Error {
 }
 
 interface ActiveRoute extends ActivatedRoute {
+  readonly matchUrl: URL;
 }
 
 interface ActiveRender {
@@ -447,10 +507,25 @@ function interpolateRedirect(
   });
 }
 
-function readRedirect(result: GuardResult): { redirectTo: string; replace: boolean } | null {
-  if (typeof result === 'string') return { redirectTo: result, replace: true };
+function readRedirect(
+  result: GuardResult,
+): {
+  redirectTo: string;
+  replace: boolean;
+  displayTarget?: string | URL;
+} | null {
+  if (typeof result === 'string') {
+    return {
+      redirectTo: result,
+      replace: true,
+    };
+  }
   if (result && typeof result === 'object' && 'redirectTo' in result) {
-    return { redirectTo: result.redirectTo, replace: result.replace ?? true };
+    return {
+      redirectTo: result.redirectTo,
+      replace: result.replace ?? true,
+      displayTarget: result.displayTarget,
+    };
   }
   return null;
 }
@@ -647,6 +722,7 @@ export function createRouter(config: RouterConfig): Router {
     from: ActivatedRoute | null,
     to: ActivatedRoute,
     signal: AbortSignal,
+    redirectCount = 0,
   ): Promise<GuardResult> {
     const handlers = collectTransitionPhase(phase, from, to);
 
@@ -655,6 +731,7 @@ export function createRouter(config: RouterConfig): Router {
         from,
         to,
         signal,
+        redirectCount,
       });
       throwIfAborted(signal);
 
@@ -680,6 +757,7 @@ export function createRouter(config: RouterConfig): Router {
           from,
           to,
           signal: new AbortController().signal,
+          redirectCount: 0,
         }),
       ).catch(error => trace('afterEnter transition failed', error));
     }
@@ -692,7 +770,8 @@ export function createRouter(config: RouterConfig): Router {
       params: EMPTY_PARAMS,
       query: readRawQuery(url),
       data: EMPTY_DATA,
-      historyState: browserWindow?.history.state ?? null,
+      historyState:
+        readUserHistoryState(),
       config: config.routes[0] ?? { path: '**' },
     };
   }
@@ -795,9 +874,54 @@ export function createRouter(config: RouterConfig): Router {
     return resolveRouterUrl(target, baseHref, routerLocation(), mode);
   }
 
+  function readBrowserHistoryState(): unknown {
+    return browserWindow?.history.state ?? null;
+  }
+
+  function readUserHistoryState(
+    state: unknown = readBrowserHistoryState(),
+  ): unknown {
+    return readHistoryStateEnvelope(state).userState;
+  }
+
+  function readHistoryMatchHref(
+    state: unknown = readBrowserHistoryState(),
+  ): string | null {
+    return readHistoryStateEnvelope(state).matchHref ?? null;
+  }
+
+  function resolveNavigationMatchUrl(
+    displayUrl: URL,
+    historyState: unknown,
+  ): URL {
+    const matchHref =
+      readHistoryMatchHref(
+        historyState,
+      );
+
+    return matchHref
+      ? resolveAppUrl(
+          matchHref,
+          'navigate',
+        )
+      : displayUrl;
+  }
+
   function activeHref(): string | null {
     const url = currentState?.url;
     return url ? url.pathname + url.search + url.hash : null;
+  }
+
+  function activeMatchHref():
+    string | null {
+    const url =
+      currentState?.matchUrl;
+
+    return url
+      ? url.pathname +
+          url.search +
+          url.hash
+      : null;
   }
 
   function restoreActiveUrl(): void {
@@ -807,8 +931,16 @@ export function createRouter(config: RouterConfig): Router {
       active ?? fallback;
 
     browserWindow?.history.replaceState(
-        currentState?.historyState ??
-          history.createDefaultUpdate().previousEntry?.state ?? null,
+        createHistoryStateEnvelope(
+          currentState?.historyState ??
+            readUserHistoryState(
+              history.createDefaultUpdate().previousEntry?.state,
+            ),
+          activeMatchHref() !== null
+            && activeMatchHref() !== activeHref()
+            ? activeMatchHref() ?? undefined
+            : undefined,
+        ),
         '',
         href,
       );
@@ -831,12 +963,18 @@ export function createRouter(config: RouterConfig): Router {
     const entry = history.createDefaultUpdate().previousEntry ?? {
       href: currentHref(),
       scroll: readScroll(),
-      state: null,
+      state: readBrowserHistoryState(),
     };
     const nextEntry: HistoryEntry = {
       href: entry.href,
       scroll: readScroll(),
-      state: state ?? null,
+      state: createHistoryStateEnvelope(
+        state,
+        activeMatchHref() !== null
+          && activeMatchHref() !== activeHref()
+          ? activeMatchHref() ?? undefined
+          : undefined,
+      ),
     };
 
     browserWindow?.history.replaceState(
@@ -848,7 +986,12 @@ export function createRouter(config: RouterConfig): Router {
     dispatchRouterLocationChange();
 
     if (currentState) {
-      currentState = applyHistoryStateToRoute(currentState, nextEntry.state);
+      currentState = applyHistoryStateToRoute(
+        currentState,
+        readUserHistoryState(
+          nextEntry.state,
+        ),
+      );
       notifyStateChange();
     }
   }
@@ -926,6 +1069,7 @@ export function createRouter(config: RouterConfig): Router {
 
   function createRequest(
     url: URL,
+    matchUrl: URL,
     redirectCount: number,
     completion: NavigationCompletion | undefined,
     historyUpdate: HistoryUpdate,
@@ -935,6 +1079,7 @@ export function createRouter(config: RouterConfig): Router {
     const request: NavigationRequest = {
       id: ++navigationId,
       url,
+      matchUrl,
       redirectCount,
       completion: completion ?? pending!.completion,
       historyUpdate,
@@ -953,12 +1098,14 @@ export function createRouter(config: RouterConfig): Router {
 
   function requestNavigation(
     url: URL,
+    matchUrl: URL = url,
     redirectCount = 0,
     completion?: NavigationCompletion,
     historyUpdate: HistoryUpdate = history.createDefaultUpdate(),
   ): Promise<boolean> {
     return createRequest(
       url,
+      matchUrl,
       redirectCount,
       completion,
       historyUpdate,
@@ -972,6 +1119,7 @@ export function createRouter(config: RouterConfig): Router {
     historyUpdate: HistoryUpdate = history.createDefaultUpdate(),
   ): Promise<boolean> {
     return createRequest(
+      url,
       url,
       0,
       completion,
@@ -1238,16 +1386,20 @@ export function createRouter(config: RouterConfig): Router {
     request: NavigationRequest,
     signal: AbortSignal,
   ): Promise<NavigationResult> {
-    trace('Navigation started', request.url.href);
+    trace('Navigation started', request.matchUrl.href);
     setPhase(request, 'recognizing');
 
-    if (!isInsideBase(request.url.pathname)) {
+    if (!isInsideBase(request.matchUrl.pathname)) {
       throw new Error(
-        `URL "${request.url.pathname}" is outside router base "${baseHref}"`,
+        `URL "${request.matchUrl.pathname}" is outside router base "${baseHref}"`,
       );
     }
 
-    const path = stripBaseHref(request.url.pathname, baseHref);
+    const path =
+      stripBaseHref(
+        request.matchUrl.pathname,
+        baseHref,
+      );
     const match = recognize(path);
     throwIfAborted(signal);
 
@@ -1270,7 +1422,10 @@ export function createRouter(config: RouterConfig): Router {
 
     const primaryRoute = match.route;
     const routes = [primaryRoute, ...(primaryRoute.outlets ?? [])];
-    const historyState = request.historyUpdate.nextEntry?.state ?? null;
+    const historyState =
+      readUserHistoryState(
+        request.historyUpdate.nextEntry?.state,
+      );
 
     if (primaryRoute.redirectTo) {
       return {
@@ -1305,13 +1460,24 @@ export function createRouter(config: RouterConfig): Router {
     const primaryLoaded = loadedRoutes[0];
     const [parsedParams, parsedQuery] = await Promise.all([
       primaryLoaded.parseParams
-        ? primaryLoaded.parseParams(match.params, request.url, signal)
+        ? primaryLoaded.parseParams(
+            match.params,
+            request.matchUrl,
+            signal,
+          )
         : Promise.resolve(
             Object.freeze({ ...match.params }) as RouteParams,
           ),
       primaryLoaded.parseQuery
-        ? primaryLoaded.parseQuery(request.url, signal)
-        : Promise.resolve(readRawQuery(request.url)),
+        ? primaryLoaded.parseQuery(
+            request.matchUrl,
+            signal,
+          )
+        : Promise.resolve(
+            readRawQuery(
+              request.matchUrl,
+            ),
+          ),
     ]);
     throwIfAborted(signal);
 
@@ -1335,6 +1501,7 @@ export function createRouter(config: RouterConfig): Router {
       currentState,
       baseRoutes[0],
       signal,
+      request.redirectCount,
     );
     if (beforeLeaveResult === false) {
       return { type: 'blocked', request };
@@ -1362,6 +1529,7 @@ export function createRouter(config: RouterConfig): Router {
       currentState,
       baseRoutes[0],
       signal,
+      request.redirectCount,
     );
     if (beforeEnterResult === false) {
       return { type: 'blocked', request };
@@ -1396,6 +1564,7 @@ export function createRouter(config: RouterConfig): Router {
       currentState,
       baseRoutes[0],
       signal,
+      request.redirectCount,
     );
     if (prepareResult === false) {
       return { type: 'blocked', request };
@@ -1456,6 +1625,8 @@ export function createRouter(config: RouterConfig): Router {
 
         return {
           ...baseRoute,
+          matchUrl:
+            request.matchUrl,
           data: mergeRouteData([
             baseRoute.data,
             preparedData,
@@ -1593,13 +1764,27 @@ export function createRouter(config: RouterConfig): Router {
           return;
         }
 
+        const displayUrl =
+          redirect.displayTarget
+            ? resolveAppUrl(
+                redirect.displayTarget,
+                'href',
+              )
+            : redirectUrl;
         const href =
-          redirectUrl.pathname +
-          redirectUrl.search +
-          redirectUrl.hash;
+          displayUrl.pathname +
+          displayUrl.search +
+          displayUrl.hash;
 
         const historyState =
-          browserWindow?.history.state ?? null;
+          createHistoryStateEnvelope(
+            readUserHistoryState(),
+            redirectUrl.href !== href
+              ? redirectUrl.pathname +
+                  redirectUrl.search +
+                  redirectUrl.hash
+              : undefined,
+          );
 
         const historyUpdate =
           history.createUpdate(
@@ -1621,6 +1806,10 @@ export function createRouter(config: RouterConfig): Router {
         dispatchRouterLocationChange();
 
         void requestNavigation(
+          new URL(
+            href,
+            routerLocation().origin,
+          ),
           redirectUrl,
           0,
           request.completion,
@@ -1799,12 +1988,31 @@ export function createRouter(config: RouterConfig): Router {
           return;
         }
 
-        const href = url.pathname + url.search + url.hash;
-        const historyState = browserWindow?.history.state ?? null;
+        const displayUrl =
+          result.displayTarget
+            ? resolveAppUrl(
+                result.displayTarget,
+                'href',
+              )
+            : url;
+        const href =
+          displayUrl.pathname +
+          displayUrl.search +
+          displayUrl.hash;
+        const historyState =
+          createHistoryStateEnvelope(
+            readUserHistoryState(),
+            url.href !== displayUrl.href
+              ? url.pathname +
+                  url.search +
+                  url.hash
+              : undefined,
+          );
         const historyUpdate = history.createUpdate(href, result.replace, historyState);
         browserWindow?.history[result.replace ? 'replaceState' : 'pushState'](historyState, '', href);
         dispatchRouterLocationChange();
         void requestNavigation(
+          displayUrl,
           url,
           result.request.redirectCount + 1,
           result.request.completion,
@@ -1905,8 +2113,14 @@ export function createRouter(config: RouterConfig): Router {
   }
 
   function handlePopState(): void {
+    const displayUrl =
+      new URL(routerLocation().href);
     requestNavigation(
-      new URL(routerLocation().href),
+      displayUrl,
+      resolveNavigationMatchUrl(
+        displayUrl,
+        readBrowserHistoryState(),
+      ),
       0,
       undefined,
       history.createPopStateUpdate(currentHref()),
@@ -1943,33 +2157,63 @@ export function createRouter(config: RouterConfig): Router {
 
   function navigate(target: string | URL, options: NavigationOptions = {}): Promise<boolean> {
     if (disposed) throw new Error('Cannot navigate with a disposed router');
-    const url = resolveAppUrl(target, 'navigate');
+    const matchUrl = resolveAppUrl(target, 'navigate');
 
     if (
-      url.origin !==
+      matchUrl.origin !==
       routerLocation().origin
     ) {
       return requestExternalNavigation(
-        url,
+        matchUrl,
         undefined,
         history.createDefaultUpdate(),
       );
     }
 
-    if (!isInsideBase(url.pathname)) {
-      throw new Error(`URL "${url.pathname}" is outside router base "${baseHref}"`);
+    if (!isInsideBase(matchUrl.pathname)) {
+      throw new Error(`URL "${matchUrl.pathname}" is outside router base "${baseHref}"`);
     }
 
-    if (config.onSameUrlNavigation === 'ignore' && currentState?.url.href === url.href) {
+    const displayUrl =
+      options.displayTarget
+        ? resolveAppUrl(
+            options.displayTarget,
+            'href',
+          )
+        : matchUrl;
+
+    if (
+      config.onSameUrlNavigation === 'ignore'
+      && currentState?.url.href === displayUrl.href
+      && currentState?.matchUrl.href === matchUrl.href
+    ) {
       return Promise.resolve(false);
     }
 
-    const href = url.pathname + url.search + url.hash;
-    const historyState = options.state ?? null;
+    const href =
+      displayUrl.pathname +
+      displayUrl.search +
+      displayUrl.hash;
+    const historyState =
+      createHistoryStateEnvelope(
+        options.state,
+        matchUrl.href !==
+          displayUrl.href
+          ? matchUrl.pathname +
+              matchUrl.search +
+              matchUrl.hash
+          : undefined,
+      );
     const historyUpdate = history.createUpdate(href, options.replace ?? false, historyState);
     browserWindow?.history[options.replace ? 'replaceState' : 'pushState'](historyState, '', href);
     dispatchRouterLocationChange();
-    return requestNavigation(url, 0, undefined, historyUpdate);
+    return requestNavigation(
+      displayUrl,
+      matchUrl,
+      0,
+      undefined,
+      historyUpdate,
+    );
   }
 
   function replace(target: string | URL, state?: unknown): Promise<boolean> {
@@ -2021,6 +2265,10 @@ export function createRouter(config: RouterConfig): Router {
 
       void requestNavigation(
         new URL(routerLocation().href),
+        resolveNavigationMatchUrl(
+          new URL(routerLocation().href),
+          readBrowserHistoryState(),
+        ),
         0,
         undefined,
         history.createDefaultUpdate(),
@@ -2104,7 +2352,10 @@ export function createRouter(config: RouterConfig): Router {
     },
     get historyState() {
       if (disposed) return null;
-      return currentState?.historyState ?? history.createDefaultUpdate().previousEntry?.state ?? null;
+      return currentState?.historyState
+        ?? readUserHistoryState(
+          history.createDefaultUpdate().previousEntry?.state,
+        );
     },
     get routeConfig() {
       if (disposed) return null;

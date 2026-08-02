@@ -281,6 +281,7 @@ export type NavigationEntry =
   | AnyRouteDefinition
   | AnyLayoutDefinition
   | AnyAddressDefinition
+  | AnyFrameDefinition
   | AnyFrameRouteDefinition;
 export type NavigationTree = readonly NavigationEntry[];
 
