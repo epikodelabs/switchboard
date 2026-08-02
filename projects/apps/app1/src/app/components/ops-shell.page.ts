@@ -101,9 +101,9 @@ import { OperationsRoomService } from '../services/operations-room.service';
       min-width: 0;
       padding: 0.75rem;
       border: 1px solid var(--line-soft);
-      border-radius: 1.25rem;
+      border-radius: 0.5rem;
       background:
-        linear-gradient(180deg, rgb(10 22 37 / 0.94), rgb(5 14 25 / 0.9)),
+        linear-gradient(180deg, rgb(22 18 13 / 0.94), rgb(9 7 5 / 0.9)),
         var(--panel-base);
       box-shadow: var(--stage-shadow);
       backdrop-filter: blur(18px);
@@ -132,7 +132,7 @@ import { OperationsRoomService } from '../services/operations-room.service';
       z-index: 2;
       pointer-events: none;
       background:
-        linear-gradient(90deg, rgb(71 216 255 / 0), rgb(71 216 255 / 0.08), rgb(255 177 95 / 0.06), rgb(255 177 95 / 0)),
+        linear-gradient(90deg, rgb(90 217 255 / 0), rgb(90 217 255 / 0.08), rgb(255 180 84 / 0.06), rgb(255 180 84 / 0)),
         linear-gradient(180deg, rgb(255 255 255 / 0.02), rgb(255 255 255 / 0));
       transform: translateX(-100%);
       opacity: 0;
@@ -150,7 +150,7 @@ import { OperationsRoomService } from '../services/operations-room.service';
       transform: translateY(-1px);
       box-shadow:
         var(--stage-shadow),
-        0 0 0 1px rgb(71 216 255 / 0.08);
+        0 0 0 1px rgb(90 217 255 / 0.08);
     }
 
     .ops-shell--transitioning .ops-shell__stage::after {
@@ -166,9 +166,9 @@ import { OperationsRoomService } from '../services/operations-room.service';
     .ops-shell__outlet {
       padding: 0.78rem;
       border: 1px solid var(--line-soft);
-      border-radius: 0.95rem;
+      border-radius: 0.35rem;
       background:
-        linear-gradient(180deg, rgb(9 20 35 / 0.94), rgb(6 16 28 / 0.9));
+        linear-gradient(180deg, rgb(21 17 12 / 0.94), rgb(11 9 6 / 0.9));
     }
 
     .ops-shell__label {
@@ -202,16 +202,16 @@ import { OperationsRoomService } from '../services/operations-room.service';
       position: relative;
       min-height: 2.2rem;
       padding: 0.5rem 0.7rem;
-      border: 1px solid rgb(71 216 255 / 0.16);
-      border-radius: 999px;
-      background: rgb(8 19 33 / 0.9);
+      border: 1px solid rgb(90 217 255 / 0.16);
+      border-radius: 0.3rem;
+      background: rgb(20 16 11 / 0.9);
       color: var(--ink-strong);
       font-weight: 700;
       cursor: pointer;
       overflow: hidden;
       box-shadow:
         inset 0 1px 0 rgb(255 255 255 / 0.05),
-        0 0 0 1px rgb(71 216 255 / 0.03);
+        0 0 0 1px rgb(90 217 255 / 0.03);
       transition:
         transform 160ms ease,
         box-shadow 160ms ease,
@@ -229,8 +229,8 @@ import { OperationsRoomService } from '../services/operations-room.service';
 
     .ops-shell__toggle--active {
       border-color: transparent;
-      background: linear-gradient(135deg, var(--signal-cyan), var(--signal-teal));
-      color: #03111d;
+      background: linear-gradient(135deg, var(--signal-cyan), var(--signal-cyan-dim));
+      color: var(--signal-deep);
     }
 
     .ops-shell__mission-grid {
@@ -243,14 +243,14 @@ import { OperationsRoomService } from '../services/operations-room.service';
       display: block;
       padding: 0.72rem 0.8rem;
       border: 1px solid var(--line-soft);
-      border-radius: 0.9rem;
+      border-radius: 0.35rem;
       background:
-        linear-gradient(180deg, rgb(8 18 32 / 0.94), rgb(5 14 25 / 0.9));
+        linear-gradient(180deg, rgb(20 16 11 / 0.94), rgb(9 7 5 / 0.9));
       text-decoration: none;
       overflow: hidden;
       box-shadow:
         inset 0 1px 0 rgb(255 255 255 / 0.04),
-        0 0 0 1px rgb(71 216 255 / 0.02);
+        0 0 0 1px rgb(90 217 255 / 0.02);
       transition:
         transform 160ms ease,
         box-shadow 160ms ease,
@@ -271,20 +271,20 @@ import { OperationsRoomService } from '../services/operations-room.service';
 
     .ops-shell__nav-card:hover {
       transform: translateY(-1px);
-      border-color: rgb(71 216 255 / 0.14);
+      border-color: rgb(90 217 255 / 0.14);
       box-shadow:
         inset 0 1px 0 rgb(255 255 255 / 0.05),
         0 12px 24px rgb(0 0 0 / 0.22),
-        0 0 0 1px rgb(71 216 255 / 0.08);
+        0 0 0 1px rgb(90 217 255 / 0.08);
     }
 
     .ops-shell__toggle:hover {
       transform: translateY(-1px);
-      border-color: rgb(71 216 255 / 0.26);
+      border-color: rgb(90 217 255 / 0.26);
       box-shadow:
         inset 0 1px 0 rgb(255 255 255 / 0.06),
         0 10px 22px rgb(0 0 0 / 0.22),
-        0 0 0 1px rgb(71 216 255 / 0.08);
+        0 0 0 1px rgb(90 217 255 / 0.08);
     }
 
     .ops-shell__nav-card:active,
@@ -292,7 +292,7 @@ import { OperationsRoomService } from '../services/operations-room.service';
       transform: translateY(1px);
       box-shadow:
         inset 0 1px 0 rgb(255 255 255 / 0.03),
-        0 0 0 1px rgb(71 216 255 / 0.08);
+        0 0 0 1px rgb(90 217 255 / 0.08);
     }
 
     .ops-shell__feed {
@@ -329,14 +329,14 @@ import { OperationsRoomService } from '../services/operations-room.service';
       100% {
         box-shadow:
           var(--stage-shadow),
-          0 0 0 1px rgb(71 216 255 / 0.03);
+          0 0 0 1px rgb(90 217 255 / 0.03);
       }
 
       50% {
         box-shadow:
           var(--stage-shadow),
-          0 0 0 1px rgb(71 216 255 / 0.08),
-          0 0 24px rgb(71 216 255 / 0.05);
+          0 0 0 1px rgb(90 217 255 / 0.08),
+          0 0 24px rgb(90 217 255 / 0.05);
       }
     }
 

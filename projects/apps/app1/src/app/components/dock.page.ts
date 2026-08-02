@@ -233,9 +233,9 @@ import { OperationsRoomService } from '../services/operations-room.service';
       position: relative;
       padding: clamp(0.95rem, 1.35vw, 1.2rem);
       border: 1px solid var(--line-soft);
-      border-radius: 1.25rem;
+      border-radius: 0.5rem;
       background:
-        linear-gradient(145deg, rgb(11 24 39 / 0.96), rgb(6 16 28 / 0.92)), var(--panel-base);
+        linear-gradient(145deg, rgb(23 19 14 / 0.96), rgb(11 9 6 / 0.92)), var(--panel-base);
       box-shadow: var(--stage-shadow);
       overflow: hidden;
     }
@@ -260,11 +260,10 @@ import { OperationsRoomService } from '../services/operations-room.service';
     .dock__hero::after {
       content: '';
       position: absolute;
-      inset: auto -6rem -6rem auto;
-      width: 24rem;
-      height: 24rem;
-      border-radius: 999px;
-      background: radial-gradient(circle, rgb(71 216 255 / 0.18), transparent 70%);
+      inset: auto 0 0 0;
+      height: 2px;
+      background: var(--ruler-ticks);
+      opacity: 0.5;
       pointer-events: none;
     }
 
@@ -327,12 +326,12 @@ import { OperationsRoomService } from '../services/operations-room.service';
 
     .dock__metric {
       padding: 0.78rem 0.85rem;
-      border: 1px solid rgb(71 216 255 / 0.12);
-      border-radius: 1rem;
-      background: linear-gradient(180deg, rgb(7 19 33 / 0.88), rgb(5 14 25 / 0.82));
+      border: 1px solid rgb(90 217 255 / 0.12);
+      border-radius: 0.4rem;
+      background: linear-gradient(180deg, rgb(19 15 11 / 0.88), rgb(9 7 5 / 0.82));
       box-shadow:
         inset 0 1px 0 rgb(255 255 255 / 0.05),
-        0 0 0 1px rgb(71 216 255 / 0.03);
+        0 0 0 1px rgb(90 217 255 / 0.03);
     }
 
     .dock__metric span,
@@ -362,9 +361,9 @@ import { OperationsRoomService } from '../services/operations-room.service';
       display: grid;
       gap: 0.18rem;
       padding: 0.88rem 0.92rem;
-      border: 1px solid rgb(71 216 255 / 0.12);
-      border-radius: 1rem;
-      background: linear-gradient(180deg, rgb(8 21 35 / 0.9), rgb(6 15 27 / 0.86));
+      border: 1px solid rgb(90 217 255 / 0.12);
+      border-radius: 0.4rem;
+      background: linear-gradient(180deg, rgb(20 16 12 / 0.9), rgb(10 8 6 / 0.86));
     }
 
     .dock__status-card strong,
@@ -404,7 +403,7 @@ import { OperationsRoomService } from '../services/operations-room.service';
       gap: 0.8rem;
       padding: 0.68rem 0.8rem;
       border: 1px solid rgb(255 255 255 / 0.05);
-      border-radius: 0.95rem;
+      border-radius: 0.35rem;
       background: rgb(5 15 26 / 0.72);
     }
 
@@ -428,9 +427,9 @@ import { OperationsRoomService } from '../services/operations-room.service';
       justify-content: center;
       min-height: 2.45rem;
       padding: 0.58rem 0.82rem;
-      border: 1px solid rgb(71 216 255 / 0.16);
-      border-radius: 999px;
-      background: rgb(9 21 36 / 0.88);
+      border: 1px solid rgb(90 217 255 / 0.16);
+      border-radius: 0.3rem;
+      background: rgb(21 17 12 / 0.88);
       color: var(--ink-strong);
       font-weight: 700;
       text-decoration: none;
@@ -438,7 +437,7 @@ import { OperationsRoomService } from '../services/operations-room.service';
       overflow: hidden;
       box-shadow:
         inset 0 1px 0 rgb(255 255 255 / 0.05),
-        0 0 0 1px rgb(71 216 255 / 0.03);
+        0 0 0 1px rgb(90 217 255 / 0.03);
       transition:
         transform 160ms ease,
         box-shadow 160ms ease,
@@ -456,21 +455,21 @@ import { OperationsRoomService } from '../services/operations-room.service';
 
     .dock__button--solid {
       border-color: transparent;
-      background: linear-gradient(135deg, var(--signal-cyan), var(--signal-teal));
-      color: #03111d;
+      background: linear-gradient(135deg, var(--signal-cyan), var(--signal-cyan-dim));
+      color: var(--signal-deep);
       box-shadow:
         inset 0 1px 0 rgb(255 255 255 / 0.16),
-        0 14px 24px rgb(71 216 255 / 0.18);
+        0 14px 24px rgb(90 217 255 / 0.18);
     }
 
     .dock__button:hover,
     .dock__toggle:hover {
       transform: translateY(-1px);
-      border-color: rgb(71 216 255 / 0.26);
+      border-color: rgb(90 217 255 / 0.26);
       box-shadow:
         inset 0 1px 0 rgb(255 255 255 / 0.06),
         0 12px 24px rgb(0 0 0 / 0.24),
-        0 0 0 1px rgb(71 216 255 / 0.08);
+        0 0 0 1px rgb(90 217 255 / 0.08);
     }
 
     .dock__button:active,
@@ -478,7 +477,7 @@ import { OperationsRoomService } from '../services/operations-room.service';
       transform: translateY(1px);
       box-shadow:
         inset 0 1px 0 rgb(255 255 255 / 0.03),
-        0 0 0 1px rgb(71 216 255 / 0.08);
+        0 0 0 1px rgb(90 217 255 / 0.08);
     }
 
     .dock__operator-row {
@@ -510,16 +509,16 @@ import { OperationsRoomService } from '../services/operations-room.service';
       position: relative;
       min-height: 2.2rem;
       padding: 0.5rem 0.72rem;
-      border: 1px solid rgb(71 216 255 / 0.16);
-      border-radius: 999px;
-      background: rgb(8 20 35 / 0.84);
+      border: 1px solid rgb(90 217 255 / 0.16);
+      border-radius: 0.3rem;
+      background: rgb(20 16 11 / 0.9);
       color: var(--ink-strong);
       font-weight: 700;
       cursor: pointer;
       overflow: hidden;
       box-shadow:
         inset 0 1px 0 rgb(255 255 255 / 0.05),
-        0 0 0 1px rgb(71 216 255 / 0.03);
+        0 0 0 1px rgb(90 217 255 / 0.03);
       transition:
         transform 160ms ease,
         box-shadow 160ms ease,
@@ -528,8 +527,8 @@ import { OperationsRoomService } from '../services/operations-room.service';
 
     .dock__toggle--active {
       border-color: transparent;
-      background: linear-gradient(135deg, var(--signal-cyan), var(--signal-teal));
-      color: #03111d;
+      background: linear-gradient(135deg, var(--signal-cyan), var(--signal-cyan-dim));
+      color: var(--signal-deep);
     }
 
     .dock__section-heading {
@@ -555,9 +554,9 @@ import { OperationsRoomService } from '../services/operations-room.service';
       align-items: center;
       min-height: 2rem;
       padding: 0.4rem 0.72rem;
-      border: 1px solid rgb(71 216 255 / 0.14);
-      border-radius: 999px;
-      background: rgb(7 18 31 / 0.78);
+      border: 1px solid rgb(90 217 255 / 0.14);
+      border-radius: 0.3rem;
+      background: rgb(19 15 10 / 0.78);
       color: var(--ink-soft);
       font-size: 0.76rem;
       font-weight: 700;
@@ -578,8 +577,8 @@ import { OperationsRoomService } from '../services/operations-room.service';
       gap: 0.55rem;
       padding: 0.88rem 0.92rem;
       border: 1px solid var(--line-soft);
-      border-radius: 1rem;
-      background: linear-gradient(180deg, rgb(9 21 36 / 0.94), rgb(6 15 26 / 0.88));
+      border-radius: 0.4rem;
+      background: linear-gradient(180deg, rgb(21 17 12 / 0.94), rgb(10 8 6 / 0.88));
       box-shadow:
         inset 0 1px 0 rgb(255 255 255 / 0.05),
         0 16px 28px rgb(0 0 0 / 0.14);
@@ -601,20 +600,20 @@ import { OperationsRoomService } from '../services/operations-room.service';
       align-items: center;
       min-height: 1.65rem;
       padding: 0.2rem 0.55rem;
-      border-radius: 999px;
-      background: rgb(29 201 164 / 0.14);
-      color: rgb(113 242 205);
+      border-radius: 0.3rem;
+      background: rgb(47 128 148 / 0.14);
+      color: rgb(88, 127, 141);
       font-weight: 700;
     }
 
     .dock__risk--watch {
-      background: rgb(255 177 95 / 0.14);
-      color: rgb(255 207 149);
+      background: rgb(255 180 84 / 0.14);
+      color: rgb(177, 142, 104);
     }
 
     .dock__risk--critical {
-      background: rgb(255 100 108 / 0.14);
-      color: rgb(255 152 157);
+      background: rgb(255 84 112 / 0.14);
+      color: rgb(156, 86, 95);
     }
 
     .dock__mission-card strong {
@@ -668,8 +667,8 @@ import { OperationsRoomService } from '../services/operations-room.service';
       position: relative;
       padding: 0.72rem 0.84rem 0.72rem 1rem;
       border: 1px solid rgb(255 255 255 / 0.05);
-      border-radius: 0.95rem;
-      background: rgb(6 16 28 / 0.76);
+      border-radius: 0.35rem;
+      background: rgb(11 9 6 / 0.76);
       line-height: 1.45;
     }
 
@@ -679,8 +678,8 @@ import { OperationsRoomService } from '../services/operations-room.service';
       inset: 0.95rem auto auto 0.55rem;
       width: 0.34rem;
       height: 0.34rem;
-      border-radius: 999px;
-      background: linear-gradient(135deg, var(--signal-cyan), var(--signal-teal));
+      border-radius: 0.3rem;
+      background: linear-gradient(135deg, var(--signal-cyan), var(--signal-cyan-dim));
       box-shadow: 0 0 0 0.22rem rgb(0 143 180 / 0.12);
     }
 
@@ -693,8 +692,8 @@ import { OperationsRoomService } from '../services/operations-room.service';
     .dock__card {
       padding: 0.88rem 0.94rem;
       border: 1px solid var(--line-soft);
-      border-radius: 1rem;
-      background: linear-gradient(180deg, rgb(10 22 37 / 0.94), rgb(6 15 26 / 0.9));
+      border-radius: 0.4rem;
+      background: linear-gradient(180deg, rgb(22 18 13 / 0.94), rgb(10 8 6 / 0.9));
       box-shadow: var(--stage-shadow);
     }
 

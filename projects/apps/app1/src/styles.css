@@ -1,28 +1,52 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap');
+
+/*
+  Design language: "brass-and-cream instrument panel" -- a warm, aged
+  cockpit housing (cream/brass neutrals, not cool steel) with a single cool
+  cyan phosphor readout, the way an old radar scope glows against a warm
+  wooden console. The warmth carries the "well-worn hardware" feeling;
+  cyan stays reserved for the one thing you're meant to watch.
+*/
 :root {
   color-scheme: dark;
+
   --app-bg:
-    radial-gradient(circle at 18% 16%, rgb(84 224 255 / 0.18), transparent 22%),
-    radial-gradient(circle at 82% 12%, rgb(255 167 75 / 0.18), transparent 18%),
-    radial-gradient(circle at 50% 120%, rgb(49 255 196 / 0.12), transparent 28%),
-    radial-gradient(circle at 48% 38%, rgb(91 116 255 / 0.08), transparent 20%),
-    linear-gradient(180deg, #040712 0%, #07111d 34%, #091725 66%, #050a14 100%);
-  --panel-base: rgb(8 17 30 / 0.82);
-  --panel-strong: rgb(9 20 36 / 0.92);
-  --panel-deep: rgb(3 10 20 / 0.96);
-  --ink-strong: #ecf8ff;
-  --ink-body: #a9c0d2;
-  --ink-soft: #6f889c;
-  --line-soft: rgb(93 170 208 / 0.14);
-  --line-strong: rgb(93 170 208 / 0.24);
-  --signal-cyan: #47d8ff;
-  --signal-teal: #1dc9a4;
-  --signal-amber: #ffb15f;
-  --signal-red: #ff6f7f;
-  --signal-deep: #03111d;
-  --signal-glow: rgb(71 216 255 / 0.18);
+    radial-gradient(circle at 12% 8%, rgb(94 214 255 / 0.06), transparent 30%),
+    radial-gradient(circle at 88% 92%, rgb(232 162 92 / 0.07), transparent 32%),
+    linear-gradient(180deg, #0d0906 0%, #14100a 40%, #17130d 70%, #0a0705 100%);
+
+  --panel-base: rgb(20 16 12 / 0.86);
+  --panel-strong: rgb(23 19 14 / 0.94);
+  --panel-deep: rgb(9 7 5 / 0.97);
+
+  --ink-strong: #998b72;
+  --ink-body: #897f71;
+  --ink-soft: #776a58;
+
+  --line-soft: rgb(214 188 148 / 0.14);
+  --line-strong: rgb(214 188 148 / 0.26);
+
+  --signal-cyan: #4f92a8;
+  --signal-cyan-dim: #2f7c90;
+  --signal-amber: #e8a25c;
+  --signal-crimson: #ff5470;
+  --signal-deep: #070503;
+
   --stage-shadow:
-    0 24px 60px rgb(0 0 0 / 0.42),
-    0 0 0 1px rgb(71 216 255 / 0.04);
+    0 22px 54px rgb(0 0 0 / 0.5),
+    0 0 0 1px rgb(214 188 148 / 0.05);
+
+  --font-display: 'JetBrains Mono', 'Consolas', monospace;
+  --font-body: 'Inter', 'Segoe UI', sans-serif;
+
+  --ruler-ticks:
+    repeating-linear-gradient(
+      90deg,
+      rgb(214 188 148 / 0.18) 0,
+      rgb(214 188 148 / 0.18) 1px,
+      transparent 1px,
+      transparent 0.6rem
+    );
 }
 
 * {
@@ -35,15 +59,29 @@ body {
 }
 
 body {
+  position: relative;
   margin: 0;
   background: var(--app-bg);
   color: var(--ink-body);
-  font-family:
-    'Bahnschrift',
-    'Aptos',
-    'Segoe UI Variable Text',
-    sans-serif;
+  font-family: var(--font-body);
   background-attachment: fixed;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    0deg,
+    rgb(0 0 0 / 0.08) 0,
+    rgb(0 0 0 / 0.08) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+  opacity: 0.32;
+  mix-blend-mode: overlay;
 }
 
 h1,
@@ -52,12 +90,9 @@ h3,
 h4,
 strong,
 button {
-  font-family:
-    'Bahnschrift',
-    'Aptos Display',
-    'Segoe UI Variable Display',
-    sans-serif;
+  font-family: var(--font-display);
   font-weight: 600;
+  letter-spacing: 0.01em;
 }
 
 button,
@@ -72,14 +107,16 @@ a {
 }
 
 code {
-  font-family:
-    'Cascadia Code',
-    'Consolas',
-    monospace;
+  font-family: var(--font-display);
+}
+
+::selection {
+  background: rgb(90 217 255 / 0.28);
+  color: var(--ink-strong);
 }
 
 ::view-transition-old(root),
 ::view-transition-new(root) {
-  animation-duration: 460ms;
+  animation-duration: 420ms;
   animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
 }
