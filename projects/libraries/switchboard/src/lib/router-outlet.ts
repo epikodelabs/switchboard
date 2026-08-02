@@ -1,11 +1,4 @@
-﻿import {
-  DestroyRef,
-  Directive,
-  ElementRef,
-  Input,
-  OnInit,
-  inject,
-} from '@angular/core';
+﻿import { DestroyRef, Directive, ElementRef, Input, OnInit, inject } from '@angular/core';
 
 import { Router } from './router';
 
@@ -43,10 +36,6 @@ export class RouterOutlet implements OnInit {
   }
 
   private shouldConnect(name: string): boolean {
-    return name !== '' || this.element.closest('route-view') === null;
+    return name !== '' || this.element.closest('route-host') === null;
   }
 }
-
-
-
-
