@@ -86,6 +86,7 @@ export class App implements DoCheck {
     }
 
     this.headerState.set(next);
+
     this.headerPulseToken.update((value) => (value ?? 0) + 1);
   }
 
@@ -93,10 +94,11 @@ export class App implements DoCheck {
     const state = this.router.state;
 
     return {
-      frame: String(state.current?.config.name ?? state.routeConfig?.name ?? 'dashboard'),
+      frame: String(state.current?.config.name ?? state.routeConfig?.name ?? 'dock'),
       phase: state.phase ?? 'idle',
       address: this.router.displayUrl || '/',
       transitioning: state.pending,
     };
   }
 }
+

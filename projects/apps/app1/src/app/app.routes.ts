@@ -7,29 +7,40 @@ import {
 
 import {
   accountFrame,
-  confirmationFrame,
-  dashboardFrame,
-  shellView,
-  spendingFrame,
-  transferFrame,
+  booksFrame,
+  entryFrame,
+  journalFrame,
+  ledgerShellFrame,
+  settingsFrame,
+  trialFrame,
 } from './frames';
 
+/**
+ * Each frame id is used as the route name exactly once.
+ * Root and /legacy only redirect — they do not re-bind booksFrame.
+ */
 export const routes = navigation({
   frames: [
-    dashboardFrame,
+    booksFrame,
     accountFrame,
-    spendingFrame,
-    transferFrame,
-    confirmationFrame,
+    journalFrame,
+    entryFrame,
+    trialFrame,
+    settingsFrame,
   ] as const,
   entries: [
-    redirectRoute('/', '/ledger'),
-    layout('/ledger', shellView, [
-      address('/', dashboardFrame),
+    // Public landing → books inside the ledger shell
+    redirectRoute('/', '/ledger/books'),
+    redirectRoute('/legacy', '/ledger/books'),
+
+    layout('/ledger', ledgerShellFrame, [
+      redirectRoute('', '/ledger/books'),
+      address('/books', booksFrame),
       address('/account/:accountId', accountFrame),
-      address('/spending/:accountId', spendingFrame),
-      transferFrame,
-      confirmationFrame,
+      address('/journal', journalFrame),
+      address('/entry/:entryId', entryFrame),
+      address('/trial', trialFrame),
+      address('/settings', settingsFrame),
     ]),
   ] as const,
 });

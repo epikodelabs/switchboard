@@ -1,40 +1,37 @@
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap');
 
 /*
-  Design language: "brass-and-cream instrument panel" -- a warm, aged
-  cockpit housing (cream/brass neutrals, not cool steel) with a single cool
-  cyan phosphor readout, the way an old radar scope glows against a warm
-  wooden console. The warmth carries the "well-worn hardware" feeling;
-  cyan stays reserved for the one thing you're meant to watch.
+  Design language: warm paper ledger — cream paper, soft brass lines,
+  terracotta/ink accents. Light surfaces, readable body text, restrained signal color.
 */
 :root {
-  color-scheme: dark;
+  color-scheme: light;
 
   --app-bg:
-    radial-gradient(circle at 12% 8%, rgb(94 214 255 / 0.06), transparent 30%),
-    radial-gradient(circle at 88% 92%, rgb(232 162 92 / 0.07), transparent 32%),
-    linear-gradient(180deg, #0d0906 0%, #14100a 40%, #17130d 70%, #0a0705 100%);
+    radial-gradient(circle at 12% 8%, rgb(232 162 92 / 0.12), transparent 32%),
+    radial-gradient(circle at 88% 92%, rgb(196 140 100 / 0.1), transparent 36%),
+    linear-gradient(180deg, #f7f1e8 0%, #f3ebe0 40%, #efe6d8 70%, #f8f3eb 100%);
 
-  --panel-base: rgb(20 16 12 / 0.86);
-  --panel-strong: rgb(23 19 14 / 0.94);
-  --panel-deep: rgb(9 7 5 / 0.97);
+  --panel-base: rgb(255 252 247 / 0.92);
+  --panel-strong: rgb(255 250 243 / 0.98);
+  --panel-deep: rgb(247 241 232 / 0.98);
 
-  --ink-strong: #998b72;
-  --ink-body: #897f71;
-  --ink-soft: #776a58;
+  --ink-strong: #3d3428;
+  --ink-body: #5c5348;
+  --ink-soft: #8a7e6e;
 
-  --line-soft: rgb(214 188 148 / 0.14);
-  --line-strong: rgb(214 188 148 / 0.26);
+  --line-soft: rgb(120 90 55 / 0.14);
+  --line-strong: rgb(120 90 55 / 0.28);
 
-  --signal-cyan: #4f92a8;
-  --signal-cyan-dim: #2f7c90;
-  --signal-amber: #e8a25c;
-  --signal-crimson: #ff5470;
-  --signal-deep: #070503;
+  --signal-cyan: #b86b3c;
+  --signal-cyan-dim: #9a5a32;
+  --signal-amber: #c4893a;
+  --signal-crimson: #c45c5c;
+  --signal-deep: #fffaf3;
 
   --stage-shadow:
-    0 22px 54px rgb(0 0 0 / 0.5),
-    0 0 0 1px rgb(214 188 148 / 0.05);
+    0 18px 40px rgb(80 55 30 / 0.08),
+    0 0 0 1px rgb(120 90 55 / 0.06);
 
   --font-display: 'JetBrains Mono', 'Consolas', monospace;
   --font-body: 'Inter', 'Segoe UI', sans-serif;
@@ -42,8 +39,8 @@
   --ruler-ticks:
     repeating-linear-gradient(
       90deg,
-      rgb(214 188 148 / 0.18) 0,
-      rgb(214 188 148 / 0.18) 1px,
+      rgb(120 90 55 / 0.22) 0,
+      rgb(120 90 55 / 0.22) 1px,
       transparent 1px,
       transparent 0.6rem
     );
@@ -67,21 +64,18 @@ body {
   background-attachment: fixed;
 }
 
+/* Soft paper grain instead of CRT scanlines */
 body::before {
   content: '';
   position: fixed;
   inset: 0;
   z-index: 9999;
   pointer-events: none;
-  background: repeating-linear-gradient(
-    0deg,
-    rgb(0 0 0 / 0.08) 0,
-    rgb(0 0 0 / 0.08) 1px,
-    transparent 1px,
-    transparent 3px
-  );
-  opacity: 0.32;
-  mix-blend-mode: overlay;
+  background:
+    radial-gradient(circle at 20% 30%, rgb(180 140 90 / 0.03), transparent 40%),
+    radial-gradient(circle at 80% 70%, rgb(160 110 70 / 0.025), transparent 45%);
+  opacity: 1;
+  mix-blend-mode: multiply;
 }
 
 h1,
@@ -111,7 +105,7 @@ code {
 }
 
 ::selection {
-  background: rgb(90 217 255 / 0.28);
+  background: rgb(184 107 60 / 0.22);
   color: var(--ink-strong);
 }
 

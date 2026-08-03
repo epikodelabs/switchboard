@@ -1,29 +1,42 @@
 <div
-  class="ledger-shell"
-  [class.ledger-shell--transitioning]="isTransitioning()"
+  class="console-shell"
+  [class.console-shell--transitioning]="isTransitioning()"
   [attr.data-phase]="phaseLabel()"
 >
-  <header class="ledger-bar">
-    <a class="ledger-brand" [routerLink]="'/'">
-      <span class="ledger-brand__mark">L</span>
-      <span class="ledger-brand__copy">
-        <strong>Ledger</strong>
-        <small>Frame-first budget tracker</small>
+  <header class="command-bar">
+    <a class="brand" [routerLink]="'/'">
+      <span class="brand__mark">GL</span>
+      <span class="brand__copy">
+        <strong>General Ledger</strong>
+        <small>Double-entry books</small>
       </span>
     </a>
 
-    <nav class="ledger-nav" aria-label="Primary navigation">
-      <a [routerLink]="'/'">Dashboard</a>
-      <a [routerLink]="{ name: 'account', params: { accountId: 1 } }">Checking</a>
-      <a [routerLink]="{ name: 'spending', params: { accountId: 1 } }">Spending</a>
+    <nav class="command-nav" aria-label="Primary navigation">
+      <a [routerLink]="{ name: 'books' }">Books</a>
+      <a [routerLink]="{ name: 'journal' }">Journal</a>
+      <a [routerLink]="{ name: 'trial' }">Trial balance</a>
+      <a
+        [routerLink]="{
+          name: 'account',
+          params: { accountId: 'a-1000' }
+        }"
+      >
+        Cash
+      </a>
+      <a [routerLink]="{ name: 'settings' }">Settings</a>
     </nav>
 
-    <section class="ledger-status" aria-label="Navigation status">
-      <div class="ledger-chip">
-        <span>View</span>
+    <section class="status-cluster" aria-label="Navigation status">
+      <div class="status-chip">
+        <span>Frame</span>
         <strong>{{ activeFrame() }}</strong>
       </div>
-      <div class="ledger-chip ledger-chip--wide">
+      <div class="status-chip">
+        <span>Phase</span>
+        <strong>{{ phaseLabel() }}</strong>
+      </div>
+      <div class="status-chip status-chip--wide">
         <span>Address</span>
         <strong>{{ publicAddress() }}</strong>
       </div>

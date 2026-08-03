@@ -1,31 +1,26 @@
 import { inject } from '@angular/core';
 import { frame, frameOutlet, s, view } from '@epikodelabs/switchboard';
 import { AccountPage } from '../components/account.page';
-import { SidebarComponent } from '../components/sidebar.component';
+import { AccountSidebarComponent } from '../components/account-sidebar.component';
 import { LedgerService } from '../services/ledger.service';
 
 export const accountFrame = frame(
   'account',
   view(AccountPage, {
     prepare: [
-      async context => {
-        const service = inject(LedgerService);
-        const id = Number(context.params['accountId'] ?? 0);
-        return {
-          account: service.getAccount(id),
-          ledger: service.getLedger(id),
-        };
-      },
+      async context => ({
+        snapshot: await inject(LedgerService).prepareAccount(
+          String(context.params['accountId'] ?? ''),
+        ),
+      }),
     ],
   }),
   {
     directEntry: true,
-    transitions: ['dashboard', 'spending', 'transfer'],
+    transitions: ['books', 'journal', 'entry', 'trial'],
     paramsSchema: {
-      accountId: s.number({ min: 1 }),
+      accountId: s.string(),
     },
-    outlets: [
-      frameOutlet('sidebar', view(SidebarComponent)),
-    ],
+    outlets: [frameOutlet('sidebar', view(AccountSidebarComponent))],
   },
 );
