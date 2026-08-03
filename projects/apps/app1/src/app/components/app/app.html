@@ -1,50 +1,29 @@
 <div
-  class="console-shell"
-  [class.console-shell--transitioning]="isTransitioning()"
+  class="ledger-shell"
+  [class.ledger-shell--transitioning]="isTransitioning()"
   [attr.data-phase]="phaseLabel()"
 >
-  <header class="command-bar">
-    <a class="brand" [routerLink]="'/'">
-      <span class="brand__mark">SB</span>
-      <span class="brand__copy">
-        <strong>Orbital Switchboard</strong>
-        <small>Frame-first relay deck</small>
+  <header class="ledger-bar">
+    <a class="ledger-brand" [routerLink]="'/'">
+      <span class="ledger-brand__mark">L</span>
+      <span class="ledger-brand__copy">
+        <strong>Ledger</strong>
+        <small>Frame-first budget tracker</small>
       </span>
     </a>
 
-    <nav class="command-nav" aria-label="Primary navigation">
-      <a [routerLink]="'/'">Dock</a>
-      <a
-        [routerLink]="{
-          name: 'mission',
-          params: { missionId: 207 },
-          query: { lane: 'thermal', zoom: 2 },
-        }"
-      >
-        Mission 207
-      </a>
-      <a
-        [routerLink]="{
-          name: 'analysis',
-          params: { missionId: 315 },
-          query: { lens: 'echo', detail: 3 },
-        }"
-      >
-        Analysis 315
-      </a>
-      <a [routerLink]="'/legacy'">Legacy vector</a>
+    <nav class="ledger-nav" aria-label="Primary navigation">
+      <a [routerLink]="'/'">Dashboard</a>
+      <a [routerLink]="{ name: 'account', params: { accountId: 1 } }">Checking</a>
+      <a [routerLink]="{ name: 'spending', params: { accountId: 1 } }">Spending</a>
     </nav>
 
-    <section class="status-cluster" aria-label="Navigation status">
-      <div class="status-chip">
-        <span>Frame</span>
+    <section class="ledger-status" aria-label="Navigation status">
+      <div class="ledger-chip">
+        <span>View</span>
         <strong>{{ activeFrame() }}</strong>
       </div>
-      <div class="status-chip">
-        <span>Phase</span>
-        <strong>{{ phaseLabel() }}</strong>
-      </div>
-      <div class="status-chip status-chip--wide">
+      <div class="ledger-chip ledger-chip--wide">
         <span>Address</span>
         <strong>{{ publicAddress() }}</strong>
       </div>
