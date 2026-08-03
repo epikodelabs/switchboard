@@ -1,10 +1,18 @@
-type ScalarSchema = StringSchema | NumberSchema | BooleanSchema | DateSchema;
+type ScalarSchema =
+  | StringSchema
+  | NumberSchema
+  | BooleanSchema
+  | DateSchema;
 
-type NonOptionalSchema = ScalarSchema | ArraySchema;
+type NonOptionalSchema =
+  | ScalarSchema
+  | ArraySchema;
 
-export type QuerySchema = NonOptionalSchema | OptionalSchema<NonOptionalSchema>;
+export type QuerySchema =
+  | NonOptionalSchema
+  | OptionalSchema<NonOptionalSchema>;
 
-export type ParamSchema = ScalarSchema | OptionalSchema<ScalarSchema>;
+export type ParamSchema = ScalarSchema;
 
 export type QuerySchemaRecord = Readonly<Record<string, QuerySchema>>;
 export type ParamSchemaRecord = Readonly<Record<string, ParamSchema>>;
@@ -47,7 +55,11 @@ export const s = {
     default: defaultValue,
   }),
 
-  number: (opts?: { default?: number; min?: number; max?: number }): NumberSchema => ({
+  number: (opts?: {
+    default?: number;
+    min?: number;
+    max?: number;
+  }): NumberSchema => ({
     _type: 'number',
     ...opts,
   }),
@@ -89,9 +101,13 @@ type SchemaValue<TSchema extends QuerySchema | ParamSchema> =
               : unknown;
 
 export type InferQueryType<T extends Record<string, QuerySchema>> = {
-  [K in keyof T as T[K] extends OptionalSchema<NonOptionalSchema> ? never : K]: SchemaValue<T[K]>;
+  [K in keyof T as T[K] extends OptionalSchema<NonOptionalSchema>
+    ? never
+    : K]: SchemaValue<T[K]>;
 } & {
-  [K in keyof T as T[K] extends OptionalSchema<NonOptionalSchema> ? K : never]?: SchemaValue<T[K]>;
+  [K in keyof T as T[K] extends OptionalSchema<NonOptionalSchema>
+    ? K
+    : never]?: SchemaValue<T[K]>;
 };
 
 export type InferQueryInputType<T extends Record<string, QuerySchema>> = {
@@ -99,12 +115,13 @@ export type InferQueryInputType<T extends Record<string, QuerySchema>> = {
 };
 
 export type InferParamType<T extends Record<string, ParamSchema>> = {
-  [K in keyof T as T[K] extends OptionalSchema<ScalarSchema> ? never : K]: SchemaValue<T[K]>;
-} & {
-  [K in keyof T as T[K] extends OptionalSchema<ScalarSchema> ? K : never]?: SchemaValue<T[K]>;
+  [K in keyof T]: SchemaValue<T[K]>;
 };
 
-function parseValue(spec: QuerySchema | ParamSchema, raw: string | undefined): unknown {
+function parseValue(
+  spec: QuerySchema | ParamSchema,
+  raw: string | undefined,
+): unknown {
   if (raw === undefined) {
     if (spec._type === 'optional') return undefined;
     return undefined;
@@ -115,35 +132,47 @@ function parseValue(spec: QuerySchema | ParamSchema, raw: string | undefined): u
       return raw;
     case 'number': {
       const value = Number(raw);
-      if (Number.isNaN(value)) {
-        if (spec.default !== undefined) {
-          return spec.default;
-        }
-
-        throw new Error(`Invalid number value "${raw}".`);
+      if (!Number.isFinite(value)) {
+        throw new Error(
+          `Invalid number value "${raw}".`,
+        );
       }
 
-      const min = spec.min ?? -Infinity;
-      const max = spec.max ?? Infinity;
-      return Math.max(min, Math.min(max, value));
+      if (spec.min !== undefined && value < spec.min) {
+        throw new Error(
+          `Number value "${raw}" is below the minimum ${spec.min}.`,
+        );
+      }
+
+      if (spec.max !== undefined && value > spec.max) {
+        throw new Error(
+          `Number value "${raw}" is above the maximum ${spec.max}.`,
+        );
+      }
+
+      return value;
     }
     case 'boolean':
-      return raw === 'true' || raw === '1'
-        ? true
-        : raw === 'false' || raw === '0'
-          ? false
-          : (spec.default ?? false);
+      if (raw === 'true' || raw === '1') {
+        return true;
+      }
+
+      if (raw === 'false' || raw === '0') {
+        return false;
+      }
+
+      throw new Error(
+        `Invalid boolean value "${raw}". Expected true, false, 1, or 0.`,
+      );
     case 'date': {
       const value = new Date(raw);
       if (!Number.isNaN(value.getTime())) {
         return value;
       }
 
-      if (spec.default) {
-        return new Date(spec.default.getTime());
-      }
-
-      throw new Error(`Invalid date value "${raw}".`);
+      throw new Error(
+        `Invalid date value "${raw}".`,
+      );
     }
     case 'optional':
       return parseValue(spec.inner, raw);
@@ -163,24 +192,9 @@ function getDefault(spec: QuerySchema): unknown {
     case 'array':
       return Object.freeze([...(spec.default ?? [])]);
     case 'date':
-      return spec.default ? new Date(spec.default.getTime()) : new Date();
-    case 'optional':
-      return undefined;
-    default:
-      return undefined;
-  }
-}
-
-function getParamDefault(spec: ParamSchema): unknown {
-  switch (spec._type) {
-    case 'string':
-      return spec.default ?? '';
-    case 'number':
-      return spec.default ?? 0;
-    case 'boolean':
-      return spec.default ?? false;
-    case 'date':
-      return spec.default ? new Date(spec.default.getTime()) : new Date();
+      return spec.default
+        ? new Date(spec.default.getTime())
+        : new Date();
     case 'optional':
       return undefined;
     default:
@@ -240,12 +254,13 @@ export function parseParams<T extends Record<string, ParamSchema>>(
   for (const [key, spec] of Object.entries(schema)) {
     const raw = params[key];
 
-    if (spec._type === 'optional' && raw === undefined) {
-      continue;
+    if (raw === undefined) {
+      throw new Error(
+        `Missing required path parameter "${key}".`,
+      );
     }
 
-    const parsed = parseValue(spec, raw);
-    result[key] = parsed !== undefined ? parsed : getParamDefault(spec);
+    result[key] = parseValue(spec, raw);
   }
 
   return Object.freeze(result) as InferParamType<T>;
@@ -260,18 +275,21 @@ export function parseParamsRecord(
   for (const [key, spec] of Object.entries(schema)) {
     const raw = params[key];
 
-    if (spec._type === 'optional' && raw === undefined) {
-      continue;
+    if (raw === undefined) {
+      throw new Error(
+        `Missing required path parameter "${key}".`,
+      );
     }
 
-    const parsed = parseValue(spec, raw);
-    result[key] = parsed !== undefined ? parsed : getParamDefault(spec);
+    result[key] = parseValue(spec, raw);
   }
 
   return Object.freeze(result);
 }
 
-function unwrapOptionalQuerySchema(schema: QuerySchema): QuerySchema {
+function unwrapOptionalQuerySchema(
+  schema: QuerySchema,
+): QuerySchema {
   let current = schema;
 
   while (current._type === 'optional') {
@@ -281,65 +299,101 @@ function unwrapOptionalQuerySchema(schema: QuerySchema): QuerySchema {
   return current;
 }
 
-export function serializeQuery<const T extends QuerySchemaRecord>(
+export function serializeQuery<
+  const T extends QuerySchemaRecord,
+>(
   schema: T,
   values: Readonly<Record<string, unknown>>,
 ): string {
-  return serializeQueryRecord(schema, values);
+  return serializeQueryRecord(
+    schema,
+    values,
+  );
 }
 
 export function serializeQueryRecord(
   schema: QuerySchemaRecord,
   values: Readonly<Record<string, unknown>>,
 ): string {
-  const params = new URLSearchParams();
+  const params =
+    new URLSearchParams();
 
   for (const [key, value] of Object.entries(values)) {
     if (value === undefined) {
       continue;
     }
 
-    const declared = schema[key];
+    const declared =
+      schema[key];
 
     if (!declared) {
       continue;
     }
 
-    const spec = unwrapOptionalQuerySchema(declared);
+    const spec =
+      unwrapOptionalQuerySchema(
+        declared,
+      );
 
-    if (spec._type === 'array' && Array.isArray(value)) {
-      const defaultValue = getDefault(spec);
+    if (
+      spec._type === 'array' &&
+      Array.isArray(value)
+    ) {
+      const defaultValue =
+        getDefault(spec);
       const isDefault =
-        Array.isArray(defaultValue) &&
-        value.length === defaultValue.length &&
-        value.every((item, index) => item === defaultValue[index]);
+        Array.isArray(defaultValue)
+        && value.length === defaultValue.length
+        && value.every(
+          (item, index) =>
+            item ===
+              defaultValue[index],
+        );
 
       if (!isDefault) {
         for (const item of value) {
-          params.append(key, String(item));
+          params.append(
+            key,
+            String(item),
+          );
         }
       }
 
       continue;
     }
 
-    if (spec._type === 'date' && value instanceof Date) {
-      params.set(key, value.toISOString());
+    if (
+      spec._type === 'date' &&
+      value instanceof Date
+    ) {
+      params.set(
+        key,
+        value.toISOString(),
+      );
 
       continue;
     }
 
     if (value !== getDefault(declared)) {
-      params.set(key, String(value));
+      params.set(
+        key,
+        String(value),
+      );
     }
   }
 
-  const search = params.toString();
+  const search =
+    params.toString();
 
-  return search ? `?${search}` : '';
+  return search
+    ? `?${search}`
+    : '';
 }
 
-function serializeValue(spec: QuerySchema | ParamSchema, value: unknown): string {
+function serializeValue(
+  spec: QuerySchema | ParamSchema,
+  value: unknown,
+): string {
   if (spec._type === 'optional') {
     return serializeValue(spec.inner, value);
   }

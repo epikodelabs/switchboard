@@ -1,4 +1,4 @@
-﻿import type { ParamSchemaRecord, QuerySchemaRecord } from './query-schema';
+import type { ParamSchemaRecord, QuerySchemaRecord } from './query-schema';
 import { route } from './route-builders';
 import type {
   AddressDefinition,
@@ -180,4 +180,3 @@ export {
   frameOutlet as defineFrameOutlet,
   frameRoute as defineFrameRoute,
 };
-

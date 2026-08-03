@@ -1,4 +1,4 @@
-﻿import type { Type } from '@angular/core';
+import type { Type } from '@angular/core';
 
 import type { ParamSchemaRecord, QuerySchemaRecord } from './query-schema';
 import type {
@@ -9,6 +9,8 @@ import type {
   Lazy,
   FrameView,
   FrameHooks,
+  FramePrepareFn,
+  InferPreparedData,
   LayoutDefinition,
   LayoutOptions,
   RedirectRouteDefinition,
@@ -109,10 +111,12 @@ function createLazyViewRecord(
   };
 }
 
-export function view(
+export function view<
+  const TPrepare extends readonly FramePrepareFn[] | undefined = undefined,
+>(
   component: Type<unknown>,
-  hooks: FrameHooks = {},
-): FrameView {
+  hooks: FrameHooks<TPrepare> = {},
+): FrameView<InferPreparedData<TPrepare>> {
   return {
     kind: 'frame',
     component,
@@ -139,10 +143,12 @@ function normalizeFrameDefinitionOptions<
   return options ?? {};
 }
 
-export function lazyView(
+export function lazyView<
+  const TPrepare extends readonly FramePrepareFn[] | undefined = undefined,
+>(
   loadComponent: Lazy<Type<unknown>>,
-  hooks: FrameHooks = {},
-): FrameView {
+  hooks: FrameHooks<TPrepare> = {},
+): FrameView<InferPreparedData<TPrepare>> {
   return {
     kind: 'frame',
     loadComponent,
@@ -287,9 +293,10 @@ export function route<
     ParamSchemaRecord | undefined = undefined,
   const TQuerySchema extends
     QuerySchemaRecord | undefined = undefined,
+  const TFrame extends FrameView<any> = FrameView<any>,
 >(
   path: TPath,
-  component: FrameView,
+  component: TFrame,
   options?: RouteOptions<
     TName,
     TParamsSchema,
@@ -299,7 +306,8 @@ export function route<
   TPath,
   TName,
   TParamsSchema,
-  TQuerySchema
+  TQuerySchema,
+  TFrame
 >;
 export function route<
   const TPath extends string,
@@ -559,4 +567,3 @@ export function navigation<
     entries: definition.entries,
   };
 }
-

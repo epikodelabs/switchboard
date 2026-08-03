@@ -1,4 +1,4 @@
-﻿import { APP_BASE_HREF, DOCUMENT } from '@angular/common';
+import { APP_BASE_HREF, DOCUMENT } from '@angular/common';
 
 import {
   ApplicationRef,
@@ -428,30 +428,6 @@ function normalizeGuardResult(
   };
 }
 
-function adaptCanActivate(
-  handlers: readonly CanEnterFn[] | undefined,
-  injector: EnvironmentInjector,
-  registry: RouteRegistry,
-): Route['canActivate'] {
-  return handlers?.map((handler) => async (context) => {
-    const value = await execute(injector, handler, context);
-
-    return normalizeGuardResult(registry, value);
-  });
-}
-
-function adaptCanDeactivate(
-  handlers: readonly CanLeaveFn[] | undefined,
-  injector: EnvironmentInjector,
-  registry: RouteRegistry,
-): Route['canDeactivate'] {
-  return handlers?.map((handler) => async (context) => {
-    const value = await execute(injector, handler, context);
-
-    return normalizeGuardResult(registry, value);
-  });
-}
-
 function adaptFrameBeforeEnter(
   handler: CanEnterFn,
   injector: EnvironmentInjector,
@@ -754,8 +730,6 @@ function adaptRoute(
         component: route.outlet
           ? composeAngularLeafRouteView(appRef, injector, tokens, views)
           : composeAngularRouteView(appRef, injector, tokens, views),
-        canActivate: adaptCanActivate(route.canActivate, injector, registry),
-        canDeactivate: adaptCanDeactivate(route.canDeactivate, injector, registry),
         prepare: [
           ...(sharedPreparers ?? []),
           ...(adaptFramePreparers(

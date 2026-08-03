@@ -1,4 +1,4 @@
-﻿import {
+import {
   ApplicationRef,
   EnvironmentInjector,
   Injector,

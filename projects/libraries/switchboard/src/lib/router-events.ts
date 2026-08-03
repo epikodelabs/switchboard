@@ -1,6 +1,6 @@
-﻿export const OUTLET_ACTIVATE_EVENT = 'vanilla-router-activate';
-export const OUTLET_DEACTIVATE_EVENT = 'vanilla-router-deactivate';
-export const ROUTER_LOCATION_CHANGE_EVENT = 'vanilla-router-locationchange';
+export const OUTLET_ACTIVATE_EVENT = 'switchboard:outlet-activate';
+export const OUTLET_DEACTIVATE_EVENT = 'switchboard:outlet-deactivate';
+export const ROUTER_LOCATION_CHANGE_EVENT = 'switchboard:location-change';
 
 const OUTLET_QUERY = 'router-outlet';
 
@@ -23,7 +23,11 @@ export function dispatchOutletLifecycleEvent(
   type: typeof OUTLET_ACTIVATE_EVENT | typeof OUTLET_DEACTIVATE_EVENT,
   component: unknown,
 ): void {
-  target.dispatchEvent(new CustomEvent(type, { detail: component }));
+  target.dispatchEvent(
+    new CustomEvent(type, {
+      detail: component,
+    }),
+  );
 }
 
 export function dispatchRouterLocationChange(): void {
@@ -31,7 +35,11 @@ export function dispatchRouterLocationChange(): void {
     return;
   }
 
-  window.dispatchEvent(new CustomEvent(ROUTER_LOCATION_CHANGE_EVENT));
+  window.dispatchEvent(
+    new CustomEvent(
+      ROUTER_LOCATION_CHANGE_EVENT,
+    ),
+  );
 }
 
 export function findOutlet(
@@ -65,5 +73,3 @@ export function findContainingOutlet(
 ): HTMLElement | null {
   return node.closest<HTMLElement>(OUTLET_QUERY);
 }
-
-

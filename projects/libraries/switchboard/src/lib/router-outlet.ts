@@ -1,4 +1,4 @@
-﻿import { DestroyRef, Directive, ElementRef, Input, OnInit, inject } from '@angular/core';
+import { DestroyRef, Directive, ElementRef, Input, OnInit, inject } from '@angular/core';
 
 import { Router } from './router';
 

@@ -1,4 +1,3 @@
-
 export interface ScrollPosition {
   readonly x: number;
   readonly y: number;
@@ -128,7 +127,12 @@ export class HistoryManager {
     const previousScroll = this.saveCurrentScroll();
     const previousIndex = this.index;
     const resolvedIndex = this.findHistoryIndexByHref(href);
-    const nextIndex = resolvedIndex >= 0 ? resolvedIndex : previousIndex;
+    const nextIndex =
+      resolvedIndex >= 0
+        ? resolvedIndex
+        : this.entries[previousIndex - 1]
+          ? previousIndex - 1
+          : previousIndex;
     const nextEntry = this.entries[nextIndex]
       ? {
         ...this.entries[nextIndex]!,

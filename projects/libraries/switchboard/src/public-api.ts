@@ -1,3 +1,2 @@
-﻿/** Public API surface of the navigation library. */
+/** Public API surface of the navigation library. */
 export * from './lib';
-

@@ -1,4 +1,4 @@
-﻿import type { EnvironmentProviders, Provider, Type } from '@angular/core';
+import type { EnvironmentProviders, Provider, Type } from '@angular/core';
 import type {
   FrameNavigationTarget,
   NamedNavigationTarget,
@@ -42,23 +42,57 @@ export type CanLeaveFn = (
   route: DeactivationContext,
 ) => MaybePromise<GuardResult>;
 
-export type FramePrepareResult =
-  | void
-  | RouteData;
+export type FramePrepareResult = void | RouteData;
 
-export type FramePrepareFn = (
+export type FramePrepareFn<
+  TResult extends FramePrepareResult = FramePrepareResult,
+> = (
   context: NavigationContext,
-) => MaybePromise<FramePrepareResult>;
+) => MaybePromise<TResult>;
 
-export type FrameAfterEnterFn = (
-  route: ActivatedRoute,
+type AwaitedPrepareResult<TPrepare> =
+  TPrepare extends (...args: never[]) => infer TResult
+    ? Exclude<Awaited<TResult>, void>
+    : never;
+
+type UnionToIntersection<T> =
+  (T extends unknown ? (value: T) => void : never) extends
+    (value: infer TIntersection) => void
+      ? TIntersection
+      : never;
+
+type Simplify<T> = {
+  readonly [TKey in keyof T]: T[TKey];
+};
+
+export type InferPreparedData<
+  TPrepare extends readonly FramePrepareFn[] | undefined,
+> = [TPrepare] extends [readonly FramePrepareFn[]]
+  ? [AwaitedPrepareResult<TPrepare[number]>] extends [never]
+    ? Readonly<Record<string, never>>
+    : Simplify<UnionToIntersection<AwaitedPrepareResult<TPrepare[number]>>>
+  : Readonly<Record<string, never>>;
+
+export type FrameAfterEnterFn<
+  TData extends RouteData = RouteData,
+> = (
+  route: ActivatedRoute<TData>,
 ) => MaybePromise<void>;
 
-export interface FrameHooks {
+export type FrameBeforeLeaveFn<
+  TData extends RouteData = RouteData,
+> = (
+  route: DeactivationContext<TData>,
+) => MaybePromise<GuardResult>;
+
+export interface FrameHooks<
+  TPrepare extends readonly FramePrepareFn[] | undefined =
+    readonly FramePrepareFn[] | undefined,
+> {
   readonly beforeEnter?: readonly CanEnterFn[];
-  readonly beforeLeave?: readonly CanLeaveFn[];
-  readonly prepare?: readonly FramePrepareFn[];
-  readonly afterEnter?: readonly FrameAfterEnterFn[];
+  readonly beforeLeave?: readonly FrameBeforeLeaveFn<InferPreparedData<TPrepare>>[];
+  readonly prepare?: TPrepare;
+  readonly afterEnter?: readonly FrameAfterEnterFn<InferPreparedData<TPrepare>>[];
 }
 
 export interface FrameNavigationOptions {
@@ -82,11 +116,20 @@ export type ViewDefinition =
   | EagerViewDefinition
   | LazyViewDefinition;
 
-export type FrameView =
-  ViewDefinition &
-  FrameHooks & {
-    readonly kind: 'frame';
-  };
+export type FrameView<
+  TData extends RouteData = RouteData,
+> = ViewDefinition & {
+  readonly kind: 'frame';
+  readonly beforeEnter?: readonly CanEnterFn[];
+  readonly beforeLeave?: readonly FrameBeforeLeaveFn<TData>[];
+  readonly prepare?: readonly FramePrepareFn[];
+  readonly afterEnter?: readonly FrameAfterEnterFn<TData>[];
+};
+
+export type InferFrameData<TFrame> =
+  TFrame extends FrameView<infer TData>
+    ? TData
+    : Readonly<Record<string, never>>;
 
 export interface RouteDefinitionBase<
   TPath extends string = string,
@@ -104,8 +147,6 @@ export interface RouteDefinitionBase<
   readonly querySchema?: TQuerySchema;
   readonly data?: Readonly<Record<string, unknown>>;
   readonly providers?: NavigationProviders;
-  readonly canActivate?: readonly CanEnterFn[];
-  readonly canDeactivate?: readonly CanLeaveFn[];
 }
 
 export type RouteOptions<
@@ -213,6 +254,7 @@ export type RenderableRoute<
   TName extends string | undefined = string | undefined,
   TParamsSchema extends ParamSchemaRecord | undefined = ParamSchemaRecord | undefined,
   TQuerySchema extends QuerySchemaRecord | undefined = QuerySchemaRecord | undefined,
+  TFrame extends FrameView<any> | undefined = FrameView<any> | undefined,
 > =
   RouteDefinitionBase<
     TPath,
@@ -221,7 +263,7 @@ export type RenderableRoute<
     TQuerySchema
   > &
   ViewDefinition & {
-  readonly frame?: FrameView;
+  readonly frame?: TFrame;
   readonly frameNavigation?: FrameNavigationOptions;
   readonly redirectTo?: undefined;
 };
@@ -231,6 +273,7 @@ export type RouteDefinition<
   TName extends string | undefined = string | undefined,
   TParamsSchema extends ParamSchemaRecord | undefined = ParamSchemaRecord | undefined,
   TQuerySchema extends QuerySchemaRecord | undefined = QuerySchemaRecord | undefined,
+  TFrame extends FrameView<any> | undefined = FrameView<any> | undefined,
 > =
   | RedirectRouteDefinition<
       TPath,
@@ -240,8 +283,16 @@ export type RouteDefinition<
       TPath,
       TName,
       TParamsSchema,
-      TQuerySchema
+      TQuerySchema,
+      TFrame
     >;
+
+export type InferRoutePreparedData<TRoute> =
+  TRoute extends RenderableRoute<string, string | undefined, any, any, infer TFrame>
+    ? TFrame extends FrameView<any>
+      ? InferFrameData<TFrame>
+      : Readonly<Record<string, never>>
+    : Readonly<Record<string, never>>;
 
 export interface LayoutDefinitionBase<
   TPath extends string = string,
@@ -300,4 +351,3 @@ export type AnyNavigationDefinition =
 export type NavigationSource =
   | NavigationTree
   | AnyNavigationDefinition;
-

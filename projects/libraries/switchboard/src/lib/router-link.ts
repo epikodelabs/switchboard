@@ -1,4 +1,4 @@
-﻿import {
+import {
   DOCUMENT,
 } from '@angular/common';
 
@@ -323,7 +323,3 @@ export class RouterLink implements OnChanges {
     };
   }
 }
-
-
-
-

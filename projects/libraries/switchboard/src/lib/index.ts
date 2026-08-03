@@ -1,9 +1,10 @@
-﻿export * from './navigation-targets';
+export * from './navigation-targets';
 export { RouterOutlet } from './router-outlet';
 export * from './frame-routes';
 export * from './query-schema';
 export * from './route-adapter';
 export * from './route-builders';
+export * from './route-path';
 export { RouterLink } from './router-link';
 export * from './navigation-definitions';
 export * from './router-events';
@@ -42,8 +43,3 @@ export {
     provideRouter, ROUTE,
     ROUTE_CONTEXT, Router, type RouterOptions
 } from './router';
-
-
-
-
-
