@@ -111,12 +111,20 @@ function createLazyViewRecord(
   };
 }
 
+export function view(
+  component: Type<unknown>,
+  hooks?: FrameHooks<undefined>,
+): FrameView<InferPreparedData<undefined>>;
 export function view<
-  const TPrepare extends readonly FramePrepareFn[] | undefined = undefined,
+  const TPrepare extends readonly FramePrepareFn[],
 >(
   component: Type<unknown>,
-  hooks: FrameHooks<TPrepare> = {},
-): FrameView<InferPreparedData<TPrepare>> {
+  hooks: FrameHooks<TPrepare> & { readonly prepare: TPrepare },
+): FrameView<InferPreparedData<TPrepare>>;
+export function view(
+  component: Type<unknown>,
+  hooks: FrameHooks<any> = {},
+): FrameView<any> {
   return {
     kind: 'frame',
     component,
@@ -143,12 +151,20 @@ function normalizeFrameDefinitionOptions<
   return options ?? {};
 }
 
+export function lazyView(
+  loadComponent: Lazy<Type<unknown>>,
+  hooks?: FrameHooks<undefined>,
+): FrameView<InferPreparedData<undefined>>;
 export function lazyView<
-  const TPrepare extends readonly FramePrepareFn[] | undefined = undefined,
+  const TPrepare extends readonly FramePrepareFn[],
 >(
   loadComponent: Lazy<Type<unknown>>,
-  hooks: FrameHooks<TPrepare> = {},
-): FrameView<InferPreparedData<TPrepare>> {
+  hooks: FrameHooks<TPrepare> & { readonly prepare: TPrepare },
+): FrameView<InferPreparedData<TPrepare>>;
+export function lazyView(
+  loadComponent: Lazy<Type<unknown>>,
+  hooks: FrameHooks<any> = {},
+): FrameView<any> {
   return {
     kind: 'frame',
     loadComponent,
@@ -456,46 +472,33 @@ export function layout<
   component: Type<unknown>,
   entries: TEntries,
   options?: LayoutOptions,
-): LayoutDefinition<
-  TPath,
-  TEntries
->;
+): LayoutDefinition<TPath, TEntries, undefined>;
 export function layout<
   const TPath extends string,
   const TEntries extends NavigationTree,
+  const TFrame extends FrameView<any>,
 >(
   path: TPath,
-  component: FrameView,
+  component: TFrame,
   entries: TEntries,
   options?: LayoutOptions,
-): LayoutDefinition<
-  TPath,
-  TEntries
->;
+): LayoutDefinition<TPath, TEntries, TFrame>;
 export function layout<
   const TPath extends string,
   const TEntries extends NavigationTree,
 >(
   path: TPath,
-  component: Type<unknown> | FrameView,
+  component: Type<unknown> | FrameView<any>,
   entries: TEntries,
   options: LayoutOptions = {},
-): LayoutDefinition<
-  TPath,
-  TEntries
-> {
-  const layout: LayoutDefinition<
-    TPath,
-    TEntries
-  > = {
+): LayoutDefinition<TPath, TEntries, any> {
+  return {
     kind: 'layout',
     path,
     ...createViewRecord(component),
     entries,
     ...options,
   };
-
-  return layout;
 }
 
 export function lazyLayout<

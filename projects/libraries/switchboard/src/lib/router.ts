@@ -76,6 +76,8 @@ import {
   type PrepareRouteDataFn,
   type PreloadingStrategy,
   type Route,
+  type RedirectRoute as RuntimeRedirectRoute,
+  type RenderableRoute as RuntimeRenderableRoute,
   type RouteRenderContext,
   type Router as VanillaRouter,
   type RouterState,
@@ -404,40 +406,43 @@ function resolveRedirectTarget(registry: RouteRegistry, target: RedirectTarget):
   return path;
 }
 
-function normalizeGuardResult(
-  registry: RouteRegistry,
-  result: GuardResult,
-):
+type NormalizedGuardResult =
   | boolean
   | string
   | {
       readonly redirectTo: string;
       readonly replace?: boolean;
-    } {
-  if (result === false) {
-    return false;
-  }
+    };
 
-  if (result === true) {
-    return true;
+function normalizeGuardResult(
+  registry: RouteRegistry,
+  result: GuardResult,
+): NormalizedGuardResult {
+  if (result === true || result === false) {
+    return result;
   }
 
   if (
     typeof result === 'string' ||
     result instanceof URL ||
-    (typeof result === 'object' && result !== null && ('name' in result || 'frame' in result))
+    'name' in result ||
+    'frame' in result
   ) {
-    return resolveRedirectTarget(registry, result as RedirectTarget);
+    return resolveRedirectTarget(
+      registry,
+      result,
+    );
   }
 
-  if (typeof result === 'object' && result !== null && 'redirectTo' in result) {
-    return {
-      ...result,
-      redirectTo: resolveRedirectTarget(registry, result.redirectTo),
-    };
-  }
-
-  return null;
+  return {
+    redirectTo: resolveRedirectTarget(
+      registry,
+      result.redirectTo,
+    ),
+    ...(result.replace !== undefined
+      ? { replace: result.replace }
+      : {}),
+  };
 }
 
 function adaptFrameBeforeEnter(
@@ -756,59 +761,96 @@ function adaptRoute(
   };
 }
 
+function isRuntimeRedirectRoute(
+  route: Route,
+): route is RuntimeRedirectRoute {
+  return route.kind === 'redirect'
+    || typeof route.redirectTo === 'string';
+}
+
 function adaptRoutes(
   groups: readonly CompiledRouteGroup[],
   appRef: ApplicationRef,
   injector: EnvironmentInjector,
   registry: RouteRegistry,
 ): Route[] {
-  return groups.map((group: CompiledRouteGroup) => {
-    const sharedPreparers = adaptFramePreparers(
-      group.layouts.map((layout) => layout.frame).filter((frame): frame is FrameView => !!frame),
-      injector,
-    );
+  return groups.map(
+    (group): Route => {
+      const sharedPreparers = adaptFramePreparers(
+        group.layouts
+          .map(layout => layout.frame)
+          .filter(
+            (frame): frame is FrameView<any> =>
+              frame !== undefined,
+          ),
+        injector,
+      );
 
-    const primary = adaptRoute(
-      group.primary.route,
-      group.path,
-      group.primary.redirectTo,
-      group.layouts,
-      sharedPreparers,
-      appRef,
-      injector,
-      registry,
-    );
-
-    const outlets = group.outlets.map((compiled: CompiledRoute) =>
-      adaptRoute(
-        compiled.route,
+      const primary = adaptRoute(
+        group.primary.route,
         group.path,
-        compiled.redirectTo,
+        group.primary.redirectTo,
         group.layouts,
         sharedPreparers,
         appRef,
         injector,
         registry,
-      ),
-    );
+      );
 
-    if (outlets.length === 0) {
-      return primary;
-    }
+      if (isRuntimeRedirectRoute(primary)) {
+        if (group.outlets.length > 0) {
+          throw new Error(
+            `Redirect route "${primary.path}" cannot own named outlets.`,
+          );
+        }
 
-    if (primary.kind === 'redirect') {
-      throw new Error(`Redirect route "${primary.path}" cannot own named outlets.`);
-    }
-
-    const renderableOutlets = outlets.map(outlet => {
-      if (outlet.kind === 'redirect') {
-        throw new Error(`Named outlet for "${primary.path}" cannot be a redirect.`);
+        return primary;
       }
-      return outlet;
-    });
 
-    return { ...primary, outlets: Object.freeze(renderableOutlets) };
-  });
+      if (group.outlets.length === 0) {
+        return primary;
+      }
+
+      const outlets = group.outlets.map(
+        (compiled): RuntimeRenderableRoute => {
+          const outlet = adaptRoute(
+            compiled.route,
+            group.path,
+            compiled.redirectTo,
+            group.layouts,
+            sharedPreparers,
+            appRef,
+            injector,
+            registry,
+          );
+
+          if (isRuntimeRedirectRoute(outlet)) {
+            throw new Error(
+              `Named outlet for "${primary.path}" cannot be a redirect.`,
+            );
+          }
+
+          return outlet;
+        },
+      );
+
+      return {
+        kind: 'route',
+        name: primary.name,
+        path: primary.path,
+        sourceRoute: primary.sourceRoute,
+        data: primary.data,
+        outlet: primary.outlet,
+        load: primary.load,
+        preload: primary.preload,
+        viewTransition: primary.viewTransition,
+        canActivate: primary.canActivate,
+        canDeactivate: primary.canDeactivate,
+        prepare: primary.prepare,
+        outlets: Object.freeze(outlets),
+      };
+    },
+  );
 }
 
 function interpolateNamedPath(
