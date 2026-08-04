@@ -164,7 +164,7 @@ export function frame<
     QuerySchemaRecord | undefined = undefined,
 >(
   id: TId,
-  component: Type<unknown> | FrameView,
+  component: Type<unknown> | FrameView<any>,
   options?: FrameDefinitionOptions<
     TParamsSchema,
     TQuerySchema
@@ -441,7 +441,7 @@ export function redirectRoute<
   TName
 > {
   return {
-    kind: 'route',
+    kind: 'redirect',
     path,
     redirectTo,
     ...options,

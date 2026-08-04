@@ -44,7 +44,8 @@ type FrameParamsSchema<TFrame> =
   TFrame extends FrameDefinition<
     string,
     infer TParamsSchema,
-    QuerySchemaRecord | undefined
+    QuerySchemaRecord | undefined,
+    any
   >
     ? TParamsSchema
     : undefined;
@@ -53,7 +54,8 @@ type FrameQuerySchema<TFrame> =
   TFrame extends FrameDefinition<
     string,
     ParamSchemaRecord | undefined,
-    infer TQuerySchema
+    infer TQuerySchema,
+    any
   >
     ? TQuerySchema
     : undefined;
@@ -99,7 +101,7 @@ type ResolveNavigationEntries<
   TSource extends NavigationSource,
 > =
   TSource extends NavigationDefinition<
-    readonly FrameDefinition<any, any, any>[],
+    readonly FrameDefinition<any, any, any, any>[],
     infer TEntries
   >
     ? TEntries
@@ -159,7 +161,7 @@ export type InferRouteParams<TRoute> =
       ? InferParamType<TParamsSchema>
       : [ExtractPathParams<TPath>] extends [never]
         ? Record<string, never>
-        : Record<ExtractPathParams<TPath>, string | number>
+        : Record<ExtractPathParams<TPath>, string>
     : Record<string, unknown>;
 
 /**
@@ -243,3 +245,77 @@ export type TypedHref<
     options?: RouteOptionsByName<TSource, K>,
   ) => string | null;
 };
+
+type FrameViewData<TView> =
+  TView extends import('./navigation-definitions').FrameView<infer TData extends import('./vanilla-router').RouteData>
+    ? TData
+    : Readonly<Record<string, never>>;
+
+type MergePrepared<TLeft, TRight> = {
+  readonly [TKey in keyof TLeft | keyof TRight]:
+    TKey extends keyof TRight
+      ? TRight[TKey]
+      : TKey extends keyof TLeft
+        ? TLeft[TKey]
+        : never;
+};
+
+type EntryPreparedData<
+  TEntry,
+  TName extends string,
+  TParent = Readonly<Record<string, never>>,
+> =
+  TEntry extends import('./navigation-definitions').LayoutDefinition<
+    string,
+    infer TEntries extends NavigationTree,
+    infer TView extends import('./navigation-definitions').FrameView<any>
+  >
+    ? NavigationPreparedDataFromTree<
+        TEntries,
+        TName,
+        MergePrepared<TParent, FrameViewData<TView>>
+      >
+    : TEntry extends import('./navigation-definitions').AddressDefinition<
+        string,
+        infer TFrame extends import('./navigation-definitions').FrameDefinition<any, any, any, any>,
+        any,
+        any
+      >
+      ? TFrame['id'] extends TName
+        ? MergePrepared<TParent, FrameViewData<TFrame['view']>>
+        : never
+      : TEntry extends import('./navigation-definitions').FrameRouteDefinition<
+          string,
+          infer TRouteName extends string | undefined,
+          any,
+          any,
+          any
+        >
+        ? TRouteName extends TName
+          ? MergePrepared<TParent, FrameViewData<TEntry['view']>>
+          : never
+        : TEntry extends import('./navigation-definitions').RenderableRoute<
+            string,
+            infer TRouteName extends string | undefined,
+            any,
+            any,
+            infer TFrame extends import('./navigation-definitions').FrameView<any>
+          >
+          ? TRouteName extends TName
+            ? MergePrepared<TParent, FrameViewData<TFrame>>
+            : never
+          : never;
+
+type NavigationPreparedDataFromTree<
+  TTree extends NavigationTree,
+  TName extends string,
+  TParent = Readonly<Record<string, never>>,
+> = EntryPreparedData<TTree[number], TName, TParent>;
+
+export type InferNavigationPreparedData<
+  TSource extends NavigationSource,
+  TName extends ExtractRouteNames<TSource>,
+> = NavigationPreparedDataFromTree<
+  ResolveNavigationEntries<TSource>,
+  TName
+>;

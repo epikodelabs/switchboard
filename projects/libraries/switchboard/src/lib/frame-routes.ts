@@ -25,12 +25,13 @@ export function frameOutlet<
 
 export function frameRoute<
   const TPath extends string,
+  const TView extends FrameView<any>,
   const TName extends string | undefined = undefined,
   const TParamsSchema extends ParamSchemaRecord | undefined = undefined,
   const TQuerySchema extends QuerySchemaRecord | undefined = undefined,
 >(
   path: TPath,
-  view: FrameView,
+  view: TView,
   options: RouteOptions<
     TName,
     TParamsSchema,
@@ -41,7 +42,8 @@ export function frameRoute<
   TPath,
   TName,
   TParamsSchema,
-  TQuerySchema
+  TQuerySchema,
+  TView
 > {
   return {
     kind: 'frame-route',

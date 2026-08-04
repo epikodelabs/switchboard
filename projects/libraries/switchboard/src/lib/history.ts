@@ -4,6 +4,7 @@ export interface ScrollPosition {
 }
 
 export interface HistoryEntry {
+  readonly id: number;
   readonly href: string;
   readonly scroll: ScrollPosition;
   readonly state: unknown;
@@ -28,10 +29,15 @@ export class HistoryManager {
       typeof window === 'undefined'
         ? { pathname: '/', search: '', hash: '' }
         : window.location,
+    private readonly decorateState: (state: unknown, entryId: number) => unknown =
+      state => state,
+    private readonly readEntryId: (state: unknown) => number | null =
+      () => null,
   ) {}
 
   private entries: HistoryEntry[] = [];
   private index = -1;
+  private nextId = 1;
 
   private get currentHref(): string {
     return this.location.pathname + this.location.search + this.location.hash;
@@ -48,31 +54,31 @@ export class HistoryManager {
     return this.browserWindow?.history.state ?? null;
   }
 
+  private allocateId(): number {
+    return this.nextId++;
+  }
+
   private ensureHistoryEntry(): void {
-    if (this.entries.length > 0) {
-      return;
-    }
+    if (this.entries.length > 0) return;
+
+    const browserState = this.readHistoryState();
+    const existingId = this.readEntryId(browserState);
+    const id = existingId ?? this.allocateId();
+    this.nextId = Math.max(this.nextId, id + 1);
 
     this.entries = [{
+      id,
       href: this.currentHref,
       scroll: this.readScroll(),
-      state: this.readHistoryState(),
+      state: this.decorateState(browserState, id),
     }];
     this.index = 0;
   }
 
   private saveCurrentScroll(): ScrollPosition {
     const scroll = this.readScroll();
-    if (this.index >= 0) {
-      const entry = this.entries[this.index];
-      if (entry) {
-        this.entries[this.index] = {
-          href: entry.href,
-          scroll,
-          state: entry.state,
-        };
-      }
-    }
+    const entry = this.entries[this.index];
+    if (entry) this.entries[this.index] = { ...entry, scroll };
     return scroll;
   }
 
@@ -84,6 +90,7 @@ export class HistoryManager {
       nextIndex: this.index,
       previousScroll: this.readScroll(),
       previousEntry: this.entries[this.index],
+      nextEntry: this.entries[this.index],
     };
   }
 
@@ -91,34 +98,26 @@ export class HistoryManager {
     this.ensureHistoryEntry();
     const previousScroll = this.saveCurrentScroll();
     const previousIndex = this.index;
+    const current = this.entries[this.index];
+    const id = replace && current ? current.id : this.allocateId();
     const nextEntry: HistoryEntry = {
+      id,
       href,
       scroll: replace ? previousScroll : ZERO_SCROLL,
-      state: state ?? null,
+      state: this.decorateState(state, id),
     };
 
     if (replace) {
       const previousEntry = this.entries[this.index];
       this.entries[this.index] = nextEntry;
-      return {
-        type: 'replace',
-        previousIndex,
-        nextIndex: this.index,
-        previousEntry,
-        previousScroll,
-        nextEntry,
-      };
+      return { type: 'replace', previousIndex, nextIndex: this.index, previousEntry, previousScroll, nextEntry };
     }
 
     this.entries = this.entries.slice(0, this.index + 1);
     this.entries.push(nextEntry);
     return {
-      type: 'push',
-      previousIndex,
-      nextIndex: this.index + 1,
-      previousScroll,
-      previousEntry: this.entries[previousIndex],
-      nextEntry,
+      type: 'push', previousIndex, nextIndex: this.index + 1, previousScroll,
+      previousEntry: this.entries[previousIndex], nextEntry,
     };
   }
 
@@ -126,65 +125,37 @@ export class HistoryManager {
     this.ensureHistoryEntry();
     const previousScroll = this.saveCurrentScroll();
     const previousIndex = this.index;
-    const resolvedIndex = this.findHistoryIndexByHref(href);
-    const nextIndex =
-      resolvedIndex >= 0
-        ? resolvedIndex
-        : this.entries[previousIndex - 1]
-          ? previousIndex - 1
-          : previousIndex;
-    const nextEntry = this.entries[nextIndex]
-      ? {
-        ...this.entries[nextIndex]!,
-        href,
-        state: this.readHistoryState(),
-      }
-      : {
-        href,
-        scroll: ZERO_SCROLL,
-        state: this.readHistoryState(),
-      };
+    const browserState = this.readHistoryState();
+    const entryId = this.readEntryId(browserState);
+    const resolvedIndex = entryId === null
+      ? this.findHistoryIndexByHref(href)
+      : this.entries.findIndex(entry => entry.id === entryId);
+    const nextIndex = resolvedIndex >= 0 ? resolvedIndex : previousIndex;
+    const existing = this.entries[nextIndex];
+    const id = entryId ?? existing?.id ?? this.allocateId();
+    const nextEntry: HistoryEntry = existing
+      ? { ...existing, id, href, state: this.decorateState(browserState, id) }
+      : { id, href, scroll: ZERO_SCROLL, state: this.decorateState(browserState, id) };
 
     return {
-      type: 'popstate',
-      previousIndex,
-      nextIndex,
-      previousScroll,
-      previousEntry: this.entries[previousIndex],
-      nextEntry,
+      type: 'popstate', previousIndex, nextIndex, previousScroll,
+      previousEntry: this.entries[previousIndex], nextEntry,
     };
   }
 
   private findHistoryIndexByHref(href: string): number {
-    if (this.entries.length === 0) {
-      return -1;
-    }
-
     const previous = this.entries[this.index - 1];
-    if (previous?.href === href) {
-      return this.index - 1;
-    }
-
+    if (previous?.href === href) return this.index - 1;
     const next = this.entries[this.index + 1];
-    if (next?.href === href) {
-      return this.index + 1;
-    }
+    if (next?.href === href) return this.index + 1;
 
     let bestIndex = -1;
     let bestDistance = Number.POSITIVE_INFINITY;
-
     for (let index = 0; index < this.entries.length; index++) {
-      if (this.entries[index]?.href !== href || index === this.index) {
-        continue;
-      }
-
+      if (this.entries[index]?.href !== href || index === this.index) continue;
       const distance = Math.abs(index - this.index);
-      if (distance < bestDistance) {
-        bestIndex = index;
-        bestDistance = distance;
-      }
+      if (distance < bestDistance) { bestIndex = index; bestDistance = distance; }
     }
-
     return bestIndex;
   }
 
@@ -209,10 +180,12 @@ export class HistoryManager {
 
   commitUpdate(update: HistoryUpdate, href: string): void {
     this.index = update.nextIndex;
+    const previous = this.entries[this.index];
     this.entries[this.index] = update.nextEntry ?? {
+      id: previous?.id ?? this.allocateId(),
       href,
       scroll: update.type === 'replace' ? update.previousScroll : ZERO_SCROLL,
-      state: null,
+      state: this.decorateState(null, previous?.id ?? this.nextId - 1),
     };
   }
 }

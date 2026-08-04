@@ -220,6 +220,10 @@ function buildNamedNavigationPath(
     return null;
   }
 
+  if (record.route.kind === 'redirect') {
+    return null;
+  }
+
   const path = interpolateNamedPath(
     record.fullPath,
     target.params ?? {},
@@ -323,6 +327,10 @@ function buildFrameNavigationInstruction(
       : null;
   }
 
+  if (frameRecord.route.kind === 'redirect') {
+    return null;
+  }
+
   const url = new URL(frameRecord.matchPath, 'https://switchboard.internal');
   const params = target.params;
 
@@ -422,10 +430,14 @@ function normalizeGuardResult(
     return resolveRedirectTarget(registry, result as RedirectTarget);
   }
 
-  return {
-    ...result,
-    redirectTo: resolveRedirectTarget(registry, result.redirectTo),
-  };
+  if (typeof result === 'object' && result !== null && 'redirectTo' in result) {
+    return {
+      ...result,
+      redirectTo: resolveRedirectTarget(registry, result.redirectTo),
+    };
+  }
+
+  return null;
 }
 
 function adaptFrameBeforeEnter(
@@ -522,7 +534,7 @@ function adaptFrameTransitions(
   for (const group of groups) {
     const primaryRoute = group.primary.route;
 
-    if (primaryRoute.redirectTo) {
+    if (primaryRoute.kind === 'redirect') {
       continue;
     }
 
@@ -637,7 +649,7 @@ function adaptFrameGraphTransitions(
 }
 
 function adaptParamsParser(
-  route: RouteDefinition,
+  route: RenderableRoute,
   injector: EnvironmentInjector,
 ): LoadedRoute['parseParams'] {
   const schema = route.paramsSchema;
@@ -655,7 +667,7 @@ function adaptParamsParser(
 }
 
 function adaptQueryParser(
-  route: RouteDefinition,
+  route: RenderableRoute,
   injector: EnvironmentInjector,
 ): LoadedRoute['parseQuery'] {
   const schema = route.querySchema;
@@ -703,39 +715,39 @@ function adaptRoute(
   injector: EnvironmentInjector,
   registry: RouteRegistry,
 ): Route {
+  if (route.kind === 'redirect') {
+    return {
+      kind: 'redirect',
+      name: route.name,
+      path,
+      sourceRoute: route,
+      redirectTo: redirectTo ?? route.redirectTo,
+    };
+  }
+
   const tokens = {
     routeToken: ROUTE,
     contextToken: ROUTE_CONTEXT,
   } as const;
-  const renderableRoute = redirectTo ? null : (route as RenderableRoute);
 
   return {
+    kind: 'route',
     name: route.name,
     path,
     outlet: route.outlet,
     sourceRoute: route,
-    redirectTo,
     data: route.data,
     preload: route.preload,
     viewTransition: route.viewTransition,
-
     load: async () => {
-      if (redirectTo) {
-        return {};
-      }
-
-      const views = await resolveViews(layouts, renderableRoute!);
-
+      const views = await resolveViews(layouts, route);
       return {
         component: route.outlet
           ? composeAngularLeafRouteView(appRef, injector, tokens, views)
           : composeAngularRouteView(appRef, injector, tokens, views),
         prepare: [
           ...(sharedPreparers ?? []),
-          ...(adaptFramePreparers(
-            renderableRoute?.frame ? [renderableRoute.frame] : [],
-            injector,
-          ) ?? []),
+          ...(adaptFramePreparers(route.frame ? [route.frame] : [], injector) ?? []),
         ],
         parseParams: adaptParamsParser(route, injector),
         parseQuery: adaptQueryParser(route, injector),
@@ -780,14 +792,29 @@ function adaptRoutes(
       ),
     );
 
-    return outlets.length > 0 ? { ...primary, outlets: Object.freeze(outlets) } : primary;
+    if (outlets.length === 0) {
+      return primary;
+    }
+
+    if (primary.kind === 'redirect') {
+      throw new Error(`Redirect route "${primary.path}" cannot own named outlets.`);
+    }
+
+    const renderableOutlets = outlets.map(outlet => {
+      if (outlet.kind === 'redirect') {
+        throw new Error(`Named outlet for "${primary.path}" cannot be a redirect.`);
+      }
+      return outlet;
+    });
+
+    return { ...primary, outlets: Object.freeze(renderableOutlets) };
   });
 }
 
 function interpolateNamedPath(
   template: string,
   params: Readonly<Record<string, unknown>>,
-  schema: RouteDefinition['paramsSchema'],
+  schema: ParamSchemaRecord | undefined,
 ): string | null {
   const serialized = schema
     ? serializeParams(schema, params as unknown as InferParamType<ParamSchemaRecord>)

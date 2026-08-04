@@ -175,22 +175,24 @@ export interface FrameDefinitionOptions
 
 export interface FrameOutlet<
   TOutlet extends string = string,
+  TView extends FrameView<any> = FrameView<any>,
 > {
   readonly outlet: TOutlet;
-  readonly view: FrameView;
+  readonly view: TView;
 }
 
 export interface FrameDefinition<
   TId extends string = string,
   TParamsSchema extends ParamSchemaRecord | undefined = undefined,
   TQuerySchema extends QuerySchemaRecord | undefined = undefined,
+  TView extends FrameView<any> = FrameView<any>,
 > extends FrameDefinitionOptions<
     TParamsSchema,
     TQuerySchema
   > {
   readonly kind: 'defined-frame';
   readonly id: TId;
-  readonly view: FrameView;
+  readonly view: TView;
 }
 
 export type AddressOptions<
@@ -208,7 +210,7 @@ export type AddressOptions<
 
 export interface AddressDefinition<
   TPath extends string = string,
-  TFrame extends FrameDefinition<any, any, any> = FrameDefinition<any, any, any>,
+  TFrame extends FrameDefinition<any, any, any, any> = FrameDefinition<any, any, any, any>,
   TParamsSchema extends ParamSchemaRecord | undefined = ParamSchemaRecord | undefined,
   TQuerySchema extends QuerySchemaRecord | undefined = QuerySchemaRecord | undefined,
 > extends AddressOptions<
@@ -226,6 +228,7 @@ export interface FrameRouteDefinition<
   TName extends string | undefined = string | undefined,
   TParamsSchema extends ParamSchemaRecord | undefined = ParamSchemaRecord | undefined,
   TQuerySchema extends QuerySchemaRecord | undefined = QuerySchemaRecord | undefined,
+  TView extends FrameView<any> = FrameView<any>,
 > extends RouteOptions<
     TName,
     TParamsSchema,
@@ -233,21 +236,21 @@ export interface FrameRouteDefinition<
   > {
   readonly kind: 'frame-route';
   readonly path: TPath;
-  readonly view: FrameView;
+  readonly view: TView;
   readonly outlets?: readonly FrameOutlet[];
 }
 
-export interface RedirectRouteDefinition<
+export type RedirectRouteDefinition<
   TPath extends string = string,
   TName extends string | undefined = string | undefined,
-> extends RouteDefinitionBase<
-    TPath,
-    TName,
-    undefined,
-    undefined
-  > {
+> = Omit<
+  RouteDefinitionBase<TPath, TName, undefined, undefined>,
+  'kind' | 'outlet' | 'preload' | 'viewTransition' |
+  'paramsSchema' | 'querySchema' | 'data' | 'providers'
+> & {
+  readonly kind: 'redirect';
   readonly redirectTo: string;
-}
+};
 
 export type RenderableRoute<
   TPath extends string = string,
@@ -312,21 +315,22 @@ export type LayoutOptions = Omit<
 export type LayoutDefinition<
   TPath extends string = string,
   TEntries extends NavigationTree = NavigationTree,
+  TFrame extends FrameView<any> | undefined = FrameView<any> | undefined,
 > =
   LayoutDefinitionBase<
     TPath,
     TEntries
   > &
   ViewDefinition & {
-    readonly frame?: FrameView;
+    readonly frame?: TFrame;
   };
 
 // Any-instantiated route/layout primitives to avoid undefined-widening issues
 export type AnyRouteDefinition = RouteDefinition<any, any, any, any>;
-export type AnyLayoutDefinition = LayoutDefinition<any, any>;
-export type AnyFrameDefinition = FrameDefinition<any, any, any>;
+export type AnyLayoutDefinition = LayoutDefinition<any, any, any>;
+export type AnyFrameDefinition = FrameDefinition<any, any, any, any>;
 export type AnyAddressDefinition = AddressDefinition<any, any, any, any>;
-export type AnyFrameRouteDefinition = FrameRouteDefinition<any, any, any, any>;
+export type AnyFrameRouteDefinition = FrameRouteDefinition<any, any, any, any, any>;
 
 export type NavigationEntry =
   | AnyRouteDefinition

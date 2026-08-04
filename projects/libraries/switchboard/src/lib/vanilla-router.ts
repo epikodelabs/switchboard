@@ -113,21 +113,43 @@ export interface LoadedRoute {
   readonly parseQuery?: ParseRouteQuery;
 }
 
-export interface Route {
-  name?: string;
-  path: string;
-  outlet?: string;
-  sourceRoute?: unknown;
-  /** Same-path named outlets activated atomically with this primary route. */
-  outlets?: readonly Route[];
-  load?: () => MaybePromise<LoadedRoute>;
-  redirectTo?: string;
-  data?: Record<string, unknown>;
-  preload?: boolean;
-  viewTransition?: boolean;
-  canActivate?: CanActivateFn[];
-  canDeactivate?: CanDeactivateFn[];
-  prepare?: readonly PrepareRouteDataFn[];
+export interface RouteBase {
+  readonly name?: string;
+  readonly path: string;
+  readonly sourceRoute?: unknown;
+  readonly data?: Record<string, unknown>;
+}
+
+export interface RedirectRoute extends RouteBase {
+  readonly kind?: 'redirect';
+  readonly redirectTo: string;
+  readonly outlet?: never;
+  readonly outlets?: never;
+  readonly load?: never;
+  readonly preload?: never;
+  readonly viewTransition?: never;
+  readonly canActivate?: never;
+  readonly canDeactivate?: never;
+  readonly prepare?: never;
+}
+
+export interface RenderableRoute extends RouteBase {
+  readonly kind?: 'route';
+  readonly outlet?: string;
+  readonly outlets?: readonly RenderableRoute[];
+  readonly load?: () => MaybePromise<LoadedRoute>;
+  readonly redirectTo?: never;
+  readonly preload?: boolean;
+  readonly viewTransition?: boolean;
+  readonly canActivate?: CanActivateFn[];
+  readonly canDeactivate?: CanDeactivateFn[];
+  readonly prepare?: readonly PrepareRouteDataFn[];
+}
+
+export type Route = RedirectRoute | RenderableRoute;
+
+function isRedirectRoute(route: Route): route is RedirectRoute {
+  return route.kind === 'redirect' || typeof route.redirectTo === 'string';
 }
 
 export interface NavigationTransition {
@@ -236,20 +258,23 @@ const INTERNAL_HISTORY_STATE_KEY =
 interface InternalHistoryStateEnvelope {
   readonly userState: unknown;
   readonly matchHref?: string;
+  readonly entryId?: number;
 }
 
 function createHistoryStateEnvelope(
   userState: unknown,
   matchHref?: string,
+  entryId?: number,
 ): unknown {
-  if (!matchHref) {
+  if (!matchHref && entryId === undefined) {
     return userState ?? null;
   }
 
   return {
     [INTERNAL_HISTORY_STATE_KEY]: {
       userState: userState ?? null,
-      matchHref,
+      ...(matchHref ? { matchHref } : {}),
+      ...(entryId !== undefined ? { entryId } : {}),
     } satisfies InternalHistoryStateEnvelope,
   };
 }
@@ -580,7 +605,7 @@ function validateRouteGroups(routes: readonly Route[]): void {
       if (outlet.outlets?.length) {
         throw new Error(`Outlet "${name}" cannot contain nested outlets`);
       }
-      if (outlet.redirectTo) {
+      if (isRedirectRoute(outlet as Route)) {
         throw new Error(`Outlet "${name}" cannot redirect`);
       }
       if (outlet.name) {
@@ -598,7 +623,7 @@ function validateRouteGroups(routes: readonly Route[]): void {
       }
     }
 
-    if (primary.redirectTo && outletNames.size > 0) {
+    if (isRedirectRoute(primary) && outletNames.size > 0) {
       throw new Error(
         `Redirect route "${primary.path}" cannot activate named outlets`,
       );
@@ -663,6 +688,8 @@ export function createRouter(config: RouterConfig): Router {
       get search() { return routerLocation().search; },
       get hash() { return routerLocation().hash; },
     },
+    state => state,
+    state => readHistoryStateEnvelope(state).entryId ?? null,
   );
   const routePatterns = new WeakMap<Route, RoutePattern>();
 
@@ -784,7 +811,7 @@ export function createRouter(config: RouterConfig): Router {
       data: EMPTY_DATA,
       historyState:
         readUserHistoryState(),
-      config: config.routes[0] ?? { path: '**' },
+      config: config.routes[0] ?? { kind: 'route', path: '**' },
     };
   }
 
@@ -973,11 +1000,13 @@ export function createRouter(config: RouterConfig): Router {
     }
 
     const entry = history.createDefaultUpdate().previousEntry ?? {
+      id: 0,
       href: currentHref(),
       scroll: readScroll(),
       state: readBrowserHistoryState(),
     };
     const nextEntry: HistoryEntry = {
+      id: entry.id,
       href: entry.href,
       scroll: readScroll(),
       state: createHistoryStateEnvelope(
@@ -1396,13 +1425,8 @@ export function createRouter(config: RouterConfig): Router {
     }
 
     const primaryRoute = match.route;
-    const routes = [primaryRoute, ...(primaryRoute.outlets ?? [])];
-    const historyState =
-      readUserHistoryState(
-        request.historyUpdate.nextEntry?.state,
-      );
 
-    if (primaryRoute.redirectTo) {
+    if (isRedirectRoute(primaryRoute)) {
       return {
         type: 'redirect',
         request,
@@ -1410,6 +1434,15 @@ export function createRouter(config: RouterConfig): Router {
         replace: true,
       };
     }
+
+    const routes: readonly RenderableRoute[] = [
+      primaryRoute,
+      ...(primaryRoute.outlets ?? []),
+    ];
+    const historyState =
+      readUserHistoryState(
+        request.historyUpdate.nextEntry?.state,
+      );
 
     let loadedRoutes: LoadedRoute[];
     try {
@@ -1773,7 +1806,7 @@ export function createRouter(config: RouterConfig): Router {
               ? 'replaceState'
               : 'pushState'
           ](
-            historyState,
+            historyUpdate.nextEntry?.state ?? historyState,
             '',
             href,
           );
@@ -1984,7 +2017,7 @@ export function createRouter(config: RouterConfig): Router {
               : undefined,
           );
         const historyUpdate = history.createUpdate(href, result.replace, historyState);
-        browserWindow?.history[result.replace ? 'replaceState' : 'pushState'](historyState, '', href);
+        browserWindow?.history[result.replace ? 'replaceState' : 'pushState'](historyUpdate.nextEntry?.state ?? historyState, '', href);
         dispatchRouterLocationChange();
         void requestNavigation(
           displayUrl,
@@ -2182,7 +2215,7 @@ export function createRouter(config: RouterConfig): Router {
           : undefined,
       );
     const historyUpdate = history.createUpdate(href, options.replace ?? false, historyState);
-    browserWindow?.history[options.replace ? 'replaceState' : 'pushState'](historyState, '', href);
+    browserWindow?.history[options.replace ? 'replaceState' : 'pushState'](historyUpdate.nextEntry?.state ?? historyState, '', href);
     dispatchRouterLocationChange();
     return requestNavigation(
       displayUrl,
