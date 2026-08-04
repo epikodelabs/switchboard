@@ -1129,6 +1129,10 @@ export class Router<TRoutes extends NavigationSource = any> {
     return null;
   }
 
+  revalidate(): Promise<boolean> {
+    return this.requireEngine().revalidate();
+  }
+
   updateHistoryState(state: unknown): void {
     this.requireEngine().updateHistoryState(state);
   }

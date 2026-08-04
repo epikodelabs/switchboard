@@ -221,6 +221,7 @@ export interface Router {
   dispose(): void;
   navigate(target: string | URL, options?: NavigationOptions): Promise<boolean>;
   replace(target: string | URL, state?: unknown): Promise<boolean>;
+  revalidate(): Promise<boolean>;
   updateHistoryState(state: unknown): void;
   preload(): Promise<void>;
   back(): void;
@@ -2230,6 +2231,40 @@ export function createRouter(config: RouterConfig): Router {
     return navigate(target, { replace: true, state });
   }
 
+  function revalidate(): Promise<boolean> {
+    if (disposed) {
+      throw new Error('Cannot revalidate with a disposed router');
+    }
+
+    const location = routerLocation();
+    const displayUrl = new URL(location.href);
+    const matchUrl = currentState?.matchUrl ?? displayUrl;
+
+    if (displayUrl.origin !== location.origin) {
+      return requestExternalNavigation(
+        displayUrl,
+        undefined,
+        history.createDefaultUpdate(),
+      );
+    }
+
+    if (!isInsideBase(displayUrl.pathname)) {
+      throw new Error(
+        `URL "${displayUrl.pathname}" is outside router base "${baseHref}"`,
+      );
+    }
+
+    // Keep both the visible address and Switchboard's internal match address,
+    // while bypassing same-URL suppression and avoiding a history mutation.
+    return requestNavigation(
+      displayUrl,
+      matchUrl,
+      0,
+      undefined,
+      history.createDefaultUpdate(),
+    );
+  }
+
   function startRouter(): void {
     if (disposed) {
       throw new Error(
@@ -2384,6 +2419,7 @@ export function createRouter(config: RouterConfig): Router {
     },
     navigate: (target, options) => navigate(target, options),
     replace: (target, state) => replace(target, state),
+    revalidate: () => revalidate(),
     updateHistoryState: (state) => updateHistoryState(state),
     preload: () => preload(),
     back: () => browserWindow?.history.back(),
