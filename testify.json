@@ -21,13 +21,6 @@
     "preserveModules": false,
     "preserveModulesRoot": "."
   },
-  "viteConfig": {
-    "resolve": {
-      "alias": {
-        "@epikodelabs/switchboard": "./projects/libraries/switchboard/src/public-api.ts"
-      }
-    }
-  },
   "jasmineConfig": {
     "env": {
       "stopSpecOnExpectationFailure": false,
