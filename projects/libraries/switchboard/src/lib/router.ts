@@ -13,9 +13,20 @@ import {
 
 import { runWithInjector, unwrapDefault } from './adapter-utils';
 
-import type { NamedNavigationTarget, NavigationTarget } from './navigation-targets';
+import type {
+  FrameNavigationTarget,
+  NamedNavigationTarget,
+  NavigationTarget,
+} from './navigation-targets';
 
-import { CompiledRoute, CompiledRouteGroup, createRouteRegistry } from './route-compiler';
+import {
+  CompiledRoute,
+  CompiledRouteGroup,
+  createRouteRegistry,
+  type FrameRouteRegistry,
+  type FrameRouteRegistryRecord,
+  type RouteRegistry,
+} from './route-compiler';
 
 import {
   composeAngularLeafRouteView,
@@ -26,18 +37,21 @@ import {
 import type {
   FramePrepareFn,
   MaybePromise,
+  CanEnterFn,
+  CanLeaveFn,
   FrameView,
   LayoutDefinition,
   LayoutOptions,
-  RedirectRouteDefinition,
   RenderableRoute,
+  RedirectRouteDefinition,
+  GuardResult,
+  RedirectTarget,
   RouteDefinition,
   RouteOptions,
-  NavigationTree,
+  NavigationSource,
 } from './navigation-definitions';
 
 import type { TypedHref, TypedNavigate } from './typed-navigation';
-import type { RouteRuntime } from './route-runtime';
 
 import { OUTLET_ACTIVATE_EVENT, dispatchOutletLifecycleEvent } from './router-events';
 
@@ -53,8 +67,7 @@ import {
 } from './query-schema';
 
 import {
-  type CanActivateFn,
-  type CanDeactivateFn,
+  LoadedRoute,
   createRouter,
   type ActivatedRoute,
   type NavigationTransitionFn,
@@ -63,9 +76,9 @@ import {
   type NavigationTransitionDefinition,
   type PrepareRouteDataFn,
   type PreloadingStrategy,
-  type RedirectRoute,
-  type RenderableRoute as RuntimeRenderableRoute,
   type Route,
+  type RedirectRoute as RuntimeRedirectRoute,
+  type RenderableRoute as RuntimeRenderableRoute,
   type RouteRenderContext,
   type Router as VanillaRouter,
   type RouterState,
@@ -87,8 +100,17 @@ export const ROUTE = new InjectionToken<ActivatedRoute>('ROUTE');
 
 export const ROUTE_CONTEXT = new InjectionToken<RouteRenderContext>('ROUTE_CONTEXT');
 
+const INTERNAL_FRAME_PATH_PREFIX = '/.switchboard/frames/';
+const INTERNAL_FRAME_PARAM_PREFIX = '__frame_param_';
+
+interface ResolvedNavigationInstruction {
+  readonly matchTarget: string;
+  readonly displayTarget?: string | URL;
+  readonly href: string | null;
+}
+
 interface RouterConfiguration<
-  TRoutes extends NavigationTree = NavigationTree,
+  TRoutes extends NavigationSource = NavigationSource,
 > extends RouterOptions {
   readonly routes: TRoutes;
 }
@@ -160,6 +182,29 @@ function snapshotRouterState(state: RouterState): RouterState {
   });
 }
 
+function replaceChildNodes(
+  target: Node & {
+    replaceChildren?: (...nodes: Node[]) => void;
+    firstChild: ChildNode | null;
+    removeChild(node: ChildNode): void;
+    appendChild<T extends Node>(node: T): T;
+  },
+  ...nodes: Node[]
+): void {
+  if (typeof target.replaceChildren === 'function') {
+    target.replaceChildren(...nodes);
+    return;
+  }
+
+  while (target.firstChild) {
+    target.removeChild(target.firstChild);
+  }
+
+  for (const node of nodes) {
+    target.appendChild(node);
+  }
+}
+
 function execute<TContext, TResult>(
   injector: EnvironmentInjector,
   handler: (context: TContext) => MaybePromise<TResult>,
@@ -168,31 +213,272 @@ function execute<TContext, TResult>(
   return runWithInjector(injector, handler, context);
 }
 
-function adaptFrameBeforeEnter(
-  handler: CanActivateFn,
-  injector: EnvironmentInjector,
-): NavigationTransitionFn {
-  return (transition) =>
-    execute(injector, handler, {
-      ...transition.to,
-      signal: transition.signal,
+function buildNamedNavigationPath(
+  registry: RouteRegistry,
+  target: NamedNavigationTarget,
+): string | null {
+  const record = registry.namedRoutes.get(target.name);
+
+  if (!record) {
+    return null;
+  }
+
+  if (record.route.kind === 'redirect') {
+    return null;
+  }
+
+  const path = interpolateNamedPath(
+    record.fullPath,
+    target.params ?? {},
+    record.route.paramsSchema,
+  );
+
+  if (!path) {
+    return null;
+  }
+
+  const query =
+    record.route.querySchema && target.query
+      ? serializeQuery(record.route.querySchema, target.query)
+      : '';
+
+  return `${path}${query}`;
+}
+
+function isInternalFramePath(path: string): boolean {
+  return path.startsWith(INTERNAL_FRAME_PATH_PREFIX);
+}
+
+function appendQueryValues(
+  searchParams: URLSearchParams,
+  values: Readonly<Record<string, unknown>>,
+): void {
+  for (const [key, value] of Object.entries(values)) {
+    if (value === null || value === undefined) {
+      continue;
+    }
+
+    if (Array.isArray(value)) {
+      for (const entry of value) {
+        if (entry === null || entry === undefined) {
+          continue;
+        }
+
+        searchParams.append(key, String(entry));
+      }
+
+      continue;
+    }
+
+    searchParams.set(key, String(value));
+  }
+}
+
+function readInternalFrameParams(url: URL): Readonly<Record<string, string>> {
+  const params: Record<string, string> = {};
+
+  url.searchParams.forEach((value, key) => {
+    if (key.startsWith(INTERNAL_FRAME_PARAM_PREFIX)) {
+      params[key.slice(INTERNAL_FRAME_PARAM_PREFIX.length)] = value;
+    }
+  });
+
+  return Object.freeze(params);
+}
+
+function readVisibleQuery(url: URL): Readonly<Record<string, string>> {
+  const values: Record<string, string> = {};
+
+  url.searchParams.forEach((value, key) => {
+    if (key.startsWith(INTERNAL_FRAME_PARAM_PREFIX)) {
+      return;
+    }
+
+    values[key] = value;
+  });
+
+  return Object.freeze(values);
+}
+
+function buildFrameNavigationInstruction(
+  registry: RouteRegistry,
+  target: NamedNavigationTarget | FrameNavigationTarget,
+  currentHref: string,
+): ResolvedNavigationInstruction | null {
+  const frameId = 'name' in target ? target.name : target.frame;
+  const frameRecord = registry.frames.byId.get(frameId);
+
+  if (!frameRecord) {
+    const href = buildNamedNavigationPath(registry, toNamedNavigationTarget(target));
+
+    return href
+      ? {
+          matchTarget: href,
+          href,
+        }
+      : null;
+  }
+
+  if (frameRecord.addressPath !== null) {
+    const href = buildNamedNavigationPath(registry, toNamedNavigationTarget(target));
+
+    return href
+      ? {
+          matchTarget: href,
+          href,
+        }
+      : null;
+  }
+
+  if (frameRecord.route.kind === 'redirect') {
+    return null;
+  }
+
+  const url = new URL(frameRecord.matchPath, 'https://switchboard.internal');
+  const params = target.params;
+
+  if (params) {
+    if (frameRecord.route.paramsSchema) {
+      const serialized = serializeParams(
+        frameRecord.route.paramsSchema,
+        params as InferParamType<ParamSchemaRecord>,
+      );
+
+      for (const [key, value] of Object.entries(serialized)) {
+        if (value === undefined) {
+          continue;
+        }
+
+        url.searchParams.set(`${INTERNAL_FRAME_PARAM_PREFIX}${key}`, value);
+      }
+    } else {
+      appendQueryValues(url.searchParams, params as Readonly<Record<string, unknown>>);
+    }
+  }
+
+  if (frameRecord.route.querySchema && target.query) {
+    const serializedQuery = serializeQuery(frameRecord.route.querySchema, target.query);
+    const queryParams = new URLSearchParams(
+      serializedQuery.startsWith('?') ? serializedQuery.slice(1) : serializedQuery,
+    );
+
+    queryParams.forEach((value, key) => {
+      url.searchParams.append(key, value);
     });
+  }
+
+  return {
+    matchTarget: `${url.pathname}${url.search}${url.hash}`,
+    displayTarget: currentHref,
+    href: null,
+  };
+}
+
+function toNamedNavigationTarget(
+  target: NamedNavigationTarget | FrameNavigationTarget,
+): NamedNavigationTarget {
+  if ('name' in target) {
+    return target;
+  }
+
+  return {
+    name: target.frame,
+    params: target.params,
+    query: target.query,
+  };
+}
+
+function resolveRedirectTarget(registry: RouteRegistry, target: RedirectTarget): string {
+  if (target instanceof URL) {
+    return target.href;
+  }
+
+  if (typeof target === 'string') {
+    return target;
+  }
+
+  const path = buildNamedNavigationPath(registry, toNamedNavigationTarget(target));
+
+  if (!path) {
+    const label = 'name' in target ? target.name : target.frame;
+    throw new Error(`Cannot resolve redirect target "${label}".`);
+  }
+
+  return path;
+}
+
+type NormalizedGuardResult =
+  | boolean
+  | string
+  | {
+      readonly redirectTo: string;
+      readonly replace?: boolean;
+    };
+
+function normalizeGuardResult(
+  registry: RouteRegistry,
+  result: GuardResult,
+): NormalizedGuardResult {
+  if (result === true || result === false) {
+    return result;
+  }
+
+  if (
+    typeof result === 'string' ||
+    result instanceof URL ||
+    'name' in result ||
+    'frame' in result
+  ) {
+    return resolveRedirectTarget(
+      registry,
+      result,
+    );
+  }
+
+  return {
+    redirectTo: resolveRedirectTarget(
+      registry,
+      result.redirectTo,
+    ),
+    ...(result.replace !== undefined
+      ? { replace: result.replace }
+      : {}),
+  };
+}
+
+function adaptFrameBeforeEnter(
+  handler: CanEnterFn,
+  injector: EnvironmentInjector,
+  registry: RouteRegistry,
+): NavigationTransitionFn {
+  return async (transition) =>
+    normalizeGuardResult(
+      registry,
+      await execute(injector, handler, {
+        ...transition.to,
+        signal: transition.signal,
+      }),
+    );
 }
 
 function adaptFrameBeforeLeave(
-  handler: CanDeactivateFn,
+  handler: CanLeaveFn,
   injector: EnvironmentInjector,
+  registry: RouteRegistry,
 ): NavigationTransitionFn {
-  return (transition) => {
+  return async (transition) => {
     if (!transition.from) {
       return true;
     }
 
-    return execute(injector, handler, {
-      ...transition.from,
-      nextUrl: transition.to.url,
-      signal: transition.signal,
-    });
+    return normalizeGuardResult(
+      registry,
+      await execute(injector, handler, {
+        ...transition.from,
+        nextUrl: transition.to.url,
+        signal: transition.signal,
+      }),
+    );
   };
 }
 
@@ -247,6 +533,7 @@ function adaptFramePreparers(
 function adaptFrameTransitions(
   groups: readonly CompiledRouteGroup[],
   injector: EnvironmentInjector,
+  registry: RouteRegistry,
 ): readonly NavigationTransitionDefinition[] {
   const transitions: NavigationTransitionDefinition[] = [];
 
@@ -267,9 +554,12 @@ function adaptFrameTransitions(
       }
 
       transitions.push({
-        to: (route) => route?.config.sourceRoute === primaryRoute,
+        to: (route) =>
+          primaryRoute.name
+            ? route?.config.name === primaryRoute.name
+            : route?.config.sourceRoute === primaryRoute,
         beforeEnter: current.beforeEnter?.map((handler) =>
-          adaptFrameBeforeEnter(handler, injector),
+          adaptFrameBeforeEnter(handler, injector, registry),
         ),
         afterEnter: current.afterEnter?.map((handler) => adaptFrameAfterEnter(handler, injector)),
       });
@@ -281,8 +571,13 @@ function adaptFrameTransitions(
       }
 
       transitions.push({
-        from: (route) => route?.config.sourceRoute === primaryRoute,
-        beforeLeave: current.beforeLeave.map((handler) => adaptFrameBeforeLeave(handler, injector)),
+        from: (route) =>
+          primaryRoute.name
+            ? route?.config.name === primaryRoute.name
+            : route?.config.sourceRoute === primaryRoute,
+        beforeLeave: current.beforeLeave.map((handler) =>
+          adaptFrameBeforeLeave(handler, injector, registry),
+        ),
       });
     }
   }
@@ -290,26 +585,106 @@ function adaptFrameTransitions(
   return transitions;
 }
 
+function resolveFrameRouteRecord(
+  frames: FrameRouteRegistry,
+  route: ActivatedRoute | null,
+): FrameRouteRegistryRecord | null {
+  const frameId = route?.config.name;
+
+  if (frameId && frames.byId.has(frameId)) {
+    return frames.byId.get(frameId) ?? null;
+  }
+
+  return null;
+}
+
+function adaptFrameGraphTransitions(
+  registry: RouteRegistry,
+): readonly NavigationTransitionDefinition[] {
+  const { frames } = registry;
+
+  if (frames.byId.size === 0) {
+    return [];
+  }
+
+  return [
+    {
+      to: (route) => !!resolveFrameRouteRecord(frames, route)?.enforceGraph,
+      beforeEnter: [
+        (transition) => {
+          const targetFrame = resolveFrameRouteRecord(frames, transition.to);
+
+          if (!targetFrame?.enforceGraph) {
+            return true;
+          }
+
+          const sourceFrame = resolveFrameRouteRecord(frames, transition.from);
+
+          if (sourceFrame && sourceFrame.frameId === targetFrame.frameId) {
+            return true;
+          }
+
+          if (sourceFrame?.transitions.includes(targetFrame.frameId)) {
+            return true;
+          }
+
+          if (!sourceFrame && transition.redirectCount > 0) {
+            return true;
+          }
+
+          if (targetFrame.directEntry) {
+            return true;
+          }
+
+          const redirectTo = targetFrame.directEntryRedirectTo
+            ? resolveRedirectTarget(registry, targetFrame.directEntryRedirectTo)
+            : frames.defaultEntryPath;
+
+          if (!redirectTo || redirectTo === (targetFrame.addressPath ?? targetFrame.matchPath)) {
+            return false;
+          }
+
+          return {
+            redirectTo,
+            replace: true,
+          };
+        },
+      ],
+    },
+  ];
+}
+
 function adaptParamsParser(
   route: RenderableRoute,
   injector: EnvironmentInjector,
-): RouteRuntime['parseParams'] {
+): LoadedRoute['parseParams'] {
   const schema = route.paramsSchema;
   if (!schema) return undefined;
 
-  return (params, _url, _signal) =>
-    runInInjectionContext(injector, () => Promise.resolve(parseParamsRecord(schema, params)));
+  return (params, url, _signal) =>
+    runInInjectionContext(injector, () =>
+      Promise.resolve(
+        parseParamsRecord(
+          schema,
+          isInternalFramePath(route.path) ? readInternalFrameParams(url) : params,
+        ),
+      ),
+    );
 }
 
 function adaptQueryParser(
   route: RenderableRoute,
   injector: EnvironmentInjector,
-): RouteRuntime['parseQuery'] {
+): LoadedRoute['parseQuery'] {
   const schema = route.querySchema;
-  if (!schema) return undefined;
+  if (!schema && !isInternalFramePath(route.path)) {
+    return undefined;
+  }
 
   return (url, _signal) =>
-    runInInjectionContext(injector, () => Promise.resolve(parseQueryRecord(schema, url)));
+    runInInjectionContext(injector, () =>
+      Promise.resolve(schema ? parseQueryRecord(schema, url) : readVisibleQuery(url)),
+    );
 }
 
 async function resolveViews(
@@ -344,7 +719,8 @@ function adaptRoute(
   sharedPreparers: readonly PrepareRouteDataFn[] | undefined,
   appRef: ApplicationRef,
   injector: EnvironmentInjector,
-): RedirectRoute;
+  registry: RouteRegistry,
+): RuntimeRedirectRoute;
 function adaptRoute(
   route: RenderableRoute,
   path: string,
@@ -353,6 +729,7 @@ function adaptRoute(
   sharedPreparers: readonly PrepareRouteDataFn[] | undefined,
   appRef: ApplicationRef,
   injector: EnvironmentInjector,
+  registry: RouteRegistry,
 ): RuntimeRenderableRoute;
 function adaptRoute(
   route: RouteDefinition,
@@ -362,6 +739,7 @@ function adaptRoute(
   sharedPreparers: readonly PrepareRouteDataFn[] | undefined,
   appRef: ApplicationRef,
   injector: EnvironmentInjector,
+  registry: RouteRegistry,
 ): Route;
 function adaptRoute(
   route: RouteDefinition,
@@ -371,6 +749,7 @@ function adaptRoute(
   sharedPreparers: readonly PrepareRouteDataFn[] | undefined,
   appRef: ApplicationRef,
   injector: EnvironmentInjector,
+  registry: RouteRegistry,
 ): Route {
   if (route.kind === 'redirect') {
     return {
@@ -379,7 +758,6 @@ function adaptRoute(
       path,
       sourceRoute: route,
       redirectTo: redirectTo ?? route.redirectTo,
-      data: route.data,
     };
   }
 
@@ -397,20 +775,15 @@ function adaptRoute(
     data: route.data,
     preload: route.preload,
     viewTransition: route.viewTransition,
-
     load: async () => {
       const views = await resolveViews(layouts, route);
-
       return {
         component: route.outlet
           ? composeAngularLeafRouteView(appRef, injector, tokens, views)
           : composeAngularRouteView(appRef, injector, tokens, views),
         prepare: [
           ...(sharedPreparers ?? []),
-          ...(adaptFramePreparers(
-            route.frame ? [route.frame] : [],
-            injector,
-          ) ?? []),
+          ...(adaptFramePreparers(route.frame ? [route.frame] : [], injector) ?? []),
         ],
         parseParams: adaptParamsParser(route, injector),
         parseQuery: adaptQueryParser(route, injector),
@@ -423,23 +796,43 @@ function adaptRoutes(
   groups: readonly CompiledRouteGroup[],
   appRef: ApplicationRef,
   injector: EnvironmentInjector,
+  registry: RouteRegistry,
 ): Route[] {
-  return groups.map((group: CompiledRouteGroup) => {
-    const sharedPreparers = adaptFramePreparers(
-      group.layouts
-        .map((layout) => layout.frame)
-        .filter((frame): frame is FrameView => !!frame),
-      injector,
-    );
+  return groups.map(
+    (group): Route => {
+      const sharedPreparers = adaptFramePreparers(
+        group.layouts
+          .map(layout => layout.frame)
+          .filter(
+            (frame): frame is FrameView<any> =>
+              frame !== undefined,
+          ),
+        injector,
+      );
 
-    const authoredPrimary =
-      group.primary.route;
+      const authoredPrimary =
+        group.primary.route;
 
-    // Narrow the authored definition before calling adaptRoute(). The runtime
-    // redirect discriminant is optional for compatibility, so narrowing the
-    // adapted Route union afterwards is not reliable enough for TypeScript.
-    if (authoredPrimary.kind === 'redirect') {
-      return adaptRoute(
+      if (authoredPrimary.kind === 'redirect') {
+        if (group.outlets.length > 0) {
+          throw new Error(
+            `Redirect route "${group.path}" cannot own named outlets.`,
+          );
+        }
+
+        return adaptRoute(
+          authoredPrimary,
+          group.path,
+          group.primary.redirectTo,
+          group.layouts,
+          sharedPreparers,
+          appRef,
+          injector,
+          registry,
+        );
+      }
+
+      const primary = adaptRoute(
         authoredPrimary,
         group.path,
         group.primary.redirectTo,
@@ -447,28 +840,21 @@ function adaptRoutes(
         sharedPreparers,
         appRef,
         injector,
+        registry,
       );
-    }
 
-    const primary = adaptRoute(
-      authoredPrimary,
-      group.path,
-      group.primary.redirectTo,
-      group.layouts,
-      sharedPreparers,
-      appRef,
-      injector,
-    );
+      if (group.outlets.length === 0) {
+        return primary;
+      }
 
-    const outlets: RuntimeRenderableRoute[] =
-      group.outlets.map(
-        (compiled: CompiledRoute): RuntimeRenderableRoute => {
+      const outlets = group.outlets.map(
+        (compiled): RuntimeRenderableRoute => {
           const authoredOutlet =
             compiled.route;
 
           if (authoredOutlet.kind === 'redirect') {
             throw new Error(
-              `Named outlet route "${compiled.path}" cannot be a redirect.`,
+              `Named outlet for "${primary.path}" cannot be a redirect.`,
             );
           }
 
@@ -480,40 +866,28 @@ function adaptRoutes(
             sharedPreparers,
             appRef,
             injector,
+            registry,
           );
         },
       );
 
-    return outlets.length > 0
-      ? {
-          ...primary,
-          outlets: Object.freeze(outlets),
-        }
-      : primary;
-  });
-}
-
-function replaceChildNodes(
-  target: Node & {
-    replaceChildren?: (...nodes: Node[]) => void;
-    firstChild: ChildNode | null;
-    removeChild(node: ChildNode): void;
-    appendChild<T extends Node>(node: T): T;
-  },
-  ...nodes: Node[]
-): void {
-  if (typeof target.replaceChildren === 'function') {
-    target.replaceChildren(...nodes);
-    return;
-  }
-
-  while (target.firstChild) {
-    target.removeChild(target.firstChild);
-  }
-
-  for (const node of nodes) {
-    target.appendChild(node);
-  }
+      return {
+        kind: 'route',
+        name: primary.name,
+        path: primary.path,
+        sourceRoute: primary.sourceRoute,
+        data: primary.data,
+        outlet: primary.outlet,
+        load: primary.load,
+        preload: primary.preload,
+        viewTransition: primary.viewTransition,
+        canActivate: primary.canActivate,
+        canDeactivate: primary.canDeactivate,
+        prepare: primary.prepare,
+        outlets: Object.freeze(outlets),
+      };
+    },
+  );
 }
 
 function interpolateNamedPath(
@@ -549,7 +923,7 @@ function interpolateNamedPath(
   return path;
 }
 
-export class Router<TRoutes extends NavigationTree = any> {
+export class Router<TRoutes extends NavigationSource = any> {
   private readonly appRef: ApplicationRef;
   private readonly injector: EnvironmentInjector;
   private readonly destroyRef: DestroyRef;
@@ -614,7 +988,7 @@ export class Router<TRoutes extends NavigationTree = any> {
     }
 
     const engine = createRouter({
-      routes: adaptRoutes(this.registry.groups, this.appRef, this.injector),
+      routes: adaptRoutes(this.registry.groups, this.appRef, this.injector, this.registry),
 
       baseHref: this.baseHref,
 
@@ -628,7 +1002,10 @@ export class Router<TRoutes extends NavigationTree = any> {
 
       preloading: this.configuration.preloading,
 
-      transitions: [...adaptFrameTransitions(this.registry.groups, this.injector)],
+      transitions: [
+        ...adaptFrameGraphTransitions(this.registry),
+        ...adaptFrameTransitions(this.registry.groups, this.injector, this.registry),
+      ],
 
       viewTransitions: this.configuration.viewTransitions,
 
@@ -742,13 +1119,27 @@ export class Router<TRoutes extends NavigationTree = any> {
   }
 
   navigate(target: NavigationTarget, options?: NavigationOptions): Promise<boolean> {
-    const href = this.href(target);
-
-    if (href === null) {
+    const instruction = this.resolveNavigationInstruction(target);
+    if (!instruction) {
       return Promise.resolve(false);
     }
 
-    return this.requireEngine().navigate(href, options);
+    const navigationOptions =
+      typeof target === 'object' &&
+      target !== null &&
+      'frame' in target &&
+      options?.state === undefined
+        ? {
+            ...options,
+            state: target.payload,
+            displayTarget: instruction.displayTarget,
+          }
+        : {
+            ...options,
+            displayTarget: instruction.displayTarget,
+          };
+
+    return this.requireEngine().navigate(instruction.matchTarget, navigationOptions);
   }
 
   href(target: NavigationTarget | null | undefined): string | null {
@@ -764,8 +1155,12 @@ export class Router<TRoutes extends NavigationTree = any> {
       return this.resolveHref(target.path);
     }
 
+    if ('frame' in target) {
+      return this.resolveNavigationInstruction(target)?.href ?? null;
+    }
+
     if ('name' in target) {
-      return this.generateNamedHref(target);
+      return this.resolveNavigationInstruction(target)?.href ?? null;
     }
 
     return null;
@@ -813,28 +1208,46 @@ export class Router<TRoutes extends NavigationTree = any> {
   }
 
   private generateNamedHref(target: NamedNavigationTarget): string | null {
-    const record = this.registry.namedRoutes.get(target.name);
+    const href = buildNamedNavigationPath(this.registry, target);
 
-    if (!record) {
-      return null;
+    return href ? this.resolveHref(href) : null;
+  }
+
+  private resolveNavigationInstruction(
+    target: NavigationTarget,
+  ): ResolvedNavigationInstruction | null {
+    if (typeof target === 'string' || target instanceof URL) {
+      const href = this.resolveHref(target);
+
+      return {
+        matchTarget: href,
+        href,
+      };
     }
 
-    const path = interpolateNamedPath(
-      record.fullPath,
-      target.params ?? {},
-      record.route.kind === 'route' ? record.route.paramsSchema : undefined,
+    if ('path' in target) {
+      const href = this.resolveHref(target.path);
+
+      return {
+        matchTarget: href,
+        href,
+      };
+    }
+
+    const instruction = buildFrameNavigationInstruction(
+      this.registry,
+      target,
+      `${getRouterLocation(this.document).pathname}${getRouterLocation(this.document).search}${getRouterLocation(this.document).hash}`,
     );
 
-    if (!path) {
+    if (!instruction) {
       return null;
     }
 
-    const query =
-      record.route.kind === 'route' && record.route.querySchema && target.query
-        ? serializeQuery(record.route.querySchema, target.query)
-        : '';
-
-    return this.resolveHref(`${path}${query}`);
+    return {
+      ...instruction,
+      href: instruction.href ? this.resolveHref(instruction.href) : null,
+    };
   }
 
   private createNavigateProxy(): TypedNavigate<TRoutes> {
@@ -894,7 +1307,7 @@ export class Router<TRoutes extends NavigationTree = any> {
   }
 }
 
-export function provideRouter<const TRoutes extends NavigationTree>(
+export function provideRouter<const TRoutes extends NavigationSource>(
   routes: TRoutes,
   options: RouterOptions = {},
 ): Provider[] {
@@ -916,7 +1329,3 @@ export function provideRouter<const TRoutes extends NavigationTree>(
     },
   ];
 }
-
-export { type LayoutOptions, type RouteOptions };
-
-export { layout, lazyLayout, lazyRoute, redirectRoute, route } from './route-builders';
