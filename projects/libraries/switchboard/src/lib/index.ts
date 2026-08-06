@@ -32,6 +32,7 @@ export {
     type RouteRenderContext,
     type Router as VanillaRouter,
     type RouterConfig as VanillaRouterConfig,
+    type RouterConfiguration,
     type RouterState,
     type ScrollRestorationMode,
     type VanillaRouterInstance,

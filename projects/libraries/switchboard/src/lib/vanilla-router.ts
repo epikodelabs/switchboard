@@ -214,8 +214,20 @@ export interface RouterState {
   readonly routeConfig: Route | null;
 }
 
+export interface RouterConfiguration {
+  readonly routes: readonly Route[];
+  readonly transitions: readonly NavigationTransitionDefinition[];
+}
+
 export interface Router {
   readonly state: RouterState;
+  readonly routeVersion: number;
+  routes(): readonly Route[];
+  addRoutes(routes: readonly Route[]): boolean;
+  replaceConfiguration(configuration: RouterConfiguration): boolean;
+  replaceRoutes(routes: readonly Route[]): boolean;
+  removeRoutes(predicate: (route: Route) => boolean): boolean;
+  replaceTransitions(transitions: readonly NavigationTransitionDefinition[]): boolean;
   start(): void;
   stop(): void;
   dispose(): void;
@@ -665,11 +677,15 @@ function loadRoute(
 
 export function createRouter(config: RouterConfig): Router {
   validateRouteGroups(config.routes);
+  let routes: readonly Route[] =
+    Object.freeze([...config.routes]);
+  let routeVersion = 0;
+  let transitions: readonly NavigationTransitionDefinition[] =
+    Object.freeze([...(config.transitions ?? [])]);
   const render = config.render;
   const renderNotFound = config.renderNotFound;
   const renderError = config.renderError;
   const commitOutlets = config.commit;
-  const transitions = config.transitions ?? [];
   const browserWindow = typeof window === 'undefined' ? null : window;
   const browserDocument = typeof document === 'undefined' ? null : document;
   const routerLocation = () =>
@@ -812,7 +828,7 @@ export function createRouter(config: RouterConfig): Router {
       data: EMPTY_DATA,
       historyState:
         readUserHistoryState(),
-      config: config.routes[0] ?? { kind: 'route', path: '**' },
+      config: routes[0] ?? { kind: 'route', path: '**' },
     };
   }
 
@@ -1201,7 +1217,7 @@ export function createRouter(config: RouterConfig): Router {
     const segments = splitRoutePath(path);
     let fallback: Route | undefined;
 
-    for (const route of config.routes) {
+    for (const route of routes) {
       if (route.path === '**' || route.path === '*') {
         fallback = route;
         continue;
@@ -1231,7 +1247,7 @@ export function createRouter(config: RouterConfig): Router {
       return;
     }
 
-    for (const route of config.routes) {
+    for (const route of routes) {
       if (route.preload === false) {
         continue;
       }
@@ -1363,28 +1379,60 @@ export function createRouter(config: RouterConfig): Router {
     signal: AbortSignal,
   ): Promise<{ node: Node; component?: unknown; rendered: ActiveRender }> {
     const destroyController = new AbortController();
+    let output: RenderedRouteNode | undefined;
+
+    const abortPreparedRender = () => {
+      destroyController.abort();
+    };
+
     throwIfAborted(signal);
     if (!loaded.component) {
       throw new Error(`Matched route "${routeState.config.path}" has no component`);
     }
-    const output = normalizeRenderedRouteNode(
-      await loaded.component(routeState, {
-        signal,
-        destroySignal: destroyController.signal,
-      }),
+
+    signal.addEventListener(
+      'abort',
+      abortPreparedRender,
+      { once: true },
     );
-    throwIfAborted(signal);
-    return {
-      node: output.node,
-      component: output.component,
-      rendered: {
-        controller: destroyController,
-        dispose: () => {
-          destroyController.abort();
-          output.dispose?.();
+
+    try {
+      output = normalizeRenderedRouteNode(
+        await loaded.component(routeState, {
+          signal,
+          destroySignal: destroyController.signal,
+        }),
+      );
+      throwIfAborted(signal);
+
+      signal.removeEventListener(
+        'abort',
+        abortPreparedRender,
+      );
+
+      let disposed = false;
+      return {
+        node: output.node,
+        component: output.component,
+        rendered: {
+          controller: destroyController,
+          dispose: () => {
+            if (disposed) return;
+            disposed = true;
+            destroyController.abort();
+            output?.dispose?.();
+          },
         },
-      },
-    };
+      };
+    } catch (error) {
+      signal.removeEventListener(
+        'abort',
+        abortPreparedRender,
+      );
+      destroyController.abort();
+      output?.dispose?.();
+      throw error;
+    }
   }
 
   async function performNavigation(
@@ -2265,6 +2313,143 @@ export function createRouter(config: RouterConfig): Router {
     );
   }
 
+  function sameRouteReferences(
+    nextRoutes: readonly Route[],
+  ): boolean {
+    return routes.length === nextRoutes.length
+      && routes.every(
+        (route, index) => route === nextRoutes[index],
+      );
+  }
+
+  function sameTransitionReferences(
+    nextTransitions: readonly NavigationTransitionDefinition[],
+  ): boolean {
+    return transitions.length === nextTransitions.length
+      && transitions.every(
+        (transition, index) =>
+          transition === nextTransitions[index],
+      );
+  }
+
+  function applyConfiguration(
+    nextRoutes: readonly Route[],
+    nextTransitions: readonly NavigationTransitionDefinition[],
+  ): boolean {
+    const routesChanged =
+      !sameRouteReferences(nextRoutes);
+    const transitionsChanged =
+      !sameTransitionReferences(nextTransitions);
+
+    if (!routesChanged && !transitionsChanged) {
+      return false;
+    }
+
+    if (routesChanged) {
+      // Validate before cancelling the current request. A rejected update must
+      // leave the active navigation and frame graph untouched.
+      validateRouteGroups([...nextRoutes]);
+    }
+
+    cancelActiveNavigation();
+
+    if (routesChanged) {
+      routes = Object.freeze([...nextRoutes]);
+      routeVersion++;
+      cancelScheduledPreloading();
+    }
+
+    if (transitionsChanged) {
+      transitions = Object.freeze([...nextTransitions]);
+    }
+
+    if (routesChanged) {
+      schedulePreloading();
+    }
+
+    return true;
+  }
+
+  function addRoutes(
+    nextRoutes: readonly Route[],
+  ): boolean {
+    if (disposed) {
+      throw new Error(
+        'Cannot add routes to a disposed router',
+      );
+    }
+
+    if (nextRoutes.length === 0) return false;
+    return applyConfiguration(
+      [...routes, ...nextRoutes],
+      transitions,
+    );
+  }
+
+  function replaceConfiguration(
+    configuration: RouterConfiguration,
+  ): boolean {
+    if (disposed) {
+      throw new Error(
+        'Cannot replace configuration on a disposed router',
+      );
+    }
+
+    return applyConfiguration(
+      configuration.routes,
+      configuration.transitions,
+    );
+  }
+
+  function replaceRoutes(
+    nextRoutes: readonly Route[],
+  ): boolean {
+    if (disposed) {
+      throw new Error(
+        'Cannot replace routes on a disposed router',
+      );
+    }
+
+    return applyConfiguration(
+      nextRoutes,
+      transitions,
+    );
+  }
+
+  function removeRoutes(
+    predicate: (route: Route) => boolean,
+  ): boolean {
+    if (disposed) {
+      throw new Error(
+        'Cannot remove routes from a disposed router',
+      );
+    }
+
+    const nextRoutes = routes.filter(
+      route => !predicate(route),
+    );
+
+    return applyConfiguration(
+      nextRoutes,
+      transitions,
+    );
+  }
+
+  function replaceTransitions(
+    nextTransitions: readonly NavigationTransitionDefinition[],
+  ): boolean {
+    if (disposed) {
+      throw new Error(
+        'Cannot replace transitions on a disposed router',
+      );
+    }
+
+    return applyConfiguration(
+      routes,
+      nextTransitions,
+    );
+  }
+
   function startRouter(): void {
     if (disposed) {
       throw new Error(
@@ -2410,6 +2595,19 @@ export function createRouter(config: RouterConfig): Router {
 
   publicRouter = {
     state: publicState,
+    get routeVersion() {
+      return routeVersion;
+    },
+    routes: () => Object.freeze([...routes]),
+    addRoutes: nextRoutes => addRoutes(nextRoutes),
+    replaceConfiguration: configuration =>
+      replaceConfiguration(configuration),
+    replaceRoutes: nextRoutes =>
+      replaceRoutes(nextRoutes),
+    removeRoutes: predicate =>
+      removeRoutes(predicate),
+    replaceTransitions: nextTransitions =>
+      replaceTransitions(nextTransitions),
     start: () => startRouter(),
     stop: () => stopRouter(),
     dispose: () => {
