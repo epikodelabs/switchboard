@@ -988,10 +988,11 @@ export function createRouter(config: RouterConfig): Router {
 
     browserWindow?.history.replaceState(
         createHistoryStateEnvelope(
-          currentState?.historyState ??
-            readUserHistoryState(
-              history.createDefaultUpdate().previousEntry?.state,
-            ),
+          currentState
+            ? currentState.historyState
+            : readUserHistoryState(
+                history.createDefaultUpdate().previousEntry?.state,
+              ),
           activeMatchHref() !== null
             && activeMatchHref() !== activeHref()
             ? activeMatchHref() ?? undefined

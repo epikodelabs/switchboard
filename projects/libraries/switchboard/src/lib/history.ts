@@ -130,7 +130,11 @@ export class HistoryManager {
     const resolvedIndex = entryId === null
       ? this.findHistoryIndexByHref(href)
       : this.entries.findIndex(entry => entry.id === entryId);
-    const nextIndex = resolvedIndex >= 0 ? resolvedIndex : previousIndex;
+    const nextIndex = resolvedIndex >= 0
+      ? resolvedIndex
+      : this.entries[previousIndex - 1]
+        ? previousIndex - 1
+        : previousIndex;
     const existing = this.entries[nextIndex];
     const id = entryId ?? existing?.id ?? this.allocateId();
     const nextEntry: HistoryEntry = existing
