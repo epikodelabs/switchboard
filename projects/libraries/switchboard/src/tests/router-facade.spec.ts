@@ -19,6 +19,7 @@ import {
   Router,
   type NavigationSource,
   view,
+  NavigationTree,
 } from '@epikodelabs/switchboard';
 
 ensureAngularTestEnvironment();
@@ -523,5 +524,41 @@ describe('Router: flat routes and layouts', () => {
     });
     expect(router.displayUrl).toBe('/');
     expect(window.location.pathname).toBe('/');
+  });
+});
+
+describe('Router async facade methods', () => {
+  let router: Router;
+
+  beforeEach(() => {
+    TestBed.resetTestingModule();
+    window.history.replaceState(null, '', '/');
+    TestBed.configureTestingModule({
+      imports: [HomeComponent],
+      providers: [...provideRouter([route('/', HomeComponent)])],
+    });
+    router = TestBed.inject(Router);
+  });
+
+  afterEach(() => {
+    router?.dispose();
+  });
+
+  it('rejects navigate when no outlet is active', async () => {
+    await expectAsync(
+      router.navigate({ path: '/' }),
+    ).toBeRejectedWithError('Router has no active outlet.');
+  });
+
+  it('rejects revalidate when no outlet is active', async () => {
+    await expectAsync(
+      router.revalidate(),
+    ).toBeRejectedWithError('Router has no active outlet.');
+  });
+
+  it('rejects preload when no outlet is active', async () => {
+    await expectAsync(
+      router.preload(),
+    ).toBeRejectedWithError('Router has no active outlet.');
   });
 });

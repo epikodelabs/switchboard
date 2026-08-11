@@ -99,7 +99,7 @@ export interface FrameNavigationOptions {
   readonly transitions?: readonly string[];
   readonly directEntry?: boolean;
   readonly directEntryRedirectTo?:
-    NamedNavigationTarget;
+    RedirectTarget;
 }
 
 export interface EagerViewDefinition {

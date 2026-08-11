@@ -1126,10 +1126,10 @@ export class Router<TRoutes extends NavigationSource = any> {
     }
   }
 
-  navigate(target: NavigationTarget, options?: NavigationOptions): Promise<boolean> {
+  async navigate(target: NavigationTarget, options?: NavigationOptions): Promise<boolean> {
     const instruction = this.resolveNavigationInstruction(target);
     if (!instruction) {
-      return Promise.resolve(false);
+      return false;
     }
 
     const navigationOptions =
@@ -1147,7 +1147,7 @@ export class Router<TRoutes extends NavigationSource = any> {
             displayTarget: instruction.displayTarget,
           };
 
-    return this.requireEngine().navigate(instruction.matchTarget, navigationOptions);
+    return await this.requireEngine().navigate(instruction.matchTarget, navigationOptions);
   }
 
   href(target: NavigationTarget | null | undefined): string | null {
@@ -1174,16 +1174,16 @@ export class Router<TRoutes extends NavigationSource = any> {
     return null;
   }
 
-  revalidate(): Promise<boolean> {
-    return this.requireEngine().revalidate();
+  async revalidate(): Promise<boolean> {
+    return await this.requireEngine().revalidate();
   }
 
   updateHistoryState(state: unknown): void {
     this.requireEngine().updateHistoryState(state);
   }
 
-  preload(): Promise<void> {
-    return this.requireEngine().preload();
+  async preload(): Promise<void> {
+    await this.requireEngine().preload();
   }
 
   dispose(): void {
@@ -1266,10 +1266,12 @@ export class Router<TRoutes extends NavigationSource = any> {
         }
 
         return (options: Record<string, unknown> = {}) =>
-          this.navigate({
-            name: property,
-            ...options,
-          } as NamedNavigationTarget);
+          this.navigate(
+            Object.assign(
+              { name: property },
+              options,
+            ) as NamedNavigationTarget,
+          );
       },
     }) as TypedNavigate<TRoutes>;
   }
@@ -1282,10 +1284,12 @@ export class Router<TRoutes extends NavigationSource = any> {
         }
 
         return (options: Record<string, unknown> = {}) =>
-          this.href({
-            name: property,
-            ...options,
-          } as NamedNavigationTarget);
+          this.href(
+            Object.assign(
+              { name: property },
+              options,
+            ) as NamedNavigationTarget,
+          );
       },
     }) as TypedHref<TRoutes>;
   }

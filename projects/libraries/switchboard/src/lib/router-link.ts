@@ -134,17 +134,12 @@ export class RouterLink implements OnChanges {
   }
 
   @HostListener('click', ['$event'])
-  handleClick(event: Event): void {
+  async handleClick(event: Event): Promise<void> {
     if (!(event instanceof MouseEvent)) {
       return;
     }
 
-    const target =
-      this.resolveTarget();
-
-    if (
-      !target
-    ) {
+    if (!this.href) {
       return;
     }
 
@@ -176,21 +171,19 @@ export class RouterLink implements OnChanges {
     }
 
     event.preventDefault();
-    void this.router.navigate(
-      target,
-      {
-        replace: this.replaceUrl,
-        state:
-          this.state
-          ?? (
-            typeof target === 'object'
-            && target !== null
-            && 'frame' in target
-              ? target.payload
-              : undefined
-          ),
-      },
-    );
+
+    try {
+      await this.router.navigate(
+        this.href,
+        {
+          replace: this.replaceUrl,
+          state: this.state,
+        },
+      );
+    } catch {
+      // Router state already records the actionable navigation error. The DOM
+      // click contract is still best-effort, so keep the failure local here.
+    }
   }
 
   private refreshHref(): void {
