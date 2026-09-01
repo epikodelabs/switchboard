@@ -1,0 +1,7 @@
+{
+  "extends": "../../../tsconfig.json",
+  "compilerOptions": {
+    "types": ["node"]
+  },
+  "files": ["src/compiler/prepare-build.ts"]
+}

@@ -1,0 +1,23 @@
+{
+  "$comment": "Do not edit schema.json manually. It is generated from the installed @angular/build application schema plus this Switchboard extension definition.",
+  "switchboard": {
+    "type": "object",
+    "description": "Switchboard privilege-aware build options.",
+    "additionalProperties": false,
+    "default": {},
+    "properties": {
+      "entry": {
+        "type": "string",
+        "default": "src/app/app.routes.ts"
+      },
+      "profile": {
+        "type": "boolean",
+        "default": false
+      },
+      "buildManifest": {
+        "type": "boolean",
+        "default": true
+      }
+    }
+  }
+}

@@ -140,15 +140,15 @@ If your application doesn't need advanced navigation concepts, Routty keeps ever
 
 
 
-Switchboard isn't centered around URLs.
+Switchboard is a Waypoint-class navigation system that is not centered around URLs.
 
 
 
-Instead, applications are described as states connected by transitions.
+Instead, applications are described as frames connected by transitions, with the same client/SSR and server-authorized delivery class of infrastructure available when needed.
 
 
 
-Navigation becomes moving through a graph rather than matching paths.
+Navigation becomes moving through a graph rather than treating path matching as the primary model.
 
 
 
@@ -210,8 +210,6 @@ layout(...)
 
 frame(...)
 
-lazyRoute(...)
-
 redirect(...)
 
 ```
@@ -272,7 +270,7 @@ Choose \*\*Routty\*\* when simplicity is the primary goal.
 
 
 
-Choose \*\*Switchboard\*\* when navigation itself is part of the application's business logic.
+Choose \*\*Switchboard\*\* when navigation itself is part of the application's business logic, including applications that still need SSR or server-authorized frontend delivery.
 
 
 
@@ -317,4 +315,3 @@ Switchboard asks:
 
 
 They share a common philosophy, but intentionally optimize for different problems.
-

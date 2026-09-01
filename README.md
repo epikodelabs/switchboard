@@ -149,3 +149,27 @@ We're excited about where this model can take Angular navigation, and we'd love 
 ## Server-owned graph delivery
 
 Switchboard can divide the frame graph with `frameSlot()` and `framesFor()`. Protected-delivery builds authorize graph artifacts on the server, then resolve only the allowed contributions for SSR and browser navigation. Frame policies use `allowAnonymous`, `roles`, and `permissions`. See `docs/server-delivery.md`.
+
+## Protected frame delivery
+
+Switchboard can use a server-owned frame graph when frontend disclosure itself is part of the application architecture. The model is analogous to Waypoint's protected route delivery, but ownership follows frame-graph contributions:
+
+```ts
+export const routes = [
+  frameSlot('public'),
+  frameSlot('application'),
+] as const satisfies NavigationTree;
+
+export const applicationFrames = framesFor('application', [
+  frame('workspace', WorkspacePage, {
+    address: '/workspace',
+  }),
+  frameSlot('administration'),
+]);
+```
+
+`@epikodelabs/switchboard-builder` derives artifact identity, AOT-compiles each `framesFor()` contribution into an isolated content-addressed artifact, verifies protected frame sources are absent from the public host, then atomically publishes server metadata. The browser receives only the frame contributions authorized by the server.
+
+This ownership graph is deliberately separate from the transition graph: `frameSlot()/framesFor()` decide where code belongs and how it is delivered; `transitions` decide where navigation may move.
+
+See `docs/build-model.md` and `docs/server-delivery-contract.md`.

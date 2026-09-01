@@ -1,0 +1,27 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema",
+  "title": "Switchboard Angular application build",
+  "description": "Angular application builder options plus an optional Switchboard configuration object.",
+  "type": "object",
+  "properties": {
+    "switchboard": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "entry": {
+          "type": "string",
+          "default": "src/app/app.routes.ts"
+        },
+        "profile": {
+          "type": "boolean",
+          "default": false
+        },
+        "buildManifest": {
+          "type": "boolean",
+          "default": true
+        }
+      }
+    }
+  },
+  "additionalProperties": true
+}

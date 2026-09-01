@@ -1,0 +1,10 @@
+{
+  "$schema": "../node_modules/@angular-devkit/architect/src/builders-schema.json",
+  "builders": {
+    "switchboard-build": {
+      "implementation": "./dist/switchboard-build/index.cjs",
+      "schema": "./src/switchboard-build/schema.json",
+      "description": "Compile protected Switchboard frame artifacts, then run the Angular application build."
+    }
+  }
+}

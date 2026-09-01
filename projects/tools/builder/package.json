@@ -1,0 +1,15 @@
+{
+  "name": "@epikodelabs/switchboard-builder",
+  "version": "0.0.0",
+  "private": true,
+  "builders": "./builders.json",
+  "dependencies": {
+    "@angular-devkit/architect": "^0.2200.0",
+    "esbuild": "^0.28.2"
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "clean": "node scripts/clean.mjs",
+    "prepare": "npm run build"
+  }
+}

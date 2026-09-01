@@ -1,6 +1,6 @@
 {
   "name": "switchboard",
-  "version": "1.0.2",
+  "version": "1.0.1",
   "scripts": {
     "ng": "ng",
     "postinstall": "node scripts/patch-testify.mjs",
@@ -16,7 +16,9 @@
     "test": "testify --headless --browser chrome",
     "test:watch": "testify --browser chrome",
     "jasmine": "testify --headless --browser chrome",
-    "jasmine:coverage": "testify --headless --browser chrome --coverage"
+    "jasmine:coverage": "testify --headless --browser chrome --coverage",
+    "build:builder": "node projects/tools/builder/scripts/build.mjs",
+    "clean:builder": "node projects/tools/builder/scripts/clean.mjs"
   },
   "private": true,
   "packageManager": "npm@10.9.8",
@@ -27,17 +29,20 @@
     "@angular/forms": "^22.0.0",
     "@angular/platform-browser": "^22.0.0",
     "@epikodelabs/switchboard": "file:dist/switchboard",
-    "tslib": "^2.3.0"
+    "tslib": "^2.3.0",
+    "@epikodelabs/switchboard-builder": "file:projects/tools/builder"
   },
   "devDependencies": {
     "@angular/build": "^22.0.8",
     "@angular/cli": "^22.0.8",
     "@angular/compiler-cli": "^22.0.0",
-    "@epikodelabs/testify": "^1.0.51",
+    "@epikodelabs/testify": "^1.0.36",
     "@types/jasmine": "^6.0.0",
-    "@types/node": "^22.0.0",
+    "@types/node": "^20.17.19",
     "ng-packagr": "^22.0.0",
     "prettier": "^3.8.1",
-    "typescript": "~6.0.2"
+    "typescript": "~6.0.2",
+    "@angular-devkit/architect": "^0.2200.0",
+    "esbuild": "^0.28.2"
   }
 }
