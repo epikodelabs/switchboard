@@ -43,6 +43,6 @@ export {
     type ViewTransitionsOption
 } from './vanilla-router';
 export {
-    provideRouter, ROUTE,
+    provideRouter, provideServerRouter, ROUTE,
     ROUTE_CONTEXT, Router, type RouterOptions
 } from './router';

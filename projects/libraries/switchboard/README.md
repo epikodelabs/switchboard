@@ -149,3 +149,25 @@ We're excited about where this model can take Angular navigation, and we'd love 
 ## Server-owned graph delivery
 
 Switchboard can divide the frame graph with `frameSlot()` and `framesFor()`. Protected-delivery builds authorize graph artifacts on the server, then resolve only the allowed contributions for SSR and browser navigation. Frame policies use `allowAnonymous`, `roles`, and `permissions`. See `docs/server-delivery.md`.
+
+## Server-delivered frame graphs
+
+Protected frame delivery is integrated into `Router`. Pass the generated resolver once when
+providing the router; initial navigation and later missing URL destinations resolve and install
+authorized `framesFor()` contributions before navigation commits.
+
+```ts
+import { provideServerRouter } from '@epikodelabs/switchboard';
+import { resolveFrames } from './switchboard.generated/resolver';
+import { routes } from './app.routes';
+
+export const appConfig = {
+  providers: [
+    ...provideServerRouter(routes, { resolveFrames }),
+  ],
+};
+```
+
+The application does not fetch artifacts, call `resolveFrameSlots()`, rebuild the router, or
+retry initial navigation itself. The builder-generated resolver owns artifact import and host
+module identity; the router owns resolution, graph installation, and navigation retry.

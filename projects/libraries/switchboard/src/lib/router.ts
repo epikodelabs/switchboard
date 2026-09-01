@@ -53,6 +53,10 @@ import type {
 
 import type { TypedHref, TypedNavigate } from './typed-navigation';
 
+import type { ServerFrameResolver } from './frame-delivery';
+import { resolveFrameSlots } from './frame-slots';
+import { resolveNavigationEntries } from './route-compiler';
+
 import { OUTLET_ACTIVATE_EVENT, dispatchOutletLifecycleEvent } from './router-events';
 
 import { getRouterLocation, resolveRouterUrl, routerHref } from './router-url';
@@ -94,6 +98,10 @@ export interface RouterOptions {
   readonly scrollRestoration?: ScrollRestorationMode;
   readonly preloading?: PreloadingStrategy;
   readonly viewTransitions?: ViewTransitionsOption;
+  /** Resolve and install server-authorized frame contributions on demand. */
+  readonly resolveFrames?: ServerFrameResolver;
+  /** Eager/local contributions installed before any server-delivered frames. */
+  readonly contributions?: readonly FrameContributionDefinition[];
 }
 
 export const ROUTE = new InjectionToken<ActivatedRoute>('ROUTE');
@@ -937,7 +945,13 @@ export class Router<TRoutes extends NavigationSource = any> {
   private readonly destroyRef: DestroyRef;
   private readonly document: Document;
   private readonly appBaseHref: string;
-  private readonly registry: ReturnType<typeof createRouteRegistry>;
+  private registry: ReturnType<typeof createRouteRegistry>;
+  private activeSource: NavigationSource;
+  private readonly deliveredBySlot = new Map<string, FrameContributionDefinition>();
+  private readonly contributionIdentities = new Map<string, string>();
+  private readonly pendingFrameResolutions = new Map<string, Promise<boolean>>();
+  private readonly unresolvedFrameTargets = new Set<string>();
+  private startupTask: Promise<void> | null = null;
   private engine: VanillaRouter | null = null;
   private currentState: RouterState = EMPTY_ROUTER_STATE;
   private readonly outlets = new Map<string, HTMLElement[]>();
@@ -956,7 +970,11 @@ export class Router<TRoutes extends NavigationSource = any> {
         optional: true,
       }) ?? '/';
 
-    this.registry = createRouteRegistry(this.configuration.routes);
+    for (const contribution of this.configuration.contributions ?? []) {
+      this.deliveredBySlot.set(contribution.slotId, contribution);
+    }
+    this.activeSource = this.composeActiveSource();
+    this.registry = createRouteRegistry(this.activeSource);
     this.navigateTo = this.createNavigateProxy();
 
     this.hrefTo = this.createHrefProxy();
@@ -991,11 +1009,61 @@ export class Router<TRoutes extends NavigationSource = any> {
 
     this.outlets.set(outletName, registered);
 
-    if (this.engine) {
+    if (this.engine || this.startupTask) {
       return;
     }
 
-    const engine = createRouter({
+    this.startRouter();
+  }
+
+  private startRouter(): void {
+    let task!: Promise<void>;
+
+    task = Promise.resolve().then(async () => {
+      const location = getRouterLocation(this.document);
+      const url = new URL(location.href);
+      await this.resolveServerFrames(url);
+
+      if (this.startupTask !== task || this.engine || this.outlets.size === 0) {
+        return;
+      }
+
+      const engine = this.createEngine();
+      try {
+        engine.start();
+      } catch (error) {
+        engine.dispose();
+        throw error;
+      }
+
+      if (this.startupTask !== task) {
+        engine.dispose();
+        return;
+      }
+
+      this.engine = engine;
+      this.currentState = snapshotRouterState(engine.state);
+      this.requestTick();
+    });
+
+    this.startupTask = task;
+    void task
+      .catch(error => {
+        console.error('Switchboard router startup failed.', error);
+        const target = this.getOutlet('');
+        if (target) {
+          const heading = this.document.createElement('h1');
+          heading.textContent = 'Page failed to load';
+          replaceChildNodes(target, heading);
+        }
+      })
+      .finally(() => {
+        if (this.startupTask === task) this.startupTask = null;
+      });
+  }
+
+  private createEngine(): VanillaRouter {
+    return createRouter({
       routes: adaptRoutes(this.registry.groups, this.appRef, this.document, this.injector, this.registry),
 
       baseHref: this.baseHref,
@@ -1085,19 +1153,6 @@ export class Router<TRoutes extends NavigationSource = any> {
         dispatchOutletLifecycleEvent(target, OUTLET_ACTIVATE_EVENT, component);
       },
     });
-
-    try {
-      engine.start();
-    } catch (error) {
-      this.outlets.delete(outletName);
-      engine.dispose();
-      throw error;
-    }
-
-    this.engine = engine;
-
-    this.currentState = snapshotRouterState(engine.state);
-    this.requestTick();
   }
 
   disconnect(name: string, outlet: HTMLElement): void {
@@ -1127,7 +1182,16 @@ export class Router<TRoutes extends NavigationSource = any> {
   }
 
   async navigate(target: NavigationTarget, options?: NavigationOptions): Promise<boolean> {
-    const instruction = this.resolveNavigationInstruction(target);
+    let instruction = this.resolveNavigationInstruction(target);
+
+    if (this.configuration.resolveFrames) {
+      const candidateUrl = this.navigationTargetUrl(target, instruction);
+      if (candidateUrl) {
+        const changed = await this.resolveServerFrames(candidateUrl);
+        if (changed) instruction = this.resolveNavigationInstruction(target);
+      }
+    }
+
     if (!instruction) {
       return false;
     }
@@ -1147,7 +1211,7 @@ export class Router<TRoutes extends NavigationSource = any> {
             displayTarget: instruction.displayTarget,
           };
 
-    return await this.requireEngine().navigate(instruction.matchTarget, navigationOptions);
+    return await (await this.requireStartedEngine()).navigate(instruction.matchTarget, navigationOptions);
   }
 
   href(target: NavigationTarget | null | undefined): string | null {
@@ -1175,7 +1239,7 @@ export class Router<TRoutes extends NavigationSource = any> {
   }
 
   async revalidate(): Promise<boolean> {
-    return await this.requireEngine().revalidate();
+    return await (await this.requireStartedEngine()).revalidate();
   }
 
   updateHistoryState(state: unknown): void {
@@ -1183,12 +1247,14 @@ export class Router<TRoutes extends NavigationSource = any> {
   }
 
   async preload(): Promise<void> {
-    await this.requireEngine().preload();
+    await (await this.requireStartedEngine()).preload();
   }
 
   dispose(): void {
     const engine = this.engine;
 
+    this.startupTask = null;
+    this.pendingFrameResolutions.clear();
     this.engine = null;
     this.outlets.clear();
 
@@ -1219,6 +1285,147 @@ export class Router<TRoutes extends NavigationSource = any> {
     const href = buildNamedNavigationPath(this.registry, target);
 
     return href ? this.resolveHref(href) : null;
+  }
+
+  private async requireStartedEngine(): Promise<VanillaRouter> {
+    if (!this.engine && this.startupTask) {
+      await this.startupTask;
+    }
+    return this.requireEngine();
+  }
+
+  private composeActiveSource(): NavigationSource {
+    const rootEntries = resolveNavigationEntries(this.configuration.routes);
+    const resolvedEntries = resolveFrameSlots(
+      rootEntries,
+      Object.freeze([...this.deliveredBySlot.values()]),
+    );
+
+    if (Array.isArray(this.configuration.routes)) {
+      return resolvedEntries;
+    }
+
+    const source = this.configuration.routes as AnyNavigationDefinition;
+    const framesById = new Map(source.frames.map(frame => [frame.id, frame] as const));
+    const collect = (entries: NavigationTree): void => {
+      for (const entry of entries) {
+        if (entry.kind === 'layout') collect(entry.entries);
+        else if (entry.kind === 'defined-frame' && !framesById.has(entry.id)) {
+          framesById.set(entry.id, entry);
+        }
+      }
+    };
+    collect(resolvedEntries);
+
+    return Object.freeze({
+      ...source,
+      frames: Object.freeze([...framesById.values()]),
+      entries: resolvedEntries,
+    });
+  }
+
+  private rebuildActiveGraph(): void {
+    this.activeSource = this.composeActiveSource();
+    this.registry = createRouteRegistry(this.activeSource);
+
+    if (!this.engine) return;
+    this.engine.replaceConfiguration({
+      routes: adaptRoutes(
+        this.registry.groups,
+        this.appRef,
+        this.document,
+        this.injector,
+        this.registry,
+      ),
+      transitions: [
+        ...adaptFrameGraphTransitions(this.registry),
+        ...adaptFrameTransitions(this.registry.groups, this.injector, this.registry),
+      ],
+    });
+  }
+
+  private async resolveServerFrames(url: URL): Promise<boolean> {
+    const resolver = this.configuration.resolveFrames;
+    if (!resolver) return false;
+
+    const key = `${url.pathname}${url.search}${url.hash}`;
+    if (this.registryMatchesPath(url.pathname) || this.unresolvedFrameTargets.has(key)) {
+      return false;
+    }
+
+    const existing = this.pendingFrameResolutions.get(key);
+    if (existing) return existing;
+
+    const controller = new AbortController();
+    let task!: Promise<boolean>;
+    task = Promise.resolve(resolver(url, { signal: controller.signal }))
+      .then(resolved => {
+        if (!resolved) {
+          this.unresolvedFrameTargets.add(key);
+          return false;
+        }
+
+        let changed = false;
+        for (const contribution of resolved.contributions) {
+          const identity = resolved.contributionIdentities[contribution.slotId];
+          const previousIdentity = this.contributionIdentities.get(contribution.slotId);
+          if (identity && previousIdentity === identity) continue;
+
+          this.deliveredBySlot.set(contribution.slotId, contribution);
+          if (identity) this.contributionIdentities.set(contribution.slotId, identity);
+          changed = true;
+        }
+
+        if (!changed) return false;
+        this.unresolvedFrameTargets.delete(key);
+        this.rebuildActiveGraph();
+        return true;
+      })
+      .finally(() => {
+        if (this.pendingFrameResolutions.get(key) === task) {
+          this.pendingFrameResolutions.delete(key);
+        }
+      });
+
+    this.pendingFrameResolutions.set(key, task);
+    return task;
+  }
+
+  private registryMatchesPath(pathname: string): boolean {
+    const target = pathname.split('/').filter(Boolean);
+    return this.registry.groups.some(group => {
+      const pattern = group.path.split('/').filter(Boolean);
+      return pattern.length === target.length
+        && pattern.every((segment, index) =>
+          segment.startsWith(':') || segment === target[index],
+        );
+    });
+  }
+
+  private navigationTargetUrl(
+    target: NavigationTarget,
+    instruction: ResolvedNavigationInstruction | null,
+  ): URL | null {
+    if (instruction) {
+      return new URL(instruction.matchTarget, getRouterLocation(this.document).origin);
+    }
+    if (typeof target === 'string' || target instanceof URL) {
+      return resolveRouterUrl(
+        target,
+        this.baseHref,
+        getRouterLocation(this.document),
+        'href',
+      );
+    }
+    if ('path' in target) {
+      return resolveRouterUrl(
+        target.path,
+        this.baseHref,
+        getRouterLocation(this.document),
+        'href',
+      );
+    }
+    return null;
   }
 
   private resolveNavigationInstruction(
@@ -1341,3 +1548,6 @@ export function provideRouter<const TRoutes extends NavigationSource>(
     },
   ];
 }
+
+/** Server-delivery alias matching Waypoint's provider vocabulary. */
+export const provideServerRouter = provideRouter;
