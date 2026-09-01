@@ -132,22 +132,33 @@ export function view(
   };
 }
 
+function normalizeHook<T>(value: T | readonly T[] | undefined): readonly T[] | undefined {
+  if (value === undefined) return undefined;
+  return Array.isArray(value) ? value : [value as T];
+}
+
+function normalizeFrameOutlets(
+  outlets: FrameDefinitionOptions<any, any, any>['outlets'],
+): readonly FrameOutlet[] {
+  if (!outlets) return [];
+  if (Array.isArray(outlets)) return outlets as readonly FrameOutlet[];
+  return Object.freeze(
+    Object.entries(outlets).map(([outlet, value]) => ({
+      outlet,
+      view: createFrameDefinitionView(value),
+    })),
+  );
+}
+
 function normalizeFrameDefinitionOptions<
-  TParamsSchema extends
-    ParamSchemaRecord | undefined,
-  TQuerySchema extends
-    QuerySchemaRecord | undefined,
+  TParamsSchema extends ParamSchemaRecord | undefined,
+  TQuerySchema extends QuerySchemaRecord | undefined,
+  TPrepare extends import('./navigation-definitions').HookInput<FramePrepareFn> | undefined,
 >(
   options:
-    | FrameDefinitionOptions<
-        TParamsSchema,
-        TQuerySchema
-      >
+    | FrameDefinitionOptions<TParamsSchema, TQuerySchema, TPrepare>
     | undefined,
-): FrameDefinitionOptions<
-  TParamsSchema,
-  TQuerySchema
-> {
+): FrameDefinitionOptions<TParamsSchema, TQuerySchema, TPrepare> {
   return options ?? {};
 }
 
@@ -172,59 +183,57 @@ export function lazyView(
   };
 }
 
+type NormalizePrepareInput<TPrepare> =
+  TPrepare extends readonly FramePrepareFn[]
+    ? TPrepare
+    : TPrepare extends FramePrepareFn
+      ? readonly [TPrepare]
+      : undefined;
+
 export function frame<
   const TId extends string,
-  const TParamsSchema extends
-    ParamSchemaRecord | undefined = undefined,
-  const TQuerySchema extends
-    QuerySchemaRecord | undefined = undefined,
+  const TParamsSchema extends ParamSchemaRecord | undefined = undefined,
+  const TQuerySchema extends QuerySchemaRecord | undefined = undefined,
+  const TPrepare extends import('./navigation-definitions').HookInput<FramePrepareFn> | undefined = import('./navigation-definitions').HookInput<FramePrepareFn> | undefined,
 >(
   id: TId,
   component: Type<unknown> | FrameView<any>,
-  options?: FrameDefinitionOptions<
-    TParamsSchema,
-    TQuerySchema
-  >,
+  definition: FrameDefinitionOptions<TParamsSchema, TQuerySchema, TPrepare> = {},
 ): FrameDefinition<
   TId,
   TParamsSchema,
-  TQuerySchema
->;
-export function frame<
-  const TId extends string,
-  const TParamsSchema extends
-    ParamSchemaRecord | undefined = undefined,
-  const TQuerySchema extends
-    QuerySchemaRecord | undefined = undefined,
->(
-  id: TId,
-  component: Type<unknown> | FrameView,
-  definition: FrameDefinitionOptions<
-    TParamsSchema,
-    TQuerySchema
-  > = {},
-): FrameDefinition<
-  TId,
-  TParamsSchema,
-  TQuerySchema
+  TQuerySchema,
+  FrameView<InferPreparedData<NormalizePrepareInput<TPrepare>>>
 > {
-  const options =
-    normalizeFrameDefinitionOptions(
-      definition,
-    );
+  const options = normalizeFrameDefinitionOptions(definition);
+  const existing = createFrameDefinitionView(component);
+  const frameView: FrameView<any> = {
+    ...existing,
+    beforeEnter: normalizeHook(options.beforeEnter) ?? existing.beforeEnter,
+    beforeLeave: normalizeHook(options.beforeLeave) ?? existing.beforeLeave,
+    prepare: normalizeHook(options.prepare) ?? existing.prepare,
+    afterEnter: normalizeHook(options.afterEnter) ?? existing.afterEnter,
+  };
 
   return {
     kind: 'defined-frame',
     id,
-    view: createFrameDefinitionView(component),
-    outlets: options.outlets ?? [],
-    paramsSchema: options.paramsSchema,
-    querySchema: options.querySchema,
+    view: frameView,
+    address: options.address,
+    outlets: normalizeFrameOutlets(options.outlets),
+    paramsSchema: options.params ?? options.paramsSchema,
+    querySchema: options.query ?? options.querySchema,
     transitions: options.transitions,
     directEntry: options.directEntry,
-    directEntryRedirectTo:
-      options.directEntryRedirectTo,
-  };
+    directEntryRedirectTo: options.directEntryRedirectTo,
+    providers: options.providers,
+    policy: options.policy,
+  } as FrameDefinition<
+    TId,
+    TParamsSchema,
+    TQuerySchema,
+    FrameView<InferPreparedData<NormalizePrepareInput<TPrepare>>>
+  >;
 }
 
 export function address<
@@ -463,6 +472,9 @@ export function redirectRoute<
     ...options,
   };
 }
+
+/** Preferred redirect builder. */
+export const redirect = redirectRoute;
 
 export function layout<
   const TPath extends string,

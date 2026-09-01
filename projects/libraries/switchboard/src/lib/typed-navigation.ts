@@ -97,6 +97,21 @@ type AddressAsLeaf<TAddress> =
       >
     : never;
 
+
+type DefinedFrameAsLeaf<TFrame> =
+  TFrame extends FrameDefinition<
+    infer TId extends string,
+    infer TParamsSchema,
+    infer TQuerySchema,
+    any
+  >
+    ? RouteDefinition<
+        string,
+        TId,
+        TParamsSchema,
+        TQuerySchema
+      >
+    : never;
 type ResolveNavigationEntries<
   TSource extends NavigationSource,
 > =
@@ -118,8 +133,10 @@ export type LeafRouteDefinitions<
   ResolveNavigationEntries<TSource>[number] extends infer TEntry
     ? TEntry extends { kind: 'route' }
       ? TEntry
-      : TEntry extends { kind: 'address' }
-        ? AddressAsLeaf<TEntry>
+      : TEntry extends { kind: 'defined-frame' }
+        ? DefinedFrameAsLeaf<TEntry>
+        : TEntry extends { kind: 'address' }
+          ? AddressAsLeaf<TEntry>
         : TEntry extends { kind: 'frame-route' }
           ? FrameRouteAsLeaf<TEntry>
           : TEntry extends {
@@ -275,7 +292,16 @@ type EntryPreparedData<
         TName,
         MergePrepared<TParent, FrameViewData<TView>>
       >
-    : TEntry extends import('./navigation-definitions').AddressDefinition<
+    : TEntry extends import('./navigation-definitions').FrameDefinition<
+        infer TFrameId extends string,
+        any,
+        any,
+        infer TFrameView extends import('./navigation-definitions').FrameView<any>
+      >
+      ? TFrameId extends TName
+        ? MergePrepared<TParent, FrameViewData<TFrameView>>
+        : never
+      : TEntry extends import('./navigation-definitions').AddressDefinition<
         string,
         infer TFrame extends import('./navigation-definitions').FrameDefinition<any, any, any, any>,
         any,

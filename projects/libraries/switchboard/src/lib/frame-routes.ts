@@ -97,6 +97,8 @@ export function buildAddressRoutes(
     transitions,
     directEntry,
     directEntryRedirectTo,
+    providers,
+    policy,
   } = frame;
   const frameNavigation:
     FrameNavigationOptions | undefined =
@@ -119,6 +121,8 @@ export function buildAddressRoutes(
       querySchema:
         options.querySchema
         ?? querySchema,
+      providers: options.providers ?? providers,
+      policy: options.policy ?? policy,
     }),
     frameNavigation,
   };
@@ -146,6 +150,8 @@ export function buildInternalFrameRoutes(
     transitions,
     directEntry,
     directEntryRedirectTo,
+    providers,
+    policy,
   } = definition;
   const frameNavigation:
     FrameNavigationOptions | undefined =
@@ -164,6 +170,8 @@ export function buildInternalFrameRoutes(
       name: id,
       paramsSchema,
       querySchema,
+      providers,
+      policy,
     }),
     frameNavigation,
   };

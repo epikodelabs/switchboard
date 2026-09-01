@@ -28,69 +28,54 @@ Switchboard is built for modern, standalone Angular apps and declares `@angular/
 
 ## Quick start
 
-Here's the shape of a small Switchboard app. Don't worry about absorbing every option on the first read — the core ideas underneath it are simple, and we'll walk through each one right after.
-
 ```ts
 import { inject } from '@angular/core';
 import {
-  address,
   frame,
-  frameOutlet,
   layout,
   navigation,
+  redirect,
   s,
-  view,
 } from '@epikodelabs/switchboard';
 
-const missionFrame = frame(
-  'mission',
-  view(MissionPage, {
-    prepare: [
-      async context => ({
-        snapshot: await inject(MissionService).load(
-          Number(context.params['missionId'] ?? 0),
-        ),
-      }),
-    ],
+const missionFrame = frame('mission', MissionPage, {
+  address: '/mission/:missionId',
+  directEntry: true,
+  transitions: ['analysis', 'handoff'],
+  params: {
+    missionId: s.number({ min: 1 }),
+  },
+  query: {
+    lane: s.string('thermal'),
+  },
+  outlets: {
+    sidebar: MissionSidebarComponent,
+  },
+  prepare: async context => ({
+    snapshot: await inject(MissionService).load(
+      Number(context.params['missionId']),
+    ),
   }),
-  {
-    directEntry: true,
-    transitions: ['analysis', 'handoff'],
-    paramsSchema: {
-      missionId: s.number({ min: 1 }),
-    },
-    querySchema: {
-      lane: s.string('thermal'),
-    },
-    outlets: [
-      frameOutlet('sidebar', view(MissionSidebarComponent)),
-    ],
-  },
-);
+});
 
-const handoffFrame = frame(
-  'handoff',
-  view(HandoffPage),
-  {
-    transitions: ['mission', 'analysis', 'debrief'],
-  },
-);
+const handoffFrame = frame('handoff', HandoffPage, {
+  transitions: ['mission', 'analysis'],
+});
 
 export const routes = navigation({
-  frames: [
-    missionFrame,
-    handoffFrame,
-  ] as const,
+  frames: [missionFrame, handoffFrame] as const,
   entries: [
-    layout('/ops', view(OpsShellPage), [
-      address('/mission/:missionId', missionFrame),
+    redirect('/', '/app/mission/1'),
+    layout('/app', AppShell, [
+      missionFrame,
       handoffFrame,
     ]),
   ] as const,
 });
 ```
 
-Read that graph out loud and it almost explains itself: *"the mission frame is publicly addressable at `/ops/mission/:missionId`, it can hand off to analysis or handoff, and it comes with a sidebar outlet."* That's the whole mental model.
+A frame owns its identity, URL projection, schemas, lifecycle, companion outlets,
+and transition edges. Internal-only frames simply omit `address`.
 
 ## Core ideas
 
@@ -107,13 +92,13 @@ A frame is the primary unit of navigation — the thing that actually exists in 
 - the list of **transitions** it's allowed to make to other frames
 - **direct-entry rules**, for deciding whether someone is allowed to land here straight from a URL
 
-### `view(...)` and `lazyView(...)`
+### `frame(...)` lifecycle options
 
-A view binds a component to a frame's lifecycle. This is where `prepare`, `beforeEnter`, `beforeLeave`, and `afterEnter` hooks live — plain functions that can inject services, fetch data, or veto a transition before it happens. `lazyView(...)` does the same thing for a component that should be code-split and loaded on demand.
+Lifecycle belongs directly to `frame(...)`: `prepare`, `beforeEnter`, `beforeLeave`, and `afterEnter` are plain functions. `view()` remains a low-level composition helper for reusable/lazy view definitions, but ordinary frames do not need it.
 
-### `address(path, frame, options)`
+### Frame addresses
 
-An address projects a public, linkable path onto a frame. This is the piece that's optional by design: give a frame an address and it becomes something you can deep-link to, bookmark, and navigate to directly. Leave a frame without one, and it stays a first-class part of your navigation graph — reachable through transitions — without ever showing up in the URL bar. That's how wizard steps, intermediate hand-offs, or "you shouldn't refresh here" screens are meant to be modeled.
+Set `address` on a frame to make it public and linkable. Omit it and the frame remains an internal graph state reachable through transitions without becoming a URL destination.
 
 ### `navigation({ frames, entries })`
 
@@ -160,3 +145,7 @@ If you need broad Angular Router feature parity, Switchboard is intentionally na
 - shell composition, without having to adopt Angular Router's full route-tree model to get it
 
 We're excited about where this model can take Angular navigation, and we'd love for you to come build with us.
+
+## Server-owned graph delivery
+
+Switchboard can divide the frame graph with `frameSlot()` and `framesFor()`. Protected-delivery builds authorize graph artifacts on the server, then resolve only the allowed contributions for SSR and browser navigation. Frame policies use `allowAnonymous`, `roles`, and `permissions`. See `docs/server-delivery.md`.

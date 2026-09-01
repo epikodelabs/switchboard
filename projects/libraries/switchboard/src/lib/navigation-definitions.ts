@@ -95,11 +95,16 @@ export interface FrameHooks<
   readonly afterEnter?: readonly FrameAfterEnterFn<InferPreparedData<TPrepare>>[];
 }
 
+export interface NavigationPolicy {
+  readonly allowAnonymous?: boolean;
+  readonly roles?: readonly string[];
+  readonly permissions?: readonly string[];
+}
+
 export interface FrameNavigationOptions {
   readonly transitions?: readonly string[];
   readonly directEntry?: boolean;
-  readonly directEntryRedirectTo?:
-    RedirectTarget;
+  readonly directEntryRedirectTo?: RedirectTarget;
 }
 
 export interface EagerViewDefinition {
@@ -147,6 +152,7 @@ export interface RouteDefinitionBase<
   readonly querySchema?: TQuerySchema;
   readonly data?: Readonly<Record<string, unknown>>;
   readonly providers?: NavigationProviders;
+  readonly policy?: NavigationPolicy;
 }
 
 export type RouteOptions<
@@ -163,14 +169,28 @@ export type RouteOptions<
   'kind' | 'path'
 >;
 
-export interface FrameDefinitionOptions
-<
+export type HookInput<T> = T | readonly T[];
+
+export interface FrameDefinitionOptions<
   TParamsSchema extends ParamSchemaRecord | undefined = undefined,
   TQuerySchema extends QuerySchemaRecord | undefined = undefined,
+  TPrepare extends HookInput<FramePrepareFn> | undefined = HookInput<FramePrepareFn> | undefined,
 > extends FrameNavigationOptions {
+  /** Public URL projection. Omit it for an internal-only frame. */
+  readonly address?: string;
+  readonly params?: TParamsSchema;
+  readonly query?: TQuerySchema;
+  /** @deprecated Use params. */
   readonly paramsSchema?: TParamsSchema;
+  /** @deprecated Use query. */
   readonly querySchema?: TQuerySchema;
-  readonly outlets?: readonly FrameOutlet[];
+  readonly outlets?: Readonly<Record<string, Type<unknown> | FrameView<any>>> | readonly FrameOutlet[];
+  readonly providers?: NavigationProviders;
+  readonly policy?: NavigationPolicy;
+  readonly beforeEnter?: HookInput<CanEnterFn>;
+  readonly beforeLeave?: HookInput<FrameBeforeLeaveFn<any>>;
+  readonly prepare?: TPrepare;
+  readonly afterEnter?: HookInput<FrameAfterEnterFn<any>>;
 }
 
 export interface FrameOutlet<
@@ -181,19 +201,20 @@ export interface FrameOutlet<
   readonly view: TView;
 }
 
-export interface FrameDefinition<
+export type FrameDefinition<
   TId extends string = string,
   TParamsSchema extends ParamSchemaRecord | undefined = undefined,
   TQuerySchema extends QuerySchemaRecord | undefined = undefined,
   TView extends FrameView<any> = FrameView<any>,
-> extends FrameDefinitionOptions<
-    TParamsSchema,
-    TQuerySchema
-  > {
+> = Omit<
+  FrameDefinitionOptions<TParamsSchema, TQuerySchema>,
+  'outlets' | 'beforeEnter' | 'beforeLeave' | 'prepare' | 'afterEnter'
+> & {
   readonly kind: 'defined-frame';
   readonly id: TId;
   readonly view: TView;
-}
+  readonly outlets?: readonly FrameOutlet[];
+};
 
 export type AddressOptions<
   TName extends string = string,
@@ -332,12 +353,35 @@ export type AnyFrameDefinition = FrameDefinition<any, any, any, any>;
 export type AnyAddressDefinition = AddressDefinition<any, any, any, any>;
 export type AnyFrameRouteDefinition = FrameRouteDefinition<any, any, any, any, any>;
 
+export interface FrameSlotDefinition<TSlotId extends string = string> {
+  readonly kind: 'frame-slot';
+  readonly slotId: TSlotId;
+  /** Authored ownership edge. Protected-delivery builders may replace this import. */
+  readonly load?: () => MaybePromise<FrameContributionDefinition<TSlotId>>;
+}
+
+export interface FrameContributionDefinition<
+  TSlotId extends string = string,
+  TId extends string = string,
+  TEntries extends NavigationTree = NavigationTree,
+> {
+  readonly kind: 'frame-contribution';
+  readonly slotId: TSlotId;
+  /** @internal Runtime identity; compiler/server owned in protected-delivery builds. */
+  readonly id: TId;
+  readonly entries: TEntries;
+}
+
+export type AnyFrameSlotDefinition = FrameSlotDefinition<any>;
+export type AnyFrameContributionDefinition = FrameContributionDefinition<any, any, any>;
+
 export type NavigationEntry =
   | AnyRouteDefinition
   | AnyLayoutDefinition
   | AnyAddressDefinition
   | AnyFrameDefinition
-  | AnyFrameRouteDefinition;
+  | AnyFrameRouteDefinition
+  | AnyFrameSlotDefinition;
 export type NavigationTree = readonly NavigationEntry[];
 
 export interface NavigationDefinition<
@@ -355,3 +399,8 @@ export type AnyNavigationDefinition =
 export type NavigationSource =
   | NavigationTree
   | AnyNavigationDefinition;
+
+export interface ResolvedFrameNavigation {
+  readonly entries: NavigationTree;
+  readonly contributions: readonly AnyFrameContributionDefinition[];
+}

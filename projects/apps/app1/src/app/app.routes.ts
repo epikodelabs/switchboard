@@ -1,8 +1,7 @@
 import {
-  address,
   layout,
   navigation,
-  redirectRoute,
+  redirect,
 } from '@epikodelabs/switchboard';
 
 import {
@@ -16,8 +15,8 @@ import {
 } from './frames';
 
 /**
- * Each frame id is used as the route name exactly once.
- * Root and /legacy only redirect — they do not re-bind booksFrame.
+ * Frames own their public address, lifecycle, schemas, outlets and graph edges.
+ * Layouts only compose UI; URLs no longer need a second address(...) layer.
  */
 export const routes = navigation({
   frames: [
@@ -29,18 +28,17 @@ export const routes = navigation({
     settingsFrame,
   ] as const,
   entries: [
-    // Public landing → books inside the ledger shell
-    redirectRoute('/', '/ledger/books'),
-    redirectRoute('/legacy', '/ledger/books'),
+    redirect('/', '/ledger/books'),
+    redirect('/legacy', '/ledger/books'),
 
     layout('/ledger', ledgerShellFrame, [
-      redirectRoute('', '/ledger/books'),
-      address('/books', booksFrame),
-      address('/account/:accountId', accountFrame),
-      address('/journal', journalFrame),
-      address('/entry/:entryId', entryFrame),
-      address('/trial', trialFrame),
-      address('/settings', settingsFrame),
+      redirect('', '/ledger/books'),
+      booksFrame,
+      accountFrame,
+      journalFrame,
+      entryFrame,
+      trialFrame,
+      settingsFrame,
     ]),
   ] as const,
 });

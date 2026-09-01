@@ -197,25 +197,39 @@ export function compileRoutes(
       continue;
     }
 
+    if (entry.kind === 'frame-slot') {
+      // An unresolved slot is an empty ownership boundary. Server/client delivery
+      // resolves authorized contributions before compiling the active graph.
+      continue;
+    }
+
     if (entry.kind === 'defined-frame') {
-      const compiledFrameRoutes =
+      if (entry.address) {
         compileRoutes(
-          buildInternalFrameRoutes(
-            entry,
-            createInternalFramePath(
-              entry.id,
-            ),
-          ),
-          '/',
+          buildAddressRoutes({
+            kind: 'address',
+            path: entry.address,
+            frame: entry,
+          }),
+          parentPath,
           layouts,
-          [],
+          output,
         );
+        continue;
+      }
+
+      const compiledFrameRoutes = compileRoutes(
+        buildInternalFrameRoutes(
+          entry,
+          createInternalFramePath(entry.id),
+        ),
+        '/',
+        layouts,
+        [],
+      );
 
       for (const compiledRoute of compiledFrameRoutes) {
-        output.push({
-          ...compiledRoute,
-          addressPath: null,
-        });
+        output.push({ ...compiledRoute, addressPath: null });
       }
 
       continue;
