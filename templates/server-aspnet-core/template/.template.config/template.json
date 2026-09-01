@@ -1,0 +1,14 @@
+{
+  "$schema": "http://json.schemastore.org/template",
+  "author": "EpikodeLabs",
+  "classifications": ["Web", "ASP.NET Core", "Switchboard"],
+  "identity": "EpikodeLabs.Switchboard.Server.AspNetCore",
+  "name": "Switchboard ASP.NET Core protected frame server",
+  "shortName": "switchboard-server-aspnet",
+  "sourceName": "SwitchboardServer",
+  "preferNameDirectory": true,
+  "tags": {
+    "language": "C#",
+    "type": "project"
+  }
+}

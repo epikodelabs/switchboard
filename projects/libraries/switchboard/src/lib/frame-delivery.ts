@@ -41,8 +41,9 @@ export function allowsFrameArtifact(
   if (!authenticated && policy.allowAnonymous !== true) return false;
 
   const roles = new Set(principal?.roles ?? []);
-  for (const role of policy.roles ?? []) {
-    if (!roles.has(role)) return false;
+  const requiredRoles = policy.roles ?? [];
+  if (requiredRoles.length > 0 && !requiredRoles.some(role => roles.has(role))) {
+    return false;
   }
 
   const permissions = new Set(principal?.permissions ?? []);

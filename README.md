@@ -173,3 +173,19 @@ export const applicationFrames = framesFor('application', [
 This ownership graph is deliberately separate from the transition graph: `frameSlot()/framesFor()` decide where code belongs and how it is delivered; `transitions` decide where navigation may move.
 
 See `docs/build-model.md` and `docs/server-delivery-contract.md`.
+
+## Server templates
+
+Protected frame delivery is backend-neutral. The repository includes distributable
+starter hosts for both Node + TypeScript and ASP.NET Core:
+
+```text
+templates/
+  server-node-ts/
+  server-aspnet-core/
+```
+
+The Node template is published as `@epikodelabs/switchboard-template-node-ts`; the
+ASP.NET template is a NuGet `dotnet new` package named
+`EpikodeLabs.Switchboard.Templates`. Both consume the same builder publication and
+serve the same `/api/navigation/resolve` and `/api/navigation/modules/...` protocol.

@@ -18,7 +18,10 @@
     "jasmine": "testify --headless --browser chrome",
     "jasmine:coverage": "testify --headless --browser chrome --coverage",
     "build:builder": "node projects/tools/builder/scripts/build.mjs",
-    "clean:builder": "node projects/tools/builder/scripts/clean.mjs"
+    "clean:builder": "node projects/tools/builder/scripts/clean.mjs",
+    "pack:template:node": "node scripts/pack-node-template.mjs",
+    "pack:template:aspnet": "node scripts/pack-aspnet-template.mjs",
+    "pack:templates": "npm run pack:template:node && npm run pack:template:aspnet"
   },
   "private": true,
   "packageManager": "npm@10.9.8",
