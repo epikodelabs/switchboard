@@ -3,22 +3,14 @@ import { ensureAngularTestEnvironment } from './angular-testbed.init';
 import { Component } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import {
-  address,
   frame,
-  frameOutlet,
-  frameRoute,
   layout,
-  lazyLayout,
-  lazyRoute,
-  navigation,
-  redirectRoute,
+  redirect,
   route,
   provideRouter,
   RouterOutlet,
   s,
   Router,
-  type NavigationSource,
-  view,
   NavigationTree,
 } from '@epikodelabs/switchboard';
 
@@ -69,7 +61,7 @@ describe('Router: flat routes and layouts', () => {
   let outlet: HTMLElement;
   let router: Router;
 
-  function bootstrap(routes: NavigationSource): void {
+  function bootstrap(routes: NavigationTree): void {
     TestBed.configureTestingModule({
       imports: [
         HomeComponent,
@@ -161,7 +153,7 @@ describe('Router: flat routes and layouts', () => {
 
   it('renders an eager layout around a lazy leaf route', async () => {
     const routes = [
-      layout('/admin', ParentComponent, [lazyRoute('/lazy-child', async () => ChildComponent)]),
+      layout('/admin', ParentComponent, [route('/lazy-child', async () => ChildComponent)]),
     ] as const satisfies NavigationTree;
 
     bootstrap(routes);
@@ -174,7 +166,7 @@ describe('Router: flat routes and layouts', () => {
 
   it('renders a lazy layout around an eager leaf route', async () => {
     const routes = [
-      lazyLayout('/admin', async () => ParentComponent, [route('/child', ChildComponent)]),
+      layout('/admin', async () => ParentComponent, [route('/child', ChildComponent)]),
     ] as const satisfies NavigationTree;
 
     bootstrap(routes);
@@ -187,8 +179,8 @@ describe('Router: flat routes and layouts', () => {
 
   it('renders a lazy layout around a lazy leaf route', async () => {
     const routes = [
-      lazyLayout('/admin', async () => ParentComponent, [
-        lazyRoute('/lazy-child', async () => ChildComponent),
+      layout('/admin', async () => ParentComponent, [
+        route('/lazy-child', async () => ChildComponent),
       ]),
     ] as const satisfies NavigationTree;
 
@@ -276,8 +268,8 @@ describe('Router: flat routes and layouts', () => {
   });
 
   it('composes addressable frames directly inside a layout', async () => {
-    const childFrame = frame('child', view(ChildComponent), {
-      outlets: [frameOutlet('sidebar', view(SettingsComponent))],
+    const childFrame = frame('child', ChildComponent, {
+      outlets: { sidebar: SettingsComponent },
     });
 
     const routes = [
@@ -293,33 +285,34 @@ describe('Router: flat routes and layouts', () => {
     expect(content).toContain('<h3>Settings</h3>');
   });
 
-  it('supports declared navigation definitions with explicit addresses', async () => {
-    const childFrame = frame('child', view(ChildComponent), {
+  it('binds the frame id as the placed route name', async () => {
+    const childFrame = frame('child', ChildComponent, {
       directEntry: true,
     });
 
-    const routes = navigation({
-      frames: [childFrame] as const,
-      entries: [layout('/app', ShellComponent, [address('/child', childFrame)])] as const,
-    });
+    const routes = [
+      layout('/app', ShellComponent, [route('/child', childFrame)]),
+    ] as const satisfies NavigationTree;
 
     bootstrap(routes);
-    await navigate('/app/child');
+
+    await router.navigate({ name: 'child' });
+    await new Promise((resolve) => setTimeout(resolve, 0));
 
     const content = getOutletContent();
     expect(content).toContain('<h2>Shell</h2>');
     expect(content).toContain('<h3>Child</h3>');
+    expect(router.state.path).toBe('/app/child');
   });
 
-  it('renders an internal-only frame placed inside a layout', async () => {
-    const childFrame = frame('child', view(ChildComponent), {
+  it('accepts frame targets and places them at their authored path', async () => {
+    const childFrame = frame('child', ChildComponent, {
       directEntry: true,
     });
 
-    const routes = navigation({
-      frames: [childFrame] as const,
-      entries: [layout('/app', ShellComponent, [childFrame])] as const,
-    });
+    const routes = [
+      layout('/app', ShellComponent, [route('/child', childFrame)]),
+    ] as const satisfies NavigationTree;
 
     bootstrap(routes);
 
@@ -331,7 +324,7 @@ describe('Router: flat routes and layouts', () => {
     const content = getOutletContent();
     expect(content).toContain('<h2>Shell</h2>');
     expect(content).toContain('<h3>Child</h3>');
-    expect(window.location.pathname).toBe('/');
+    expect(window.location.pathname).toBe('/app/child');
   });
 
   it('keeps named outlet navigation working across layout re-renders', async () => {
@@ -359,22 +352,17 @@ describe('Router: flat routes and layouts', () => {
   });
 
   it('redirects direct address-bar entry when a frame disallows direct entry', async () => {
-    const landingFrame = frame('landing', view(HomeComponent), {
+    const landingFrame = frame('landing', HomeComponent, {
       directEntry: true,
       transitions: ['private'],
     });
-    const privateFrame = frame('private', view(ChildComponent), {
+    const privateFrame = frame('private', ChildComponent, {
       transitions: [],
-      directEntryRedirectTo: {
-        frame: 'landing',
-        params: {
-          projectId: 7,
-        },
-      },
+      directEntryRedirectTo: '/landing/7',
     });
     const routes = [
       route('/landing/:projectId', landingFrame, {
-        paramsSchema: {
+        params: {
           projectId: s.number({ min: 1 }),
         },
       }),
@@ -391,16 +379,16 @@ describe('Router: flat routes and layouts', () => {
   });
 
   it('allows direct entry through redirect routes that canonicalize into a frame', async () => {
-    const landingFrame = frame('landing', view(HomeComponent), {
+    const landingFrame = frame('landing', HomeComponent, {
       directEntry: true,
       transitions: ['workspace'],
     });
-    const workspaceFrame = frame('workspace', view(ChildComponent), {
+    const workspaceFrame = frame('workspace', ChildComponent, {
       transitions: [],
     });
     const routes = [
       route('/landing', landingFrame),
-      redirectRoute('/legacy', '/workspace'),
+      redirect('/legacy', '/workspace'),
       route('/workspace', workspaceFrame),
     ] as const;
 
@@ -415,11 +403,11 @@ describe('Router: flat routes and layouts', () => {
   });
 
   it('allows declared frame-to-frame transitions after initial entry', async () => {
-    const publicFrame = frame('public', view(HomeComponent), {
+    const publicFrame = frame('public', HomeComponent, {
       directEntry: true,
       transitions: ['private'],
     });
-    const privateFrame = frame('private', view(ChildComponent), {
+    const privateFrame = frame('private', ChildComponent, {
       transitions: ['public'],
     });
     const routes = [
@@ -435,27 +423,23 @@ describe('Router: flat routes and layouts', () => {
     expect(getOutletContent()).toContain('<h3>Child</h3>');
   });
 
-  it('supports named redirect targets in frame guards', async () => {
-    const settingsFrame = frame('settings', view(SettingsComponent));
+  it('supports redirect targets in frame guards', async () => {
+    const settingsFrame = frame('settings', SettingsComponent);
     const adminFrame = frame(
       'admin',
-      view(ChildComponent, {
+      ChildComponent,
+      {
         beforeEnter: [
           () => ({
-            redirectTo: {
-              frame: 'settings',
-              query: {
-                section: 'access',
-              },
-            },
+            redirectTo: '/settings?section=access',
             replace: true,
           }),
         ],
-      }),
+      },
     );
     const routes = [
       route('/settings', settingsFrame, {
-        querySchema: {
+        query: {
           section: s.string('general'),
         },
       }),
@@ -471,7 +455,7 @@ describe('Router: flat routes and layouts', () => {
   });
 
   it('accepts frame targets and carries payload through navigation state', async () => {
-    const settingsFrame = frame('settings', view(SettingsComponent), {
+    const settingsFrame = frame('settings', SettingsComponent, {
       directEntry: true,
     });
     const routes = [route('/settings', settingsFrame)] as const;
@@ -493,14 +477,13 @@ describe('Router: flat routes and layouts', () => {
     expect(router.displayUrl).toBe('/settings');
   });
 
-  it('restores an internal-only frame from browser history state', async () => {
-    const childFrame = frame('child', view(ChildComponent), {
+  it('restores a frame from browser history state', async () => {
+    const childFrame = frame('child', ChildComponent, {
       directEntry: true,
     });
-    const routes = navigation({
-      frames: [childFrame] as const,
-      entries: [layout('/app', ShellComponent, [childFrame])] as const,
-    });
+    const routes = [
+      layout('/app', ShellComponent, [route('/child', childFrame)]),
+    ] as const satisfies NavigationTree;
 
     window.history.replaceState(
       {
@@ -508,11 +491,11 @@ describe('Router: flat routes and layouts', () => {
           userState: {
             source: 'restore',
           },
-          matchHref: '/.switchboard/frames/child',
+          matchHref: '/app/child',
         },
       },
       '',
-      '/',
+      '/app/child',
     );
 
     bootstrap(routes);
@@ -522,8 +505,8 @@ describe('Router: flat routes and layouts', () => {
     expect(router.state.historyState).toEqual({
       source: 'restore',
     });
-    expect(router.displayUrl).toBe('/');
-    expect(window.location.pathname).toBe('/');
+    expect(router.displayUrl).toBe('/app/child');
+    expect(window.location.pathname).toBe('/app/child');
   });
 });
 

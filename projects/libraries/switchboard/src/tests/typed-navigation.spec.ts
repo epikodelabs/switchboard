@@ -1,12 +1,9 @@
 import {
-  address,
   frame,
   layout,
-  navigation,
   route,
   s,
   type Router,
-  view,
 } from '@epikodelabs/switchboard';
 
 class DashboardLayout {}
@@ -14,45 +11,31 @@ class DashboardPage {}
 class SettingsPage {}
 class LegacyPage {}
 
-const dashboardFrame = frame(
-  'dashboard',
-  view(DashboardPage),
-  {
-    paramsSchema: {
-      projectId: s.number({ min: 1 }),
-    },
-    querySchema: {
-      tab: s.string('overview'),
-      page: s.number({ default: 1, min: 1 }),
-      filters: s.array(),
-      draft: s.optional(s.boolean()),
-    },
-  },
-);
+const dashboardFrame = frame('dashboard', DashboardPage);
 
-const settingsFrame = frame(
-  'settings',
-  view(SettingsPage),
-  {
-    querySchema: {
-      section: s.string('general'),
-    },
-  },
-);
+const settingsFrame = frame('settings', SettingsPage);
 
-const routes = navigation({
-  frames: [
-    settingsFrame,
-    dashboardFrame,
-  ] as const,
-  entries: [
-    layout('/app', DashboardLayout, [
-      address('/settings', settingsFrame),
-      address('/dashboard/:projectId', dashboardFrame),
-      route('/legacy', LegacyPage),
-    ]),
-  ] as const,
-});
+const routes = [
+  layout('/app', DashboardLayout, [
+    route('/settings', settingsFrame, {
+      query: {
+        section: s.string('general'),
+      },
+    }),
+    route('/dashboard/:projectId', dashboardFrame, {
+      params: {
+        projectId: s.number({ min: 1 }),
+      },
+      query: {
+        tab: s.string('overview'),
+        page: s.number({ default: 1, min: 1 }),
+        filters: s.array(),
+        draft: s.optional(s.boolean()),
+      },
+    }),
+    route('/legacy', LegacyPage),
+  ]),
+] as const;
 
 function assertNamedNavigation(router: Router<typeof routes>): void {
   void router.navigateTo.dashboard({
@@ -81,12 +64,12 @@ function assertNamedNavigation(router: Router<typeof routes>): void {
   const typedHref: string | null = href;
   void typedHref;
 
-  // @ts-expect-error route name must exist in the configured navigation definition
+  // @ts-expect-error route name must exist in the configured navigation tree
   void router.navigateTo.missing();
 }
 
 describe('typed routes typings', () => {
-  it('discovers named frame addresses nested inside layouts', () => {
+  it('discovers named frames nested inside layouts', () => {
     expect(typeof assertNamedNavigation).toBe('function');
   });
 });

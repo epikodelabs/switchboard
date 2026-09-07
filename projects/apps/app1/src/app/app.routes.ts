@@ -1,44 +1,50 @@
 import {
   layout,
-  navigation,
   redirect,
+  route,
+  s,
 } from '@epikodelabs/switchboard';
+
+import { LedgerShellPage } from './components/ledger-shell.page';
 
 import {
   accountFrame,
   booksFrame,
   entryFrame,
   journalFrame,
-  ledgerShellFrame,
-  settingsFrame,
   trialFrame,
+  settingsFrame,
 } from './frames';
 
 /**
- * Frames own their public address, lifecycle, schemas, outlets and graph edges.
- * Layouts only compose UI; URLs no longer need a second address(...) layer.
+ * Frames own their identity, graph edges, outlets, and lifecycle behavior.
+ * Routes place frames at URLs; params and query schemas live where the path
+ * is declared.
  */
-export const routes = navigation({
-  frames: [
-    booksFrame,
-    accountFrame,
-    journalFrame,
-    entryFrame,
-    trialFrame,
-    settingsFrame,
-  ] as const,
-  entries: [
-    redirect('/', '/ledger/books'),
-    redirect('/legacy', '/ledger/books'),
+export const routes = [
+  redirect('/', '/ledger/books'),
+  redirect('/legacy', '/ledger/books'),
 
-    layout('/ledger', ledgerShellFrame, [
-      redirect('', '/ledger/books'),
-      booksFrame,
-      accountFrame,
-      journalFrame,
-      entryFrame,
-      trialFrame,
-      settingsFrame,
-    ]),
-  ] as const,
-});
+  layout('/ledger', LedgerShellPage, [
+    redirect('', '/ledger/books'),
+    route('/books', booksFrame),
+    route('/account/:accountId', accountFrame, {
+      params: {
+        accountId: s.string(),
+      },
+    }),
+    route('/journal', journalFrame, {
+      query: {
+        entryId: s.optional(s.string()),
+        accountId: s.optional(s.string()),
+      },
+    }),
+    route('/entry/:entryId', entryFrame, {
+      params: {
+        entryId: s.string(),
+      },
+    }),
+    route('/trial', trialFrame),
+    route('/settings', settingsFrame),
+  ]),
+] as const;

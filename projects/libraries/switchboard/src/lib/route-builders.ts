@@ -2,23 +2,21 @@ import type { Type } from '@angular/core';
 
 import type { ParamSchemaRecord, QuerySchemaRecord } from './query-schema';
 import type {
-  AddressDefinition,
-  AddressOptions,
-  FrameDefinition,
-  FrameDefinitionOptions,
-  Lazy,
-  FrameView,
-  FrameHooks,
+  FrameOptions,
+  FrameOutlet,
+  FrameOutletView,
   FramePrepareFn,
+  FrameView,
+  HookList,
   InferPreparedData,
   LayoutDefinition,
+  Lazy,
   LayoutOptions,
+  NavigationTree,
   RedirectRouteDefinition,
   RenderableRoute,
-  FrameOutlet,
-  NavigationDefinition,
   RouteOptions,
-  NavigationTree,
+  View,
   ViewDefinition,
 } from './navigation-definitions';
 
@@ -31,117 +29,23 @@ function isFrame(
     && value.kind === 'frame';
 }
 
-function isDefinedFrame(
-  value: unknown,
-): value is FrameDefinition {
-  return typeof value === 'object'
-    && value !== null
-    && 'kind' in value
-    && value.kind === 'defined-frame';
+function isAngularType(value: unknown): value is Type<unknown> {
+  return typeof value === 'function'
+    && ('ɵcmp' in value
+      || 'ɵdir' in value
+      || /^class\s/.test(Function.prototype.toString.call(value)));
 }
 
-function isEagerFrame(
-  value: FrameView,
-): value is FrameView & { readonly component: Type<unknown> } {
-  return 'component' in value
-    && value.component !== undefined;
-}
-
-type ViewRecord =
-  ViewDefinition & {
-    readonly frame?: FrameView;
-  };
-
-function createViewRecord(
-  view: Type<unknown> | FrameView,
-): ViewRecord {
-  if (isFrame(view)) {
-    if (isEagerFrame(view)) {
-      return {
-        component: view.component,
-        frame: view,
-      };
-    }
-
-    return {
-      loadComponent: view.loadComponent,
-      frame: view,
-    };
-  }
-
-  return {
-    component: view,
-    frame: undefined,
-  };
-}
-
-function createFrameDefinitionView(
-  view: Type<unknown> | FrameView,
-): FrameView {
-  if (isFrame(view)) {
-    return view;
-  }
-
-  return {
-    kind: 'frame',
-    component: view,
-  };
-}
-
-function createLazyViewRecord(
-  view: Lazy<Type<unknown>> | FrameView,
-): ViewRecord {
-  if (isFrame(view)) {
-    if (isEagerFrame(view)) {
-      return {
-        component: view.component,
-        frame: view,
-      };
-    }
-
-    return {
-      loadComponent: view.loadComponent,
-      frame: view,
-    };
-  }
-
-  return {
-    loadComponent: view,
-    frame: undefined,
-  };
-}
-
-export function view(
-  component: Type<unknown>,
-  hooks?: FrameHooks<undefined>,
-): FrameView<InferPreparedData<undefined>>;
-export function view<
-  const TPrepare extends readonly FramePrepareFn[],
->(
-  component: Type<unknown>,
-  hooks: FrameHooks<TPrepare> & { readonly prepare: TPrepare },
-): FrameView<InferPreparedData<TPrepare>>;
-export function view(
-  component: Type<unknown>,
-  hooks: FrameHooks<any> = {},
-): FrameView<any> {
-  return {
-    kind: 'frame',
-    component,
-    ...hooks,
-  };
-}
-
-function normalizeHook<T>(value: T | readonly T[] | undefined): readonly T[] | undefined {
+function asArray<T>(value: import('./navigation-definitions').HookInput<T> | HookList<T> | undefined): readonly T[] | undefined {
   if (value === undefined) return undefined;
-  return Array.isArray(value) ? value : [value as T];
+  return Object.freeze(Array.isArray(value) ? [...value] : [value as T]);
 }
 
 function normalizeFrameOutlets(
-  outlets: FrameDefinitionOptions<any, any, any>['outlets'],
-): readonly FrameOutlet[] {
-  if (!outlets) return [];
-  if (Array.isArray(outlets)) return outlets as readonly FrameOutlet[];
+  outlets: FrameOptions<any>['outlets'],
+): readonly FrameOutlet[] | undefined {
+  if (!outlets) return undefined;
+  if (Array.isArray(outlets)) return Object.freeze([...outlets]);
   return Object.freeze(
     Object.entries(outlets).map(([outlet, value]) => ({
       outlet,
@@ -150,36 +54,76 @@ function normalizeFrameOutlets(
   );
 }
 
-function normalizeFrameDefinitionOptions<
-  TParamsSchema extends ParamSchemaRecord | undefined,
-  TQuerySchema extends QuerySchemaRecord | undefined,
-  TPrepare extends import('./navigation-definitions').HookInput<FramePrepareFn> | undefined,
->(
-  options:
-    | FrameDefinitionOptions<TParamsSchema, TQuerySchema, TPrepare>
-    | undefined,
-): FrameDefinitionOptions<TParamsSchema, TQuerySchema, TPrepare> {
-  return options ?? {};
+function createFrameDefinitionView(
+  view: FrameOutletView,
+): FrameOutlet['view'] {
+  return isFrame(view) ? view : { kind: 'frame', component: view };
 }
 
-export function lazyView(
-  loadComponent: Lazy<Type<unknown>>,
-  hooks?: FrameHooks<undefined>,
-): FrameView<InferPreparedData<undefined>>;
-export function lazyView<
-  const TPrepare extends readonly FramePrepareFn[],
->(
-  loadComponent: Lazy<Type<unknown>>,
-  hooks: FrameHooks<TPrepare> & { readonly prepare: TPrepare },
-): FrameView<InferPreparedData<TPrepare>>;
-export function lazyView(
-  loadComponent: Lazy<Type<unknown>>,
-  hooks: FrameHooks<any> = {},
-): FrameView<any> {
+type ViewRecord<
+  TFrame extends FrameView<any> | undefined = FrameView<any> | undefined,
+> = ViewDefinition & { readonly frame?: TFrame };
+
+function createViewRecord(view: View | FrameView<any>): ViewRecord {
+  if (isFrame(view)) {
+    return 'component' in view && view.component !== undefined
+      ? { component: view.component, frame: view }
+      : { loadComponent: view.loadComponent, frame: view };
+  }
+
+  return isAngularType(view)
+    ? { component: view, frame: undefined }
+    : { loadComponent: view as Lazy<Type<unknown>>, frame: undefined };
+}
+
+function normalizeInlineHooks(
+  view: View | FrameView<any>,
+  hooks: Pick<
+    RouteOptions<any, any, any, any>,
+    'beforeEnter' | 'beforeLeave' | 'prepare' | 'afterEnter'
+  >,
+): ViewRecord {
+  const existing = createViewRecord(view);
+  const beforeEnter = asArray(hooks.beforeEnter);
+  const beforeLeave = asArray(hooks.beforeLeave);
+  const prepare = asArray(hooks.prepare);
+  const afterEnter = asArray(hooks.afterEnter);
+  const hasHooks = !!(
+    beforeEnter?.length
+    || beforeLeave?.length
+    || prepare?.length
+    || afterEnter?.length
+  );
+
+  if (!hasHooks) return existing as ViewRecord<undefined>;
+
+  if (existing.frame) {
+    return {
+      ...existing,
+      frame: {
+        ...existing.frame,
+        ...(beforeEnter?.length ? { beforeEnter: [...(existing.frame.beforeEnter ?? []), ...beforeEnter] } : {}),
+        ...(beforeLeave?.length ? { beforeLeave: [...(existing.frame.beforeLeave ?? []), ...beforeLeave] } : {}),
+        ...(prepare?.length ? { prepare: [...(existing.frame.prepare ?? []), ...prepare] } : {}),
+        ...(afterEnter?.length ? { afterEnter: [...(existing.frame.afterEnter ?? []), ...afterEnter] } : {}),
+      },
+    };
+  }
+
+  const frameView: FrameView<any> = existing.component !== undefined
+    ? { kind: 'frame', component: existing.component, beforeEnter, beforeLeave, prepare, afterEnter }
+    : {
+      kind: 'frame',
+      loadComponent: existing.loadComponent!,
+      beforeEnter,
+      beforeLeave,
+      prepare,
+      afterEnter,
+    };
+
   return {
-    kind: 'frame',
-    loadComponent,
-    ...hooks,
+    ...existing,
+    frame: frameView,
   };
 }
 
@@ -190,276 +134,127 @@ type NormalizePrepareInput<TPrepare> =
       ? readonly [TPrepare]
       : undefined;
 
+/**
+ * Declares a frame: a view with a stable identity, optional transition-graph
+ * edges, ownership of companion outlets, and lifecycle behavior. Place frames
+ * with `route()`; the frame id becomes the placed route's name.
+ */
 export function frame<
   const TId extends string,
-  const TParamsSchema extends ParamSchemaRecord | undefined = undefined,
-  const TQuerySchema extends QuerySchemaRecord | undefined = undefined,
-  const TPrepare extends import('./navigation-definitions').HookInput<FramePrepareFn> | undefined = import('./navigation-definitions').HookInput<FramePrepareFn> | undefined,
+  const TPrepare extends import('./navigation-definitions').HookInput<FramePrepareFn> | undefined =
+    import('./navigation-definitions').HookInput<FramePrepareFn> | undefined,
 >(
   id: TId,
-  component: Type<unknown> | FrameView<any>,
-  definition: FrameDefinitionOptions<TParamsSchema, TQuerySchema, TPrepare> = {},
-): FrameDefinition<
-  TId,
-  TParamsSchema,
-  TQuerySchema,
-  FrameView<InferPreparedData<NormalizePrepareInput<TPrepare>>>
-> {
-  const options = normalizeFrameDefinitionOptions(definition);
-  const existing = createFrameDefinitionView(component);
-  const frameView: FrameView<any> = {
-    ...existing,
-    beforeEnter: normalizeHook(options.beforeEnter) ?? existing.beforeEnter,
-    beforeLeave: normalizeHook(options.beforeLeave) ?? existing.beforeLeave,
-    prepare: normalizeHook(options.prepare) ?? existing.prepare,
-    afterEnter: normalizeHook(options.afterEnter) ?? existing.afterEnter,
-  };
+  view: View | FrameView<any>,
+  options: FrameOptions<TPrepare> = {},
+): FrameView<InferPreparedData<NormalizePrepareInput<TPrepare>>> & { readonly id: TId } {
+  const existing = createViewRecord(view);
+  const base = existing.frame ?? ({ kind: 'frame' } as FrameView<any>);
+  const beforeEnter = asArray(options.beforeEnter) ?? base.beforeEnter;
+  const beforeLeave = asArray(options.beforeLeave) ?? base.beforeLeave;
+  const prepare = asArray(options.prepare) ?? base.prepare;
+  const afterEnter = asArray(options.afterEnter) ?? base.afterEnter;
 
   return {
-    kind: 'defined-frame',
+    kind: 'frame',
     id,
-    view: frameView,
-    address: options.address,
+    ...(existing.component !== undefined ? { component: existing.component } : { loadComponent: existing.loadComponent }),
+    ...(beforeEnter?.length ? { beforeEnter } : {}),
+    ...(beforeLeave?.length ? { beforeLeave } : {}),
+    ...(prepare?.length ? { prepare } : {}),
+    ...(afterEnter?.length ? { afterEnter } : {}),
+    ...(options.transitions !== undefined ? { transitions: Object.freeze([...options.transitions]) } : {}),
+    ...(options.directEntry !== undefined ? { directEntry: options.directEntry } : {}),
+    ...(options.directEntryRedirectTo !== undefined ? { directEntryRedirectTo: options.directEntryRedirectTo } : {}),
     outlets: normalizeFrameOutlets(options.outlets),
-    paramsSchema: options.params ?? options.paramsSchema,
-    querySchema: options.query ?? options.querySchema,
-    transitions: options.transitions,
-    directEntry: options.directEntry,
-    directEntryRedirectTo: options.directEntryRedirectTo,
-    providers: options.providers,
-    policy: options.policy,
-  } as FrameDefinition<
-    TId,
+    ...(options.policy !== undefined ? { policy: options.policy } : {}),
+  } as FrameView<InferPreparedData<NormalizePrepareInput<TPrepare>>> & { readonly id: TId };
+}
+
+type AuthoredFrame<
+  TView,
+  TPrepare extends import('./navigation-definitions').HookInput<FramePrepareFn> | undefined,
+> = TPrepare extends import('./navigation-definitions').HookInput<FramePrepareFn>
+  ? FrameView<InferPreparedData<NormalizePrepareInput<TPrepare>>>
+  : TView extends FrameView<any>
+    ? TView
+    : undefined;
+
+export function route<
+  const TPath extends string,
+  const TFrame extends FrameView<any> & { readonly id: string },
+  const TParamsSchema extends ParamSchemaRecord | undefined = undefined,
+  const TQuerySchema extends QuerySchemaRecord | undefined = undefined,
+>(
+  path: TPath,
+  frame: TFrame,
+  options?: Omit<RouteOptions<TFrame['id'], TParamsSchema, TQuerySchema>, 'name'>,
+): RenderableRoute<
+  TPath,
+  TFrame['id'],
+  TParamsSchema,
+  TQuerySchema,
+  AuthoredFrame<TFrame, undefined>
+>;
+export function route<
+  const TPath extends string,
+  const TView extends View | FrameView<any>,
+  const TName extends string | undefined = undefined,
+  const TParamsSchema extends ParamSchemaRecord | undefined = undefined,
+  const TQuerySchema extends QuerySchemaRecord | undefined = undefined,
+  const TPrepare extends import('./navigation-definitions').HookInput<FramePrepareFn> | undefined =
+    import('./navigation-definitions').HookInput<FramePrepareFn> | undefined,
+>(
+  path: TPath,
+  view: TView,
+  options?: RouteOptions<
+    TName,
     TParamsSchema,
     TQuerySchema,
-    FrameView<InferPreparedData<NormalizePrepareInput<TPrepare>>>
-  >;
-}
-
-export function address<
-  const TPath extends string,
-  const TFrame extends
-    FrameDefinition<any, any, any>,
-  const TParamsSchema extends
-    ParamSchemaRecord | undefined = undefined,
-  const TQuerySchema extends
-    QuerySchemaRecord | undefined = undefined,
->(
-  path: TPath,
-  frame: TFrame,
-  options: AddressOptions<
-    TFrame['id'],
-    TParamsSchema,
-    TQuerySchema
-  > = {},
-): AddressDefinition<
-  TPath,
-  TFrame,
-  TParamsSchema,
-  TQuerySchema
-> {
-  return {
-    kind: 'address',
-    path,
-    frame,
-    ...options,
-  };
-}
-
-export function route<
-  const TPath extends string,
-  const TName extends
-    string | undefined = undefined,
-  const TParamsSchema extends
-    ParamSchemaRecord | undefined = undefined,
-  const TQuerySchema extends
-    QuerySchemaRecord | undefined = undefined,
->(
-  path: TPath,
-  component: Type<unknown>,
-  options?: RouteOptions<
-    TName,
-    TParamsSchema,
-    TQuerySchema
-  >,
-): RenderableRoute<
-  TPath,
-  TName,
-  TParamsSchema,
-  TQuerySchema
->;
-export function route<
-  const TPath extends string,
-  const TFrame extends
-    FrameDefinition<any, any, any>,
-  const TParamsSchema extends
-    ParamSchemaRecord | undefined = undefined,
-  const TQuerySchema extends
-    QuerySchemaRecord | undefined = undefined,
->(
-  path: TPath,
-  frame: TFrame,
-  options?: AddressOptions<
-    TFrame['id'],
-    TParamsSchema,
-    TQuerySchema
-  >,
-): AddressDefinition<
-  TPath,
-  TFrame,
-  TParamsSchema,
-  TQuerySchema
->;
-export function route<
-  const TPath extends string,
-  const TName extends
-    string | undefined = undefined,
-  const TParamsSchema extends
-    ParamSchemaRecord | undefined = undefined,
-  const TQuerySchema extends
-    QuerySchemaRecord | undefined = undefined,
-  const TFrame extends FrameView<any> = FrameView<any>,
->(
-  path: TPath,
-  component: TFrame,
-  options?: RouteOptions<
-    TName,
-    TParamsSchema,
-    TQuerySchema
+    TPrepare
   >,
 ): RenderableRoute<
   TPath,
   TName,
   TParamsSchema,
   TQuerySchema,
-  TFrame
+  AuthoredFrame<TView, TPrepare>
 >;
-export function route<
-  const TPath extends string,
-  const TName extends
-    string | undefined = undefined,
-  const TParamsSchema extends
-    ParamSchemaRecord | undefined = undefined,
-  const TQuerySchema extends
-    QuerySchemaRecord | undefined = undefined,
->(
-  path: TPath,
-  component: Type<unknown> | FrameView | FrameDefinition,
-  options:
-    | RouteOptions<
-        TName,
-        TParamsSchema,
-        TQuerySchema
-      >
-    | AddressOptions<
-        string,
-        TParamsSchema,
-        TQuerySchema
-      > = {},
-): RenderableRoute<
-  TPath,
-  TName,
-  TParamsSchema,
-  TQuerySchema
-> | AddressDefinition<
-  TPath,
-  FrameDefinition<any, any, any>,
-  TParamsSchema,
-  TQuerySchema
-> {
-  if (isDefinedFrame(component)) {
-    return address(
-      path,
-      component,
-      options,
-    );
-  }
+export function route(
+  path: string,
+  view: View | FrameView<any>,
+  options: RouteOptions<any, any, any, any> = {},
+): RenderableRoute<any, any, any, any, any> {
+  const {
+    beforeEnter,
+    beforeLeave,
+    prepare,
+    afterEnter,
+    ...routeOptions
+  } = options;
 
-  const route: RenderableRoute<
-    TPath,
-    TName,
-    TParamsSchema,
-    TQuerySchema
-  > = {
+  const record = normalizeInlineHooks(view, { beforeEnter, beforeLeave, prepare, afterEnter });
+  const name = routeOptions.name ?? record.frame?.id;
+
+  return {
     kind: 'route',
     path,
-    ...createViewRecord(component),
-    ...options,
-  };
-
-  return route;
+    ...record,
+    ...routeOptions,
+    ...(name !== undefined ? { name } : {}),
+  } as RenderableRoute<any, any, any, any, any>;
 }
 
-export function lazyRoute<
-  const TPath extends string,
-  const TName extends
-    string | undefined = undefined,
-  const TParamsSchema extends
-    ParamSchemaRecord | undefined = undefined,
-  const TQuerySchema extends
-    QuerySchemaRecord | undefined = undefined,
->(
-  path: TPath,
-  loadComponent: Lazy<Type<unknown>>,
-  options?: RouteOptions<
-    TName,
-    TParamsSchema,
-    TQuerySchema
-  >,
-): RenderableRoute<
-  TPath,
-  TName,
-  TParamsSchema,
-  TQuerySchema
->;
-export function lazyRoute<
-  const TPath extends string,
-  const TName extends
-    string | undefined = undefined,
-  const TParamsSchema extends
-    ParamSchemaRecord | undefined = undefined,
-  const TQuerySchema extends
-    QuerySchemaRecord | undefined = undefined,
->(
-  path: TPath,
-  loadComponent: Lazy<Type<unknown>> | FrameView,
-  options: RouteOptions<
-    TName,
-    TParamsSchema,
-    TQuerySchema
-  > = {},
-): RenderableRoute<
-  TPath,
-  TName,
-  TParamsSchema,
-  TQuerySchema
-> {
-  const route: RenderableRoute<
-    TPath,
-    TName,
-    TParamsSchema,
-    TQuerySchema
-  > = {
-    kind: 'route',
-    path,
-    ...createLazyViewRecord(loadComponent),
-    ...options,
-  };
-
-  return route;
-}
-
-export function redirectRoute<
+export function redirect<
   const TPath extends string,
   const TRedirectTo extends string,
-  const TName extends
-    string | undefined = undefined,
+  const TName extends string | undefined = undefined,
 >(
   path: TPath,
   redirectTo: TRedirectTo,
-  options: Omit<
+  options: Pick<
     RouteOptions<TName, undefined, undefined>,
-    'redirectTo' | 'paramsSchema' | 'querySchema' | 'outlet'
+    'name' | 'data' | 'providers' | 'policy'
   > = {},
 ): RedirectRouteDefinition<
   TPath,
@@ -473,112 +268,38 @@ export function redirectRoute<
   };
 }
 
-/** Preferred redirect builder. */
-export const redirect = redirectRoute;
+export function layout<
+  const TPath extends string,
+  const TView extends View | FrameView<any>,
+  const TEntries extends NavigationTree,
+  const TPrepare extends import('./navigation-definitions').HookInput<FramePrepareFn> | undefined =
+    import('./navigation-definitions').HookInput<FramePrepareFn> | undefined,
+>(
+  path: TPath,
+  view: TView,
+  entries: TEntries,
+  options: LayoutOptions & Pick<
+    RouteOptions<any, any, any, TPrepare>,
+    'beforeEnter' | 'beforeLeave' | 'prepare' | 'afterEnter'
+  > = {},
+): LayoutDefinition<
+  TPath,
+  TEntries,
+  AuthoredFrame<TView, TPrepare>
+> {
+  const {
+    beforeEnter,
+    beforeLeave,
+    prepare,
+    afterEnter,
+    ...layoutOptions
+  } = options;
 
-export function layout<
-  const TPath extends string,
-  const TEntries extends NavigationTree,
->(
-  path: TPath,
-  component: Type<unknown>,
-  entries: TEntries,
-  options?: LayoutOptions,
-): LayoutDefinition<TPath, TEntries, undefined>;
-export function layout<
-  const TPath extends string,
-  const TEntries extends NavigationTree,
-  const TFrame extends FrameView<any>,
->(
-  path: TPath,
-  component: TFrame,
-  entries: TEntries,
-  options?: LayoutOptions,
-): LayoutDefinition<TPath, TEntries, TFrame>;
-export function layout<
-  const TPath extends string,
-  const TEntries extends NavigationTree,
->(
-  path: TPath,
-  component: Type<unknown> | FrameView<any>,
-  entries: TEntries,
-  options: LayoutOptions = {},
-): LayoutDefinition<TPath, TEntries, any> {
   return {
     kind: 'layout',
     path,
-    ...createViewRecord(component),
+    ...normalizeInlineHooks(view, { beforeEnter, beforeLeave, prepare, afterEnter }),
     entries,
-    ...options,
-  };
-}
-
-export function lazyLayout<
-  const TPath extends string,
-  const TEntries extends NavigationTree,
->(
-  path: TPath,
-  loadComponent: Lazy<Type<unknown>>,
-  entries: TEntries,
-  options?: LayoutOptions,
-): LayoutDefinition<
-  TPath,
-  TEntries
->;
-export function lazyLayout<
-  const TPath extends string,
-  const TEntries extends NavigationTree,
->(
-  path: TPath,
-  loadComponent: FrameView,
-  entries: TEntries,
-  options?: LayoutOptions,
-): LayoutDefinition<
-  TPath,
-  TEntries
->;
-export function lazyLayout<
-  const TPath extends string,
-  const TEntries extends NavigationTree,
->(
-  path: TPath,
-  loadComponent: Lazy<Type<unknown>> | FrameView,
-  entries: TEntries,
-  options: LayoutOptions = {},
-): LayoutDefinition<
-  TPath,
-  TEntries
-> {
-  const layout: LayoutDefinition<
-    TPath,
-    TEntries
-  > = {
-    kind: 'layout',
-    path,
-    ...createLazyViewRecord(loadComponent),
-    entries,
-    ...options,
-  };
-
-  return layout;
-}
-
-export function navigation<
-  const TFrames extends
-    readonly FrameDefinition<any, any, any>[],
-  const TEntries extends NavigationTree,
->(
-  definition: {
-    readonly frames: TFrames;
-    readonly entries: TEntries;
-  },
-): NavigationDefinition<
-  TFrames,
-  TEntries
-> {
-  return {
-    kind: 'navigation',
-    frames: definition.frames,
-    entries: definition.entries,
-  };
+    ...layoutOptions,
+  } as LayoutDefinition<TPath, TEntries, AuthoredFrame<TView, TPrepare>>;
 }

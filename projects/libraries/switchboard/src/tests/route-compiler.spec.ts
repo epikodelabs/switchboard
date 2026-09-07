@@ -1,4 +1,5 @@
 import {
+  frame,
   layout,
   route,
   s,
@@ -22,39 +23,39 @@ describe('route compiler parameter validation', () => {
     );
   });
 
-  it('rejects paramsSchema keys that are absent from the compiled path', () => {
+  it('rejects params keys that are absent from the compiled path', () => {
     const routes = [
       route('/users/:userId', TestPage, {
-        paramsSchema: {
+        params: {
           id: s.number(),
         },
       }),
     ] as const;
 
     expect(() => createRouteRegistry(routes)).toThrowError(
-      /paramsSchema declares "id".*does not contain ":id"/,
+      /params declares "id".*does not contain ":id"/,
     );
   });
 
-  it('requires every path parameter to be declared when paramsSchema is present', () => {
+  it('requires every path parameter to be declared when params is present', () => {
     const routes = [
       route('/teams/:teamId/users/:userId', TestPage, {
-        paramsSchema: {
+        params: {
           teamId: s.number(),
         },
       }),
     ] as const;
 
     expect(() => createRouteRegistry(routes)).toThrowError(
-      /contains ":userId", but paramsSchema does not declare it/,
+      /contains ":userId", but params does not declare it/,
     );
   });
 
-  it('accepts an exact paramsSchema for the compiled path', () => {
+  it('accepts an exact params schema for the compiled path', () => {
     const routes = [
       layout('/teams/:teamId', TestLayout, [
         route('/users/:userId', TestPage, {
-          paramsSchema: {
+          params: {
             teamId: s.number(),
             userId: s.number(),
           },
@@ -63,5 +64,45 @@ describe('route compiler parameter validation', () => {
     ] as const;
 
     expect(() => createRouteRegistry(routes)).not.toThrow();
+  });
+
+  it('uses the frame id as the placed route name', () => {
+    const frameId = frame('books', TestPage, {});
+    const routes = [
+      route('/books', frameId),
+    ] as const;
+
+    const registry = createRouteRegistry(routes);
+    expect(registry.namedRoutes.has('books')).toBeTrue();
+    expect(registry.frames.byId.get('books')?.matchPath).toBe('/books');
+  });
+
+  it('synthesizes outlet routes for a frame that owns outlets', () => {
+    class Sidebar {}
+    const withSidebar = frame('books', TestPage, {
+      outlets: { sidebar: Sidebar },
+    });
+    const routes = [
+      route('/books', withSidebar),
+    ] as const;
+
+    const registry = createRouteRegistry(routes);
+    const group = registry.groups.find(g => g.primary.path === '/books');
+
+    expect(group?.outlets.length).toBe(1);
+    expect(group?.outlets[0]?.route.outlet).toBe('sidebar');
+  });
+
+  it('rejects transition targets that are not placed', () => {
+    const isolated = frame('books', TestPage, {
+      transitions: ['account'],
+    });
+    const routes = [
+      route('/books', isolated),
+    ] as const;
+
+    expect(() => createRouteRegistry(routes)).toThrowError(
+      /references unknown transition target "account"/,
+    );
   });
 });

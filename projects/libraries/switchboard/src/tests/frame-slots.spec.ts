@@ -4,6 +4,7 @@ import {
   framesFor,
   layout,
   resolveFrameSlots,
+  route,
 } from '../lib';
 
 class Shell {}
@@ -15,7 +16,7 @@ function ids(entries: readonly any[]): string[] {
   const visit = (items: readonly any[]) => {
     for (const entry of items) {
       if (entry.kind === 'layout') visit(entry.entries);
-      if (entry.kind === 'defined-frame') result.push(entry.id);
+      if (entry.kind === 'route' && entry.frame?.id) result.push(entry.frame.id);
     }
   };
   visit(entries);
@@ -26,16 +27,15 @@ describe('frame graph ownership', () => {
   it('resolves authorized contributions through nested frame slots', () => {
     const root = [
       layout('/app', Shell, [
-        frame('home', Home, { address: '/home', transitions: ['admin'] }),
+        route('/home', frame('home', Home, { transitions: ['admin'] })),
         frameSlot('administration'),
       ]),
     ] as const;
 
     const admin = framesFor('administration', [
-      frame('admin', Admin, {
-        address: '/admin',
+      route('/admin', frame('admin', Admin, {
         policy: { roles: ['admin'] },
-      }),
+      })),
     ] as const);
 
     expect(ids(resolveFrameSlots(root, [admin]))).toEqual(['home', 'admin']);

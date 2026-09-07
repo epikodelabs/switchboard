@@ -1,11 +1,12 @@
-import { route, view } from '../lib/route-builders';
+import { route } from '../lib/route-builders';
 import type { InferRoutePreparedData } from '../lib/navigation-definitions';
 
 class Page {}
 
 const preparedRoute = route(
   '/projects/:projectId',
-  view(Page, {
+  Page,
+  {
     prepare: [
       async () => ({ project: { id: 1, name: 'Waypoint parity' } }),
       () => ({ permissions: ['read'] as const }),
@@ -14,7 +15,7 @@ const preparedRoute = route(
       route.data.project.name.toUpperCase();
       route.data.permissions[0];
     }],
-  }),
+  },
 );
 
 type Prepared = InferRoutePreparedData<typeof preparedRoute>;

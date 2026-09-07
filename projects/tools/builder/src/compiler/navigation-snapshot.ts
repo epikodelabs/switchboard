@@ -118,18 +118,23 @@ function asImportPath(file: string): string { return file.split(path.sep).join('
 
 function switchboardStubSource(): string {
   return [
+    `function splitView(view) {`,
+    `  if (view && typeof view === 'object' && view.kind === 'frame') {`,
+    `    return view.component !== undefined ? { component: view.component, frame: view } : { loadComponent: view.loadComponent, frame: view };`,
+    `  }`,
+    `  return { component: view };`,
+    `}`,
     `export function frameSlot(slotId) { return { kind: 'frame-slot', slotId }; }`,
     `let nextContributionIdentity = 1;`,
     `export function framesFor(slotId, entries) { return { kind: 'frame-contribution', slotId, id: slotId + '@' + nextContributionIdentity++, entries }; }`,
-    `export function frame(id, component, options = {}) { return { kind: 'defined-frame', id, view: { kind: 'frame', component }, ...options }; }`,
-    `export function view(component, hooks = {}) { return { kind: 'frame', component, ...hooks }; }`,
-    `export function lazyView(loadComponent, hooks = {}) { return { kind: 'frame', loadComponent, ...hooks }; }`,
-    `export function frameOutlet(outlet, view) { return { outlet, view }; }`,
-    `export function address(path, frame, options = {}) { return { kind: 'address', path, frame, ...options }; }`,
-    `export function redirect(path, redirectTo, options = {}) { return { kind: 'redirect', path, redirectTo, ...options }; }`,
-    `export const redirectRoute = redirect;`,
-    `export function layout(path, view, entries, options = {}) { return { kind: 'layout', path, entries, ...options }; }`,
-    `export function navigation(value) { return value.entries ?? []; }`,
+    `export function frame(id, view, options = {}) { return Object.assign({ kind: 'frame', id }, splitView(view), options); }`,
+    `export function route(path, view, options = {}) {`,
+    `  const { beforeEnter, beforeLeave, prepare, afterEnter, ...rest } = options;`,
+    `  const record = splitView(view);`,
+    `  return Object.assign({ kind: 'route', path }, record, rest, { name: rest.name !== undefined ? rest.name : record.frame ? record.frame.id : undefined });`,
+    `}`,
+    `export function redirect(path, redirectTo, options = {}) { return Object.assign({ kind: 'redirect', path, redirectTo }, options); }`,
+    `export function layout(path, view, entries, options = {}) { return Object.assign({ kind: 'layout', path }, splitView(view), { entries }, options); }`,
     `export const s = Object.freeze({ number(options = {}) { return { _type: 'number', ...options }; }, string(value) { return { _type: 'string', default: value }; }, array(value) { return { _type: 'array', default: value }; }, optional(inner) { return { _type: 'optional', inner }; }, boolean(value) { return { _type: 'boolean', default: value }; }, date(value) { return { _type: 'date', default: value }; } });`,
     ''
   ].join('\n');

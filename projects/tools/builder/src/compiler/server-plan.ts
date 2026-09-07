@@ -71,13 +71,8 @@ function compileEntries(entries: readonly any[], parentPath: string, inherited: 
       for (const c of context.contributionsBySlot.get(slotId) ?? []) compileContribution(c, parentPath, inherited, context, provenance);
       continue;
     }
-    if (entry.kind === 'address') {
-      compileFrame(entry.frame, joinPath(parentPath, String(entry.path ?? '')), appendPolicy(inherited, entry.policy), context, provenance);
-      continue;
-    }
-    if (entry.kind === 'defined-frame') {
-      const address = typeof entry.address === 'string' && entry.address.trim() ? joinPath(parentPath, entry.address) : undefined;
-      compileFrame(entry, address, inherited, context, provenance);
+    if (entry.kind === 'route') {
+      compileRoute(entry, joinPath(parentPath, String(entry.path ?? '')), inherited, context, provenance);
       continue;
     }
     if (entry.kind === 'redirect') {
@@ -89,15 +84,20 @@ function compileEntries(entries: readonly any[], parentPath: string, inherited: 
     }
   }
 }
-function compileFrame(frame: any, path: string | undefined, inherited: readonly ServerFramePolicy[], context: Context, provenance?: Provenance): void {
+function compileRoute(entry: any, path: string, inherited: readonly ServerFramePolicy[], context: Context, provenance?: Provenance): void {
   if (!provenance) return;
   const artifact = context.artifacts.get(provenance.contributionId);
-  const frameId = typeof frame.id === 'string' ? frame.id : undefined;
+  const frame = entry.frame;
+  const frameId = typeof frame?.id === 'string' ? frame.id : undefined;
   if (frameId && !artifact?.frameIds.includes(frameId)) artifact?.frameIds.push(frameId);
-  if (!path) return;
+  const enforcesGraph = frameId !== undefined
+    && (frame.transitions !== undefined || frame.directEntry !== undefined || frame.directEntryRedirectTo !== undefined);
+  // Graph-internal frames reject cold entry client-side; the server does not
+  // announce a delivery branch for them.
+  if (enforcesGraph && frame.directEntry !== true) return;
   const id = `${provenance.contributionId}:${context.nextBranchId++}`;
   artifact?.branchIds.push(id);
-  context.frames.push(Object.freeze({ id, frameId, path, staticPrefix: staticPrefix(path), policies: Object.freeze(appendPolicy(inherited, frame.policy)), frameSetId: provenance.contributionId }));
+  context.frames.push(Object.freeze({ id, frameId, path, staticPrefix: staticPrefix(path), policies: Object.freeze(appendPolicy(inherited, entry.policy ?? frame?.policy)), frameSetId: provenance.contributionId }));
 }
 function compileContribution(c: LoadedContribution, parentPath: string, inherited: readonly ServerFramePolicy[], context: Context, parent?: Provenance): void {
   const id = String(c.definition.id).trim();

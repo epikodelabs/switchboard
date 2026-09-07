@@ -1,8 +1,4 @@
-import {
-  buildAddressRoutes,
-  buildFrameRoutes,
-  buildInternalFrameRoutes,
-} from './frame-routes';
+import { route } from './route-builders';
 import {
   compileRoutePath,
   extractRouteParamNames,
@@ -11,20 +7,11 @@ import {
 
 export { joinRoutePath } from './route-path';
 import type {
-  AddressDefinition,
-  AnyFrameDefinition,
-  AnyNavigationDefinition,
-  FrameNavigationOptions,
-  FrameRouteDefinition,
+  FrameView,
   LayoutDefinition,
-  NavigationSource,
   NavigationTree,
-  RenderableRoute,
   RouteDefinition,
 } from './navigation-definitions';
-
-
-
 
 function validateCompiledRouteParams(
   route: RouteDefinition,
@@ -47,14 +34,14 @@ function validateCompiledRouteParams(
     seen.add(name);
   }
 
-  const schema = route.paramsSchema;
+  const schema = route.params;
   if (!schema) return;
 
   const schemaNames = Object.keys(schema);
   for (const name of schemaNames) {
     if (!seen.has(name)) {
       throw new Error(
-        `paramsSchema declares "${name}", but compiled route "${path}" ` +
+        `params declares "${name}", but compiled route "${path}" ` +
         `does not contain ":${name}".`,
       );
     }
@@ -64,8 +51,8 @@ function validateCompiledRouteParams(
   for (const name of paramNames) {
     if (!declared.has(name)) {
       throw new Error(
-        `Compiled route "${path}" contains ":${name}", but paramsSchema ` +
-        `does not declare it. Declare every path parameter when paramsSchema is present.`,
+        `Compiled route "${path}" contains ":${name}", but params ` +
+        `does not declare it. Declare every path parameter when params is present.`,
       );
     }
   }
@@ -74,15 +61,12 @@ function validateCompiledRouteParams(
 export interface CompiledRoute {
   readonly route: RouteDefinition;
   readonly path: string;
-  readonly addressPath: string | null;
   readonly redirectTo?: string;
   readonly layouts:
     readonly LayoutDefinition[];
 }
 
 export interface CompiledRouteGroup {
-  readonly path: string;
-  readonly layouts: readonly LayoutDefinition[];
   readonly primary: CompiledRoute;
   readonly outlets: readonly CompiledRoute[];
 }
@@ -111,130 +95,36 @@ export function compileRedirect(
       );
 }
 
-function isNavigationDefinition(
-  source: NavigationSource,
-): source is AnyNavigationDefinition {
-  return !Array.isArray(source)
-    && typeof source === 'object'
-    && source !== null
-    && 'kind' in source
-    && source.kind === 'navigation';
-}
-
-export function resolveNavigationEntries(
-  source: NavigationSource,
-): NavigationTree {
-  return isNavigationDefinition(source)
-    ? source.entries
-    : source;
-}
-
-function resolveDeclaredFrames(
-  source: NavigationSource,
-): readonly AnyFrameDefinition[] {
-  return isNavigationDefinition(source)
-    ? source.frames
-    : [];
-}
-
-export function createInternalFramePath(
-  frameId: string,
-): string {
-  return `/.switchboard/frames/${encodeURIComponent(frameId)}`;
-}
-
-export function compileRoutes(
-  source: NavigationSource,
-  parentPath = '/',
-  layouts:
-    readonly LayoutDefinition[] = [],
-  output: CompiledRoute[] = [],
-): readonly CompiledRoute[] {
-  const entries =
-    resolveNavigationEntries(source);
-
-  for (const entry of entries) {
-    if (entry.kind === 'layout') {
-      compileRoutes(
-        entry.entries,
-        joinRoutePath(
-          parentPath,
-          entry.path,
-        ),
-        Object.freeze([
-          ...layouts,
-          entry,
-        ]),
-        output,
-      );
-
-      continue;
-    }
-
-    if (entry.kind === 'address') {
-      compileRoutes(
-        buildAddressRoutes(
-          entry as AddressDefinition,
-        ),
+function compileEntry(
+  entry: NavigationTree[number],
+  parentPath: string,
+  layouts: readonly LayoutDefinition[],
+  output: CompiledRoute[],
+): void {
+  if (entry.kind === 'layout') {
+    compileRoutes(
+      entry.entries,
+      joinRoutePath(
         parentPath,
-        layouts,
-        output,
-      );
+        entry.path,
+      ),
+      Object.freeze([
+        ...layouts,
+        entry,
+      ]),
+      output,
+    );
 
-      continue;
-    }
+    return;
+  }
 
-    if (entry.kind === 'frame-route') {
-      compileRoutes(
-        buildFrameRoutes(
-          entry as FrameRouteDefinition,
-        ),
-        parentPath,
-        layouts,
-        output,
-      );
+  if (entry.kind === 'frame-slot') {
+    // An unresolved slot is an empty ownership boundary. Server/client delivery
+    // resolves authorized contributions before compiling the active graph.
+    return;
+  }
 
-      continue;
-    }
-
-    if (entry.kind === 'frame-slot') {
-      // An unresolved slot is an empty ownership boundary. Server/client delivery
-      // resolves authorized contributions before compiling the active graph.
-      continue;
-    }
-
-    if (entry.kind === 'defined-frame') {
-      if (entry.address) {
-        compileRoutes(
-          buildAddressRoutes({
-            kind: 'address',
-            path: entry.address,
-            frame: entry,
-          }),
-          parentPath,
-          layouts,
-          output,
-        );
-        continue;
-      }
-
-      const compiledFrameRoutes = compileRoutes(
-        buildInternalFrameRoutes(
-          entry,
-          createInternalFramePath(entry.id),
-        ),
-        '/',
-        layouts,
-        [],
-      );
-
-      for (const compiledRoute of compiledFrameRoutes) {
-        output.push({ ...compiledRoute, addressPath: null });
-      }
-
-      continue;
-    }
-
+  if (entry.kind === 'redirect') {
     const path =
       joinRoutePath(
         parentPath,
@@ -244,12 +134,53 @@ export function compileRoutes(
     output.push({
       route: entry,
       path,
-      addressPath: path,
-      redirectTo: entry.kind === 'redirect'
-        ? compileRedirect(parentPath, entry.redirectTo)
-        : undefined,
+      redirectTo: compileRedirect(parentPath, entry.redirectTo),
       layouts,
     });
+
+    return;
+  }
+
+  const path =
+    joinRoutePath(
+      parentPath,
+      entry.path,
+    );
+
+  const frame = entry.frame;
+  const routeRecord: RouteDefinition =
+    frame?.id !== undefined && entry.name === undefined
+      ? Object.freeze({ ...entry, name: frame.id })
+      : entry;
+
+  output.push({
+    route: routeRecord,
+    path,
+    layouts,
+  });
+
+  for (const outlet of frame?.outlets ?? []) {
+    output.push({
+      route: route(
+        entry.path,
+        outlet.view,
+        { outlet: outlet.outlet },
+      ),
+      path,
+      layouts,
+    });
+  }
+}
+
+export function compileRoutes(
+  source: NavigationTree,
+  parentPath = '/',
+  layouts:
+    readonly LayoutDefinition[] = [],
+  output: CompiledRoute[] = [],
+): readonly CompiledRoute[] {
+  for (const entry of source) {
+    compileEntry(entry, parentPath, layouts, output);
   }
 
   return output;
@@ -272,8 +203,6 @@ export function groupRoutes(
       }
 
       group = {
-        path: route.path,
-        layouts: route.layouts,
         primary: route,
         outlets: [],
       };
@@ -302,7 +231,7 @@ function validateRouteGroups(
   for (const group of groups) {
     if (group.primary.redirectTo && group.outlets.length > 0) {
       throw new Error(
-        `A redirect route cannot have named outlets. Path: "${group.path}"`,
+        `A redirect route cannot have named outlets. Path: "${group.primary.path}"`,
       );
     }
 
@@ -310,26 +239,27 @@ function validateRouteGroups(
     for (const outlet of group.outlets) {
       if (outlet.route.kind === 'redirect') {
         throw new Error(
-          `Named outlet routes cannot be redirects. Route path: "${group.path}"`,
+          `Named outlet routes cannot be redirects. Route path: "${group.primary.path}"`,
         );
       }
 
       const outletName = outlet.route.outlet!;
+
       if (outletNames.has(outletName)) {
         throw new Error(
-          `Duplicate outlet named "${outletName}" for route path "${group.path}".`,
+          `Duplicate outlet named "${outletName}" for route path "${group.primary.path}".`,
         );
       }
       outletNames.add(outletName);
 
       if (outlet.route.name) {
         throw new Error(
-          `Named outlet routes cannot have a "name" property. Route path: "${group.path}", outlet: "${outletName}"`,
+          `Named outlet routes cannot have a "name" property. Route path: "${group.primary.path}", outlet: "${outletName}"`,
         );
       }
 
-      if (outlet.route.paramsSchema || outlet.route.querySchema) {
-        throw new Error('Named outlet routes cannot define paramsSchema or querySchema.');
+      if (outlet.route.params || outlet.route.query) {
+        throw new Error('Named outlet routes cannot define params or query.');
       }
 
       if (outlet.route.viewTransition !== undefined) {
@@ -351,13 +281,11 @@ export interface RouteRegistryRecord {
 export interface FrameRouteRegistryRecord {
   readonly frameId: string;
   readonly matchPath: string;
-  readonly addressPath: string | null;
   readonly route: RouteDefinition;
-  readonly frame: AnyFrameDefinition | null;
+  readonly frame: FrameView | null;
   readonly transitions: readonly string[];
   readonly directEntry: boolean;
-  readonly directEntryRedirectTo?:
-    FrameNavigationOptions['directEntryRedirectTo'];
+  readonly directEntryRedirectTo?: string;
   readonly enforceGraph: boolean;
 }
 
@@ -379,51 +307,14 @@ export interface RouteRegistry {
     FrameRouteRegistry;
 }
 
-function readFrameNavigation(
-  route: RouteDefinition,
-): {
-  readonly frameId: string;
-  readonly navigation:
-    FrameNavigationOptions | undefined;
-} | null {
-  if (
-    route.kind === 'redirect'
-    || !route.name
-    || !route.frameNavigation
-  ) {
-    return null;
-  }
-
-  return {
-    frameId: route.name,
-    navigation:
-      route.frameNavigation,
-  };
-}
-
 export function createRouteRegistry(
-  source: NavigationSource,
+  source: NavigationTree,
 ): RouteRegistry {
   const namedRoutes =
     new Map<
       string,
       RouteRegistryRecord
     >();
-  const declaredFrameIds =
-    new Map<string, AnyFrameDefinition>();
-
-  for (const frame of resolveDeclaredFrames(source)) {
-    if (declaredFrameIds.has(frame.id)) {
-      throw new Error(
-        `Duplicate declared frame id "${frame.id}".`,
-      );
-    }
-
-    declaredFrameIds.set(
-      frame.id,
-      frame,
-    );
-  }
 
   const groups = groupRoutes(
     compileRoutes(source),
@@ -441,11 +332,7 @@ export function createRouteRegistry(
     new Map<string, string>();
 
   for (
-    const {
-      route,
-      path,
-      addressPath,
-    } of groups.flatMap(g => [g.primary, ...g.outlets])
+    const { route, path } of groups.flatMap(g => [g.primary, ...g.outlets])
   ) {
     const previous =
       literalPaths.get(path);
@@ -479,10 +366,7 @@ export function createRouteRegistry(
 
     patterns.set(pattern, path);
 
-    if (
-      !route.name
-      || addressPath === null
-    ) {
+    if (!route.name) {
       continue;
     }
 
@@ -500,7 +384,7 @@ export function createRouteRegistry(
       route.name,
       {
         route,
-        fullPath: addressPath,
+        fullPath: path,
       },
     );
   }
@@ -509,39 +393,33 @@ export function createRouteRegistry(
     string | null = null;
 
   for (const group of groups) {
-    const frameRoute =
-      readFrameNavigation(
-        group.primary.route,
-      );
+    const route = group.primary.route;
+    const frame = route.kind === 'route' ? route.frame : undefined;
 
-    if (!frameRoute) {
+    if (!frame?.id) {
       continue;
     }
 
+    const enforceGraph =
+      frame.transitions !== undefined
+      || frame.directEntry !== undefined
+      || frame.directEntryRedirectTo !== undefined;
+
     const record:
       FrameRouteRegistryRecord = {
-        frameId:
-          frameRoute.frameId,
-        matchPath:
-          group.path,
-        addressPath:
-          group.primary.addressPath,
-        route:
-          group.primary.route,
-        frame:
-          declaredFrameIds.get(
-            frameRoute.frameId,
-          ) ?? null,
+        frameId: frame.id,
+        matchPath: group.primary.path,
+        route,
+        frame,
         transitions:
           Object.freeze([
-            ...(frameRoute.navigation?.transitions ?? []),
+            ...(frame.transitions ?? []),
           ]),
         directEntry:
-          frameRoute.navigation?.directEntry === true,
+          frame.directEntry === true,
         directEntryRedirectTo:
-          frameRoute.navigation?.directEntryRedirectTo,
-        enforceGraph:
-          frameRoute.navigation !== undefined,
+          frame.directEntryRedirectTo,
+        enforceGraph,
       };
 
     if (
@@ -554,15 +432,6 @@ export function createRouteRegistry(
       );
     }
 
-    if (
-      declaredFrameIds.size > 0
-      && !declaredFrameIds.has(record.frameId)
-    ) {
-      throw new Error(
-        `Addressed frame "${record.frameId}" is not declared in the navigation definition.`,
-      );
-    }
-
     framesById.set(
       record.frameId,
       record,
@@ -571,25 +440,16 @@ export function createRouteRegistry(
     if (
       defaultEntryPath === null
       && record.directEntry
-      && record.addressPath !== null
     ) {
       defaultEntryPath =
-        record.addressPath;
+        record.matchPath;
     }
   }
 
-  for (const frameId of declaredFrameIds.keys()) {
-    if (!framesById.has(frameId)) {
-      throw new Error(
-        `Declared frame "${frameId}" is not placed in the navigation entries.`,
-      );
-    }
-  }
-
-  for (const frame of framesById.values()) {
-    for (const targetId of frame.transitions) {
+  for (const placedFrame of framesById.values()) {
+    for (const targetId of placedFrame.transitions) {
       if (
-        targetId === frame.frameId
+        targetId === placedFrame.frameId
       ) {
         continue;
       }
@@ -600,7 +460,7 @@ export function createRouteRegistry(
         )
       ) {
         throw new Error(
-          `Frame "${frame.frameId}" references unknown transition target "${targetId}".`,
+          `Frame "${placedFrame.frameId}" references unknown transition target "${targetId}".`,
         );
       }
     }

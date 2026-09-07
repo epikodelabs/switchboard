@@ -5,7 +5,6 @@ import { BooksSidebarComponent } from '../components/books-sidebar.component';
 import { LedgerService } from '../services/ledger.service';
 
 export const booksFrame = frame('books', BooksPage, {
-  address: '/books',
   directEntry: true,
   transitions: ['account', 'journal', 'entry', 'trial', 'settings'],
   outlets: {

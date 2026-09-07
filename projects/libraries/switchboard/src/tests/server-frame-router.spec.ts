@@ -7,6 +7,7 @@ import {
   frameSlot,
   framesFor,
   provideServerRouter,
+  route,
   Router,
   type ServerFrameResolver,
 } from '@epikodelabs/switchboard';
@@ -32,10 +33,9 @@ describe('Switchboard server frame integration', () => {
 
   it('resolves protected frames before initial navigation starts', async () => {
     const contribution = framesFor('application', [
-      frame('protected', ProtectedComponent, {
-        address: '/protected',
+      route('/protected', frame('protected', ProtectedComponent, {
         directEntry: true,
-      }),
+      })),
     ]);
     const resolveFrames: ServerFrameResolver = async url =>
       url.pathname === '/protected'
@@ -70,10 +70,9 @@ describe('Switchboard server frame integration', () => {
 
   it('resolves a missing path before programmatic navigation', async () => {
     const contribution = framesFor('application', [
-      frame('protected', ProtectedComponent, {
-        address: '/protected',
+      route('/protected', frame('protected', ProtectedComponent, {
         directEntry: true,
-      }),
+      })),
     ]);
     let calls = 0;
     const resolveFrames: ServerFrameResolver = async url => {
