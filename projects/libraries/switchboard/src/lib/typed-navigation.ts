@@ -337,11 +337,3 @@ type NavigationPreparedDataFromTree<
   TName extends string,
   TParent = Readonly<Record<string, never>>,
 > = EntryPreparedData<TTree[number], TName, TParent>;
-
-export type InferNavigationPreparedData<
-  TSource extends NavigationSource,
-  TName extends ExtractRouteNames<TSource>,
-> = NavigationPreparedDataFromTree<
-  ResolveNavigationEntries<TSource>,
-  TName
->;

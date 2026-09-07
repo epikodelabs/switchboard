@@ -1,12 +1,9 @@
 import {
-  allowsFrameArtifact,
   frame,
   frameSlot,
   framesFor,
   layout,
-  resolveDeliveredFrames,
   resolveFrameSlots,
-  type FrameArtifactDescriptor,
 } from '../lib';
 
 class Shell {}
@@ -43,35 +40,5 @@ describe('frame graph ownership', () => {
 
     expect(ids(resolveFrameSlots(root, [admin]))).toEqual(['home', 'admin']);
     expect(ids(resolveFrameSlots(root, []))).toEqual(['home']);
-  });
-
-  it('authorizes artifact disclosure independently from navigation guards', () => {
-    expect(allowsFrameArtifact(
-      { roles: ['admin'], permissions: ['audit:read'] },
-      { authenticated: true, roles: ['admin'], permissions: ['audit:read'] },
-    )).toBeTrue();
-
-    expect(allowsFrameArtifact(
-      { roles: ['admin'] },
-      { authenticated: true, roles: ['user'] },
-    )).toBeFalse();
-  });
-
-  it('binds compiler-owned artifact identity during delivery', async () => {
-    const root = [frameSlot('administration')] as const;
-    const descriptor: FrameArtifactDescriptor = {
-      artifactKey: 'src/app/frames/admin#administrationFrames',
-      slotId: 'administration',
-    };
-
-    const resolved = await resolveDeliveredFrames(
-      root,
-      [descriptor],
-      async () => framesFor('administration', [
-        frame('admin', Admin, { address: '/admin' }),
-      ]),
-    );
-
-    expect(ids(resolved)).toEqual(['admin']);
   });
 });

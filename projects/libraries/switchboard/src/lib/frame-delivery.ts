@@ -1,100 +1,6 @@
 import type {
   FrameContributionDefinition,
-  NavigationPolicy,
-  NavigationTree,
 } from './navigation-definitions';
-import { resolveFrameSlots } from './frame-slots';
-
-export interface FramePrincipal {
-  readonly authenticated?: boolean;
-  readonly roles?: readonly string[];
-  readonly permissions?: readonly string[];
-}
-
-/** Server-owned metadata for one protected frame-graph artifact. */
-export interface FrameArtifactDescriptor {
-  readonly artifactKey: string;
-  readonly slotId: string;
-  readonly policy?: NavigationPolicy;
-}
-
-export interface DeliveredFrameArtifact {
-  readonly descriptor: FrameArtifactDescriptor;
-  readonly contribution: FrameContributionDefinition;
-}
-
-export type FrameArtifactLoader = (
-  descriptor: FrameArtifactDescriptor,
-) => Promise<FrameContributionDefinition>;
-
-/**
- * Minimal policy evaluator for server delivery. Backend/API authorization remains
- * independent; this controls whether frontend graph code may be disclosed.
- */
-export function allowsFrameArtifact(
-  policy: NavigationPolicy | undefined,
-  principal: FramePrincipal | null | undefined,
-): boolean {
-  if (!policy) return true;
-
-  const authenticated = principal?.authenticated === true;
-  if (!authenticated && policy.allowAnonymous !== true) return false;
-
-  const roles = new Set(principal?.roles ?? []);
-  const requiredRoles = policy.roles ?? [];
-  if (requiredRoles.length > 0 && !requiredRoles.some(role => roles.has(role))) {
-    return false;
-  }
-
-  const permissions = new Set(principal?.permissions ?? []);
-  for (const permission of policy.permissions ?? []) {
-    if (!permissions.has(permission)) return false;
-  }
-
-  return true;
-}
-
-export function authorizeFrameArtifacts(
-  descriptors: readonly FrameArtifactDescriptor[],
-  principal: FramePrincipal | null | undefined,
-): readonly FrameArtifactDescriptor[] {
-  return Object.freeze(
-    descriptors.filter(descriptor =>
-      allowsFrameArtifact(descriptor.policy, principal),
-    ),
-  );
-}
-
-/**
- * Loads only server-authorized graph artifacts, validates their identity, and
- * resolves them into the root graph. The same function is usable during SSR
- * and before browser navigation starts after hydration.
- */
-export async function resolveDeliveredFrames(
-  root: NavigationTree,
-  descriptors: readonly FrameArtifactDescriptor[],
-  load: FrameArtifactLoader,
-): Promise<NavigationTree> {
-  const contributions = await Promise.all(
-    descriptors.map(async descriptor => {
-      const contribution = await load(descriptor);
-      if (contribution.slotId !== descriptor.slotId) {
-        throw new Error(
-          `Frame artifact "${descriptor.artifactKey}" returned slot ` +
-          `"${contribution.slotId}"; expected "${descriptor.slotId}".`,
-        );
-      }
-
-      return Object.freeze({
-        ...contribution,
-        // Artifact identity belongs to the compiler/server delivery layer.
-        id: descriptor.artifactKey,
-      });
-    }),
-  );
-
-  return resolveFrameSlots(root, contributions);
-}
 
 export interface ServerFrameArtifactDelivery {
   readonly artifactKey: string;
@@ -137,7 +43,12 @@ type RuntimeGlobal = typeof globalThis & {
   };
 };
 
-function registerServerFrameHostModules(modules: ServerFrameHostModules): void {
+/**
+ * Registers host module identities for independently delivered frame artifacts.
+ * Registration is deliberately lazy: an application that never navigates to a
+ * protected frame need not initialize a delivery runtime.
+ */
+export function registerServerFrameHostModules(modules: ServerFrameHostModules): void {
   const global = globalThis as RuntimeGlobal;
   let runtime = global[SWITCHBOARD_SERVER_HOST_RUNTIME_GLOBAL_KEY];
   if (!runtime) {
@@ -160,6 +71,8 @@ export interface ServerFrameResolverOptions {
   readonly fetch?: ServerFrameFetch;
   readonly importModule?: ServerFrameModuleImporter;
   readonly hostModules?: ServerFrameHostModules;
+  /** Re-fetch the delivery plan when a published artifact became stale. */
+  readonly artifactRefreshRetries?: number;
 }
 
 export interface ServerFrameResolverContext {
@@ -179,34 +92,32 @@ export type ServerFrameResolver = (
 export function createServerFrameResolver(
   options: ServerFrameResolverOptions = {},
 ): ServerFrameResolver {
-  if (!options.importModule) {
-    if (!options.hostModules?.['@epikodelabs/switchboard']) {
-      throw new Error(
-        'Native server frame imports require hostModules["@epikodelabs/switchboard"].',
-      );
-    }
-  }
   if (options.hostModules) registerServerFrameHostModules(options.hostModules);
 
-  const endpoint = (options.endpoint ?? '/api/navigation/resolve').replace(/\/+$/, '');
+  const endpoint = normalizeEndpoint(options.endpoint ?? '/api/navigation/resolve');
   const fetchFrames = options.fetch ?? defaultServerFrameFetch;
+  const usesNativeImport = !options.importModule;
   const importModule = options.importModule ?? defaultServerFrameImport;
   const loaded = new Map<string, Promise<FrameContributionDefinition>>();
+  const latestIdentityByArtifact = new Map<string, string>();
+  const retries = normalizeRetryCount(options.artifactRefreshRetries ?? 1);
 
-  return async (url, context = {}) => {
-    if (context.signal?.aborted) throw context.signal.reason ?? new DOMException('Aborted', 'AbortError');
+  const resolveOnce = async (url: URL, context: ServerFrameResolverContext) => {
+    throwIfAborted(context.signal);
     const path = `${url.pathname}${url.search}${url.hash}`;
     const response = await fetchFrames(
-      `${endpoint}?path=${encodeURIComponent(path)}`,
+      resolutionRequestUrl(endpoint, path),
       {
         credentials: 'same-origin',
         headers: Object.freeze({ Accept: 'application/json' }),
         signal: context.signal,
       },
     );
+    throwIfAborted(context.signal);
     if (response.status === 404) return null;
     if (!response.ok) throw new Error(`Failed to resolve frame graph for "${path}": ${response.status}.`);
     const payload = await response.json();
+    throwIfAborted(context.signal);
     if (!isServerFrameResolution(payload)) {
       throw new Error(`Server returned an invalid Switchboard frame resolution for "${path}".`);
     }
@@ -217,9 +128,19 @@ export function createServerFrameResolver(
       const identity = `${descriptor.artifactKey}:${descriptor.hash}:${descriptor.moduleUrl}`;
       let pending = loaded.get(identity);
       if (!pending) {
+        const previous = latestIdentityByArtifact.get(descriptor.artifactKey);
+        if (previous && previous !== identity) loaded.delete(previous);
+        latestIdentityByArtifact.set(descriptor.artifactKey, identity);
         pending = (async () => {
           if (options.hostModules) registerServerFrameHostModules(options.hostModules);
-          const module = await importModule(descriptor.moduleUrl) as { readonly default?: unknown };
+          if (usesNativeImport) requireRegisteredSwitchboardHostModule();
+          let module: { readonly default?: unknown };
+          try {
+            module = await importModule(descriptor.moduleUrl) as { readonly default?: unknown };
+          } catch (error) {
+            throw new ServerFrameArtifactLoadError(descriptor, error);
+          }
+          throwIfAborted(context.signal);
           const contribution = module.default;
           if (!isFrameContributionDefinition(contribution)) {
             throw new Error(`Artifact "${descriptor.artifactKey}" did not export a frame contribution.`);
@@ -233,28 +154,115 @@ export function createServerFrameResolver(
         })();
         loaded.set(identity, pending);
       }
-      const contribution = await pending;
+      let contribution: FrameContributionDefinition;
+      try {
+        contribution = await pending;
+      } catch (error) {
+        if (loaded.get(identity) === pending) loaded.delete(identity);
+        if (latestIdentityByArtifact.get(descriptor.artifactKey) === identity) {
+          latestIdentityByArtifact.delete(descriptor.artifactKey);
+        }
+        throw error;
+      }
+      throwIfAborted(context.signal);
       contributions.push(contribution);
-      identities[contribution.slotId] = identity;
+      identities[contribution.slotId] = `${descriptor.artifactKey}:${descriptor.hash}`;
     }
     return Object.freeze({
       contributions: Object.freeze(contributions),
       contributionIdentities: Object.freeze(identities),
     });
   };
+
+  return async (url, context = {}) => {
+    for (let attempt = 0; ; attempt++) {
+      try {
+        return await resolveOnce(url, context);
+      } catch (error) {
+        if (
+          !(error instanceof ServerFrameArtifactLoadError)
+          || context.signal?.aborted
+          || attempt >= retries
+        ) {
+          throw unwrapArtifactLoadError(error);
+        }
+      }
+    }
+  };
 }
 
 function isServerFrameResolution(value: unknown): value is ServerFrameResolution {
   if (!value || typeof value !== 'object') return false;
   const candidate = value as Partial<ServerFrameResolution>;
-  return typeof candidate.artifactKey === 'string'
+  return nonEmptyString(candidate.artifactKey)
     && Array.isArray(candidate.artifacts)
     && candidate.artifacts.every(item =>
       !!item
-      && typeof item.artifactKey === 'string'
-      && typeof item.moduleUrl === 'string'
-      && typeof item.hash === 'string'
-      && typeof item.slotId === 'string');
+      && nonEmptyString(item.artifactKey)
+      && nonEmptyString(item.moduleUrl)
+      && nonEmptyString(item.hash)
+      && nonEmptyString(item.slotId))
+    && candidate.artifacts.some(item => item.artifactKey === candidate.artifactKey);
+}
+
+function normalizeEndpoint(value: string): string {
+  const endpoint = value.trim();
+  if (!endpoint) throw new Error('Server frame endpoint must not be empty.');
+  return endpoint;
+}
+
+function resolutionRequestUrl(endpoint: string, path: string): string {
+  const separator = endpoint.includes('?')
+    ? /[?&]$/.test(endpoint) ? '' : '&'
+    : '?';
+  return `${endpoint}${separator}path=${encodeURIComponent(path)}`;
+}
+
+function requireRegisteredSwitchboardHostModule(): void {
+  const host = (globalThis as RuntimeGlobal)[SWITCHBOARD_SERVER_HOST_RUNTIME_GLOBAL_KEY]
+    ?.modules.get('@epikodelabs/switchboard');
+  if (!host) {
+    throw new Error(
+      'Native server frame imports require host modules registered through registerServerFrameHostModules().',
+    );
+  }
+}
+
+class ServerFrameArtifactLoadError extends Error {
+  constructor(
+    readonly descriptor: ServerFrameArtifactDelivery,
+    override readonly cause: unknown,
+  ) {
+    super(`Failed to load Switchboard frame artifact "${descriptor.artifactKey}" (${descriptor.hash}).`);
+    this.name = 'ServerFrameArtifactLoadError';
+  }
+}
+
+function unwrapArtifactLoadError(error: unknown): unknown {
+  return error instanceof ServerFrameArtifactLoadError && error.cause instanceof Error
+    ? error.cause
+    : error;
+}
+
+function throwIfAborted(signal: AbortSignal | undefined): void {
+  if (!signal?.aborted) return;
+  if (typeof DOMException === 'function') {
+    throw new DOMException('The frame resolution was aborted.', 'AbortError');
+  }
+  const error = new Error('The frame resolution was aborted.');
+  error.name = 'AbortError';
+  throw error;
+}
+
+function normalizeRetryCount(value: number): number {
+  if (!Number.isInteger(value) || value < 0) {
+    throw new Error('artifactRefreshRetries must be a non-negative integer.');
+  }
+  return value;
+}
+
+function nonEmptyString(value: unknown): value is string {
+  return typeof value === 'string' && value.trim().length > 0;
 }
 
 function isFrameContributionDefinition(value: unknown): value is FrameContributionDefinition {

@@ -1,11 +1,9 @@
 import {
   reflectComponentType,
-  type EnvironmentInjector,
   type Type,
 } from '@angular/core';
 
-import type { NavigationProviders } from './navigation-definitions';
-import type { ActivatedRoute, RouteComponent } from './vanilla-router';
+import type { ActivatedRoute } from './vanilla-router';
 
 const componentInputs =
   new WeakMap<
@@ -18,25 +16,6 @@ const componentInputs =
 
 export interface InputBindingTarget {
   setInput(name: string, value: unknown): void;
-}
-
-export type RouteComponentRenderer = (
-  component: Type<unknown>,
-  injector: EnvironmentInjector,
-  routeProviders?: NavigationProviders,
-) => RouteComponent;
-
-export interface RouteAdapterContext {
-  readonly injector: EnvironmentInjector;
-  readonly render: RouteComponentRenderer;
-}
-
-export function adaptRouteComponent(
-  component: Type<unknown>,
-  context: RouteAdapterContext,
-  routeProviders?: NavigationProviders,
-): RouteComponent {
-  return context.render(component, context.injector, routeProviders);
 }
 
 export function bindRouteInputs(

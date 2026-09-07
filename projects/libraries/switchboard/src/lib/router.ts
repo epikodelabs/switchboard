@@ -62,6 +62,8 @@ import { resolveNavigationEntries } from './route-compiler';
 
 import { OUTLET_ACTIVATE_EVENT, dispatchOutletLifecycleEvent } from './router-events';
 
+import { compileRoutePath, matchRoutePath } from './route-path';
+
 import { getRouterLocation, resolveRouterUrl, routerHref } from './router-url';
 
 import {
@@ -1398,14 +1400,9 @@ export class Router<TRoutes extends NavigationSource = any> {
   }
 
   private registryMatchesPath(pathname: string): boolean {
-    const target = pathname.split('/').filter(Boolean);
-    return this.registry.groups.some(group => {
-      const pattern = group.path.split('/').filter(Boolean);
-      return pattern.length === target.length
-        && pattern.every((segment, index) =>
-          segment.startsWith(':') || segment === target[index],
-        );
-    });
+    return this.registry.groups.some(group =>
+      matchRoutePath(compileRoutePath(group.path), pathname) !== null,
+    );
   }
 
   private navigationTargetUrl(

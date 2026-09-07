@@ -15,7 +15,6 @@ export interface AnalyzeOptions {
   readonly serverOutput: string;
   readonly artifactsOutput: string;
   readonly buildManifestOutput?: string;
-  readonly profile?: boolean;
 }
 
 export interface SwitchboardAnalysis {

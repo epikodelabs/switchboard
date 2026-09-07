@@ -35,12 +35,6 @@ const switchboardProperty = {
       description:
         'Switchboard navigation entry relative to the Angular project root.',
     },
-    profile: {
-      type: 'boolean',
-      default: false,
-      description:
-        'Record Switchboard compiler stage timings.',
-    },
     buildManifest: {
       type: 'boolean',
       default: true,

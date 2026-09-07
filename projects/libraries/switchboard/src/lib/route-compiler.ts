@@ -299,17 +299,7 @@ export function groupRoutes(
 function validateRouteGroups(
   groups: readonly CompiledRouteGroup[],
 ): void {
-  const names = new Set<string>();
-
   for (const group of groups) {
-    const primaryName = group.primary.route.name;
-    if (primaryName) {
-      if (names.has(primaryName)) {
-        throw new Error(`Duplicate route name "${primaryName}". Route names must be globally unique.`);
-      }
-      names.add(primaryName);
-    }
-
     if (group.primary.redirectTo && group.outlets.length > 0) {
       throw new Error(
         `A redirect route cannot have named outlets. Path: "${group.path}"`,

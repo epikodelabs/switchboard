@@ -1,173 +1,50 @@
-# Switchboard
+# @epikodelabs/switchboard
 
-Switchboard is a frame-first Angular navigation library — and it makes routing feel like the good part of your app again.
+Frame-first navigation primitives for standalone Angular applications.
 
-Most routers ask you to start from the URL: define a path, hang a component off it, and then bolt on everything else (guards, data loading, nested outlets) around that path. Switchboard flips the order. You start by describing your app as a graph of **frames** — the places a user can actually be — and *then* you decide which of those places deserve a public address. The result is an app where navigation logic reads like a map of your product, not a list of strings.
-
-The best part? You don't have to give anything up to get there. Switchboard still speaks fluent URLs — paths, redirects, typed params, typed query strings — it just treats them as a projection on top of your frame graph instead of the source of truth. If you already know Angular Router, you'll feel at home within a few minutes, and you'll probably never want to go back.
-
-## Why you'll like it
-
-- **Explicit frame identity.** Every screen your user can land on has a real, stable id — not just an implicit path segment. Refactor your URLs freely; your navigation logic keeps working.
-- **Transition-constrained navigation.** Frames declare which other frames they're allowed to move to. Illegal jumps become type errors and runtime guards instead of production bugs.
-- **Not every frame needs a URL.** Internal, mid-flow, or wizard-style screens can live in the graph without ever being directly linkable — and you can explicitly reject or redirect a direct entry attempt if someone tries anyway.
-- **Typed all the way down.** Params and query strings are declared with a small schema builder (`s.string`, `s.number`, `s.boolean`, `s.array`, `s.date`) and the types flow straight into your navigation calls and generated links.
-- **Functional lifecycle hooks.** `prepare`, `beforeEnter`, `beforeLeave`, and `afterEnter` are just functions — inject services, load data, guard a transition, all without ceremony.
-- **Outlets that belong to the frame.** Companion UI like sidebars or docks is declared right on the frame that owns it, not wired up separately.
-- **Shell composition without the whole route tree.** `layout(...)` lets you wrap shell UI around a set of addresses, so you get Angular Router-style composition without inheriting its full nested-route model.
-
-If you want full Angular Router feature parity, Switchboard is intentionally narrower — and that's the point. It's built for apps where the *frame* is the thing you actually reason about, and the URL is just one of the ways in.
-
-## Installation
+Switchboard models an application as named frames. A frame may have a public URL, typed parameters and query values, lifecycle hooks, named companion outlets, transition rules, and an optional server-delivery policy. This keeps the navigation contract close to the feature it describes instead of spreading it among a URL table, guards, and component wiring.
 
 ```bash
 npm install @epikodelabs/switchboard
 ```
 
-Switchboard is built for modern, standalone Angular apps and declares `@angular/core` and `@angular/common` as peer dependencies with a minimum version of `16.0.0`.
+Peer dependencies: `@angular/core` and `@angular/common` `>=16.0.0`.
 
-## Quick start
+## Minimal example
 
 ```ts
-import { inject } from '@angular/core';
-import {
-  frame,
-  layout,
-  navigation,
-  redirect,
-  s,
-} from '@epikodelabs/switchboard';
+import { frame, navigation, provideRouter, s } from '@epikodelabs/switchboard';
 
-const missionFrame = frame('mission', MissionPage, {
-  address: '/mission/:missionId',
+const profile = frame('profile', ProfilePage, {
+  address: '/profiles/:id',
   directEntry: true,
-  transitions: ['analysis', 'handoff'],
-  params: {
-    missionId: s.number({ min: 1 }),
-  },
-  query: {
-    lane: s.string('thermal'),
-  },
-  outlets: {
-    sidebar: MissionSidebarComponent,
-  },
+  params: { id: s.number({ min: 1 }) },
+  query: { tab: s.string('overview') },
   prepare: async context => ({
-    snapshot: await inject(MissionService).load(
-      Number(context.params['missionId']),
-    ),
+    profile: await profileApi.get(Number(context.params['id'])),
   }),
 });
 
-const handoffFrame = frame('handoff', HandoffPage, {
-  transitions: ['mission', 'analysis'],
-});
-
 export const routes = navigation({
-  frames: [missionFrame, handoffFrame] as const,
-  entries: [
-    redirect('/', '/app/mission/1'),
-    layout('/app', AppShell, [
-      missionFrame,
-      handoffFrame,
-    ]),
-  ] as const,
+  frames: [profile] as const,
+  entries: [profile] as const,
 });
+
+export const providers = [...provideRouter(routes)];
 ```
 
-A frame owns its identity, URL projection, schemas, lifecycle, companion outlets,
-and transition edges. Internal-only frames simply omit `address`.
+Use `RouterOutlet` to host the primary or named frame outlet. Inject `Router` for `navigate`, `href`, `navigateTo`, and `hrefTo`, or use the `RouterLink` directive in templates.
 
-## Core ideas
+## API at a glance
 
-Switchboard is built from a handful of small, composable building blocks. Once these click, everything else in the library is just detail.
+| API | Role |
+| --- | --- |
+| `frame()` with `view()` / `lazyView()` | Define eager or lazy application frames. |
+| `layout()` / `lazyLayout()` | Compose shell UI around a branch. |
+| `navigation()` | Declare a frame catalog and entries. |
+| `redirect()` | Redirect URL paths or navigation targets. |
+| `s` | Runtime schemas and inferred types for URL values. |
+| `frameSlot()` / `framesFor()` | Declare server-delivery ownership boundaries. |
+| `provideRouter()` / `provideServerRouter()` | Install the router and, optionally, a generated resolver. |
 
-### `frame(id, view, options)`
-
-A frame is the primary unit of navigation — the thing that actually exists in your app, whether or not it has a URL. A frame owns:
-
-- a stable **frame id**, used everywhere you refer to it in code
-- the **view** that renders it
-- optional **typed params and query schemas**
-- optional **companion outlets** (sidebars, docks, anything that rides alongside the main view)
-- the list of **transitions** it's allowed to make to other frames
-- **direct-entry rules**, for deciding whether someone is allowed to land here straight from a URL
-
-### `frame(...)` lifecycle options
-
-Lifecycle belongs directly to `frame(...)`: `prepare`, `beforeEnter`, `beforeLeave`, and `afterEnter` are plain functions. `view()` remains a low-level composition helper for reusable/lazy view definitions, but ordinary frames do not need it.
-
-### Frame addresses
-
-Set `address` on a frame to make it public and linkable. Omit it and the frame remains an internal graph state reachable through transitions without becoming a URL destination.
-
-### `navigation({ frames, entries })`
-
-`navigation(...)` is where it all comes together. It collects your full frame catalog alongside the address and layout entries that expose parts of that catalog to the outside world, and produces the routes Angular actually runs.
-
-### `layout(path, view, entries, options)`
-
-Layouts compose shell UI — navbars, side panels, app chrome — around a group of address entries. They're a composition boundary, not a source of frame identity: the frames underneath a layout are exactly as real, addressable (or not), and transition-constrained as they'd be anywhere else. `lazyLayout(...)` covers the code-split version.
-
-### Typed navigation and links
-
-Because params and query schemas are declared once on the frame (or address), Switchboard can generate fully typed navigation helpers and hrefs for you — `router.navigateTo(...)` and `router.hrefTo(...)` — plus a drop-in `RouterLink` directive for templates. Typo a frame id or forget a required param, and TypeScript will tell you before your users do.
-
-### Query and param schemas, with `s`
-
-The `s` helper builds small, declarative schemas for params and query strings: `s.string(default)`, `s.number({ min, max, default })`, `s.boolean(default)`, `s.array(default)`, `s.date(default)`, and `s.optional(schema)` to make any of the above optional. These schemas double as runtime coercion/defaulting and as the source of the TypeScript types used everywhere else.
-
-## What the example app demonstrates
-
-`projects/apps/app1` is a working reference app, and a genuinely good place to learn Switchboard by reading real code. It shows:
-
-- addressable frames living alongside internal-only frames in the same graph
-- named outlet companions declared per frame
-- lazy frame loading
-- payload transfer between frames through `history.state`
-- direct-entry rejection and redirect for frames that shouldn't be entered cold
-- frame-first navigation composed under a shell layout
-
-A good place to start reading:
-
-- `projects/apps/app1/src/app/app.routes.ts` — the whole navigation graph in one place
-- `projects/apps/app1/src/app/frames` — each frame definition, one file at a time
-
-## A note on scope
-
-Switchboard still supports route-style concerns you already know — paths, redirects, params, and query parsing. The difference is philosophical: in Switchboard, these are projections and policies layered around your frame graph, not the primary source of truth for what your app *is*.
-
-If you need broad Angular Router feature parity, Switchboard is intentionally narrower — and we think that's a feature, not a gap. Reach for it when you want:
-
-- explicit frame identity
-- transition-constrained navigation
-- functional lifecycle hooks
-- typed navigation and address generation
-- shell composition, without having to adopt Angular Router's full route-tree model to get it
-
-We're excited about where this model can take Angular navigation, and we'd love for you to come build with us.
-
-## Server-owned graph delivery
-
-Switchboard can divide the frame graph with `frameSlot()` and `framesFor()`. Protected-delivery builds authorize graph artifacts on the server, then resolve only the allowed contributions for SSR and browser navigation. Frame policies use `allowAnonymous`, `roles`, and `permissions`. See `docs/server-delivery.md`.
-
-## Server-delivered frame graphs
-
-Protected frame delivery is integrated into `Router`. Pass the generated resolver once when
-providing the router; initial navigation and later missing URL destinations resolve and install
-authorized `framesFor()` contributions before navigation commits.
-
-```ts
-import { provideServerRouter } from '@epikodelabs/switchboard';
-import { resolveFrames } from './switchboard.generated/resolver';
-import { routes } from './app.routes';
-
-export const appConfig = {
-  providers: [
-    ...provideServerRouter(routes, { resolveFrames }),
-  ],
-};
-```
-
-The application does not fetch artifacts, call `resolveFrameSlots()`, rebuild the router, or
-retry initial navigation itself. The builder-generated resolver owns artifact import and host
-module identity; the router owns resolution, graph installation, and navigation retry.
+Server delivery is opt-in. The companion builder turns `framesFor()` contributions into protected artifacts, and the host server authorizes their delivery. See the repository [README](../../../README.md) for the model, templates, and full documentation links.

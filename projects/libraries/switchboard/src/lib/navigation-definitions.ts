@@ -399,8 +399,3 @@ export type AnyNavigationDefinition =
 export type NavigationSource =
   | NavigationTree
   | AnyNavigationDefinition;
-
-export interface ResolvedFrameNavigation {
-  readonly entries: NavigationTree;
-  readonly contributions: readonly AnyFrameContributionDefinition[];
-}

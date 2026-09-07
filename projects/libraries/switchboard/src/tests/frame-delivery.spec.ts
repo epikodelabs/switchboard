@@ -96,4 +96,151 @@ describe('server frame delivery', () => {
       resolver(new URL('https://example.test/admin')),
     ).toBeRejectedWithError(/expected "administration"/);
   });
+
+  it('evicts a failed artifact import so a later resolution can recover', async () => {
+    const contribution = framesFor('administration', [] as const);
+    let imports = 0;
+    const resolver = createServerFrameResolver({
+      artifactRefreshRetries: 0,
+      importModule: async () => {
+        imports++;
+        if (imports === 1) throw new Error('stale module');
+        return { default: contribution };
+      },
+      fetch: async () => ({
+        ok: true,
+        status: 200,
+        async json() {
+          return {
+            artifactKey: 'admin-artifact',
+            artifacts: [{
+              artifactKey: 'admin-artifact',
+              moduleUrl: '/admin.js',
+              hash: 'x1',
+              slotId: 'administration',
+            }],
+          };
+        },
+      }),
+    });
+
+    await expectAsync(resolver(new URL('https://example.test/admin')))
+      .toBeRejectedWithError('stale module');
+    expect((await resolver(new URL('https://example.test/admin')))?.contributions).toHaveSize(1);
+    expect(imports).toBe(2);
+  });
+
+  it('re-resolves once after a stale artifact import by default', async () => {
+    const contribution = framesFor('administration', [] as const);
+    let imports = 0;
+    const resolver = createServerFrameResolver({
+      importModule: async () => {
+        imports++;
+        if (imports === 1) throw new Error('stale module');
+        return { default: contribution };
+      },
+      fetch: async () => ({
+        ok: true,
+        status: 200,
+        async json() {
+          return {
+            artifactKey: 'admin-artifact',
+            artifacts: [{
+              artifactKey: 'admin-artifact',
+              moduleUrl: '/admin.js',
+              hash: `x${imports + 1}`,
+              slotId: 'administration',
+            }],
+          };
+        },
+      }),
+    });
+
+    expect((await resolver(new URL('https://example.test/admin')))?.contributions).toHaveSize(1);
+    expect(imports).toBe(2);
+  });
+
+  it('does not retry a malformed artifact export', async () => {
+    let resolutions = 0;
+    const resolver = createServerFrameResolver({
+      fetch: async () => {
+        resolutions++;
+        return {
+          ok: true,
+          status: 200,
+          async json() {
+            return {
+              artifactKey: 'admin-artifact',
+              artifacts: [{
+                artifactKey: 'admin-artifact',
+                moduleUrl: '/admin.js',
+                hash: 'x1',
+                slotId: 'administration',
+              }],
+            };
+          },
+        };
+      },
+      importModule: async () => ({ default: [] }),
+    });
+
+    await expectAsync(resolver(new URL('https://example.test/admin')))
+      .toBeRejectedWithError(/did not export a frame contribution/);
+    expect(resolutions).toBe(1);
+  });
+
+  it('honors cancellation after resolution and before importing artifacts', async () => {
+    let release!: () => void;
+    const gate = new Promise<void>(resolve => { release = resolve; });
+    let imports = 0;
+    const controller = new AbortController();
+    const resolver = createServerFrameResolver({
+      fetch: async () => {
+        await gate;
+        return {
+          ok: true,
+          status: 200,
+          async json() {
+            return {
+              artifactKey: 'admin-artifact',
+              artifacts: [{
+                artifactKey: 'admin-artifact',
+                moduleUrl: '/admin.js',
+                hash: 'x1',
+                slotId: 'administration',
+              }],
+            };
+          },
+        };
+      },
+      importModule: async () => {
+        imports++;
+        return { default: framesFor('administration', [] as const) };
+      },
+    });
+
+    const pending = resolver(new URL('https://example.test/admin'), {
+      signal: controller.signal,
+    });
+    controller.abort();
+    release();
+
+    await expectAsync(pending).toBeRejected();
+    expect(imports).toBe(0);
+  });
+
+  it('supports resolution endpoints that already include a query string', async () => {
+    let request = '';
+    const resolver = createServerFrameResolver({
+      endpoint: '/internal/resolve?',
+      fetch: async input => {
+        request = input;
+        return { ok: false, status: 404, async json() { return {}; } };
+      },
+      importModule: async () => ({ default: framesFor('unused', [] as const) }),
+    });
+
+    await resolver(new URL('https://example.test/admin'));
+    expect(request).toBe('/internal/resolve?path=%2Fadmin');
+  });
 });

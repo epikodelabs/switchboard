@@ -1,7 +1,7 @@
 export * from './navigation-targets';
 export { RouterOutlet } from './router-outlet';
 export * from './frame-routes';
-export { frameSlot, framesFor, resolveFrameSlots, resolveOwnedFrameSlots } from './frame-slots';
+export { frameSlot, framesFor, resolveFrameSlots } from './frame-slots';
 export * from './frame-delivery';
 export * from './query-schema';
 export * from './route-adapter';

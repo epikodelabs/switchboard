@@ -1,9 +1,8 @@
 {
   "name": "switchboard",
-  "version": "1.0.1",
+  "version": "1.0.3",
   "scripts": {
     "ng": "ng",
-    "postinstall": "node scripts/patch-testify.mjs",
     "pretest": "npm run build",
     "pretest:watch": "npm run build",
     "prejasmine": "npm run build",
@@ -32,20 +31,21 @@
     "@angular/forms": "^22.0.0",
     "@angular/platform-browser": "^22.0.0",
     "@epikodelabs/switchboard": "file:dist/switchboard",
-    "tslib": "^2.3.0",
-    "@epikodelabs/switchboard-builder": "file:projects/tools/builder"
+    "@epikodelabs/switchboard-builder": "file:projects/tools/builder",
+    "angular-in-memory-web-api": "^0.22.0",
+    "tslib": "^2.3.0"
   },
   "devDependencies": {
+    "@angular-devkit/architect": "^0.2200.0",
     "@angular/build": "^22.0.8",
     "@angular/cli": "^22.0.8",
     "@angular/compiler-cli": "^22.0.0",
     "@epikodelabs/testify": "^1.0.36",
     "@types/jasmine": "^6.0.0",
     "@types/node": "^20.17.19",
+    "esbuild": "^0.28.2",
     "ng-packagr": "^22.0.0",
     "prettier": "^3.8.1",
-    "typescript": "~6.0.2",
-    "@angular-devkit/architect": "^0.2200.0",
-    "esbuild": "^0.28.2"
+    "typescript": "~6.0.2"
   }
 }

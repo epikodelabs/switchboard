@@ -37,9 +37,9 @@ artifact ownership graph != navigation transition graph
 Policies control frontend artifact disclosure. They do not replace backend/API
 authorization.
 
-The runtime package exposes `authorizeFrameArtifacts()` and
-`resolveDeliveredFrames()` as the server/client-neutral delivery contract. Build
-isolation and physical artifact emission belong to the Switchboard builder layer.
+The runtime package exposes `createServerFrameResolver()` for the browser half of
+the delivery contract. Build isolation and physical artifact emission belong to
+the Switchboard builder layer.
 
 ## Server host templates
 

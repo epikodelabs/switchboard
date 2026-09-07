@@ -185,8 +185,3 @@ export function buildInternalFrameRoutes(
     ),
   ];
 }
-
-export {
-  frameOutlet as defineFrameOutlet,
-  frameRoute as defineFrameRoute,
-};

@@ -19,7 +19,6 @@ import {
 interface SwitchboardBuildOptions extends Record<string, unknown> {
   readonly switchboard?: {
     readonly entry?: string;
-    readonly profile?: boolean;
     readonly buildManifest?: boolean;
   };
 }
@@ -95,7 +94,6 @@ async function execute(
         switchboard.buildManifest === false
           ? undefined
           : layout.manifest,
-      profile: switchboard.profile,
     });
 
     reportDiagnostics(
