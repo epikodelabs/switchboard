@@ -35,6 +35,8 @@ import {
 } from './route-renderer';
 
 import type {
+  AnyNavigationDefinition,
+  FrameContributionDefinition,
   FramePrepareFn,
   MaybePromise,
   CanEnterFn,
@@ -42,6 +44,7 @@ import type {
   FrameView,
   LayoutDefinition,
   LayoutOptions,
+  NavigationTree,
   RenderableRoute,
   RedirectRouteDefinition,
   GuardResult,
@@ -1306,7 +1309,10 @@ export class Router<TRoutes extends NavigationSource = any> {
     }
 
     const source = this.configuration.routes as AnyNavigationDefinition;
-    const framesById = new Map(source.frames.map(frame => [frame.id, frame] as const));
+    const framesById = new Map(
+      (source.frames as AnyNavigationDefinition['frames'])
+        .map((frame: { readonly id: string }) => [frame.id, frame] as const),
+    );
     const collect = (entries: NavigationTree): void => {
       for (const entry of entries) {
         if (entry.kind === 'layout') collect(entry.entries);
