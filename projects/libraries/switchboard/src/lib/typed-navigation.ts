@@ -1,7 +1,6 @@
 import type {
   InferParamType,
   InferQueryInputType,
-  InferQueryType,
   ParamSchemaRecord,
   QuerySchemaRecord,
 } from './query-schema';
@@ -73,21 +72,6 @@ export type InferRouteParams<TRoute> =
       : [ExtractPathParams<TPath>] extends [never]
         ? Record<string, never>
         : Record<ExtractPathParams<TPath>, string>
-    : Record<string, unknown>;
-
-/**
- * Infers route query parameter types from query schemas.
- */
-export type InferRouteQuery<TRoute> =
-  TRoute extends RouteDefinition<
-    string,
-    string | undefined,
-    ParamSchemaRecord | undefined,
-    infer TQuerySchema
-  >
-    ? [TQuerySchema] extends [QuerySchemaRecord]
-      ? InferQueryType<TQuerySchema>
-      : Record<string, unknown>
     : Record<string, unknown>;
 
 export type InferRouteQueryInput<TRoute> =

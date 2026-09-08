@@ -44,8 +44,8 @@ export function framesFor<
   );
 }
 
-/** @internal Compiler/server hook for binding authoritative artifact identity. */
-export function defineFrameContribution<
+/** Compiler/server hook for binding authoritative artifact identity. */
+function defineFrameContribution<
   const TSlotId extends string,
   const TId extends string,
   const TEntries extends NavigationTree,

@@ -7,10 +7,11 @@ import type {
   NavigationContext,
   RouteData,
 } from './vanilla-router';
+import type { MaybePromise } from './adapter-utils';
 
 export type { GuardResult };
+export type { MaybePromise };
 
-export type MaybePromise<T> = T | PromiseLike<T>;
 export type Lazy<T> = () => MaybePromise<T | { readonly default: T }>;
 export type View = Type<unknown> | Lazy<Type<unknown>>;
 
@@ -294,7 +295,6 @@ export interface FrameContributionDefinition<
 }
 
 export type AnyFrameSlotDefinition = FrameSlotDefinition<any>;
-export type AnyFrameContributionDefinition = FrameContributionDefinition<any, any, any>;
 
 export type NavigationEntry =
   | AnyRouteDefinition

@@ -4,6 +4,33 @@ import { ROUTER_LOCATION_CHANGE_EVENT } from './router-events';
 
 export type MaybePromise<T> = T | PromiseLike<T>;
 
+/**
+ * Replaces an outlet's child nodes, falling back to manual removal for
+ * environments without ParentNode.replaceChildren().
+ */
+export function replaceChildNodes(
+  target: Node & {
+    replaceChildren?: (...nodes: Node[]) => void;
+    firstChild: ChildNode | null;
+    removeChild(node: ChildNode): void;
+    appendChild<T extends Node>(node: T): T;
+  },
+  ...nodes: Node[]
+): void {
+  if (typeof target.replaceChildren === 'function') {
+    target.replaceChildren(...nodes);
+    return;
+  }
+
+  while (target.firstChild) {
+    target.removeChild(target.firstChild);
+  }
+
+  for (const node of nodes) {
+    target.appendChild(node);
+  }
+}
+
 export function unwrapDefault<T>(value: T | { default: T }): T {
   return value !== null && typeof value === 'object' && 'default' in value
     ? (value as { default: T }).default

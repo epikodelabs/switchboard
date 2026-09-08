@@ -38,9 +38,6 @@ export interface PreparedSwitchboardBuild {
       readonly message: string;
     }[];
   }>;
-
-  rollback(): Promise<void>;
-  dispose(): Promise<void>;
 }
 
 
@@ -210,8 +207,5 @@ export async function prepareBuild(
         diagnostics: [],
       };
     },
-
-    async rollback() {},
-    async dispose() {},
   });
 }

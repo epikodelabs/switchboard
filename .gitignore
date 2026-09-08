@@ -43,3 +43,6 @@ __screenshots__/
 # System files
 .DS_Store
 Thumbs.db
+
+# Switchboard builder output (rebuilt by prepare on install)
+projects/tools/builder/dist/

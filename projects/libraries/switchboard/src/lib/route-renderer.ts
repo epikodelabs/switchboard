@@ -8,6 +8,7 @@ import {
 } from '@angular/core';
 
 import { bindRouteInputs } from './route-adapter';
+import { replaceChildNodes } from './adapter-utils';
 
 import type { NavigationProviders } from './navigation-definitions';
 
@@ -40,29 +41,6 @@ export interface ResolvedRouteView {
 interface RenderedLayer {
   readonly rendered: RenderedRouteNode;
   readonly injector?: EnvironmentInjector;
-}
-
-function replaceChildNodes(
-  target: Node & {
-    replaceChildren?: (...nodes: Node[]) => void;
-    firstChild: ChildNode | null;
-    removeChild(node: ChildNode): void;
-    appendChild<T extends Node>(node: T): T;
-  },
-  ...nodes: Node[]
-): void {
-  if (typeof target.replaceChildren === 'function') {
-    target.replaceChildren(...nodes);
-    return;
-  }
-
-  while (target.firstChild) {
-    target.removeChild(target.firstChild);
-  }
-
-  for (const node of nodes) {
-    target.appendChild(node);
-  }
 }
 
 function createScopedInjector(

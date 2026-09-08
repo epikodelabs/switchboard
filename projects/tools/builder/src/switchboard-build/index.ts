@@ -115,96 +115,91 @@ async function execute(
       },
     );
 
-    try {
-      const delegatedOptions = {
-        ...angularOptions,
+    const delegatedOptions = {
+      ...angularOptions,
 
 
-        fileReplacements: [
-          ...normalizeReplacements(
-            angularOptions['fileReplacements'],
-          ),
-          {
-            replace: angularWorkspacePath(
-              workspaceRoot,
-              path.resolve(
-                workspaceRoot,
-                projectRoot,
-                'src/app/switchboard-resolver.ts',
-              ),
-            ),
-            with: angularWorkspacePath(
-              workspaceRoot,
-              build.host.resolverEntry,
-            ),
-          },
-          {
-            replace: angularWorkspacePath(
-              workspaceRoot,
-              analysis.planned.entry,
-            ),
-            with: angularWorkspacePath(
-              workspaceRoot,
-              build.host.routesEntry,
-            ),
-          },
-        ],
-
-        polyfills: normalizePolyfills(
-          angularOptions['polyfills'],
+      fileReplacements: [
+        ...normalizeReplacements(
+          angularOptions['fileReplacements'],
         ),
-      };
-
-      /*
-       * Delegate directly to Angular's builder implementation rather than
-       * scheduling another project target. This avoids a synthetic build-base
-       * target and avoids recursion into Switchboard's own build target.
-       */
-      const delegated = await context.scheduleBuilder(
-        '@angular/build:application',
-        delegatedOptions,
         {
-          target: context.target,
+          replace: angularWorkspacePath(
+            workspaceRoot,
+            path.resolve(
+              workspaceRoot,
+              projectRoot,
+              'src/app/switchboard-resolver.ts',
+            ),
+          ),
+          with: angularWorkspacePath(
+            workspaceRoot,
+            build.host.resolverEntry,
+          ),
         },
-      );
+        {
+          replace: angularWorkspacePath(
+            workspaceRoot,
+            analysis.planned.entry,
+          ),
+          with: angularWorkspacePath(
+            workspaceRoot,
+            build.host.routesEntry,
+          ),
+        },
+      ],
 
-      try {
-        const angularResult = await delegated.result;
+      polyfills: normalizePolyfills(
+        angularOptions['polyfills'],
+      ),
+    };
 
-        if (!angularResult.success) {
-          await build.rollback();
-          return angularResult;
-        }
-      } finally {
-        await delegated.stop();
+    /*
+     * Delegate directly to Angular's builder implementation rather than
+     * scheduling another project target. This avoids a synthetic build-base
+     * target and avoids recursion into Switchboard's own build target.
+     */
+    const delegated = await context.scheduleBuilder(
+      '@angular/build:application',
+      delegatedOptions,
+      {
+        target: context.target,
+      },
+    );
+
+    try {
+      const angularResult = await delegated.result;
+
+      if (!angularResult.success) {
+        return angularResult;
       }
-
-      /*
-       * Security boundary: no protected frame source module may be reachable
-       * from the public Angular host graph. Artifact identity is compiler-owned,
-       * so the post-build check uses source provenance rather than authored ids.
-       */
-      await assertNoProtectedFrameModulesInHost(
-        layout.publicRoot,
-        analysis.plan.artifacts,
-      );
-
-      const published = await build.publish();
-
-      reportDiagnostics(
-        published.diagnostics,
-        context,
-      );
-
-      return published.success
-        ? { success: true }
-        : {
-            success: false,
-            error: 'Switchboard publication failed.',
-          };
     } finally {
-      await build.dispose();
+      await delegated.stop();
     }
+
+    /*
+     * Security boundary: no protected frame source module may be reachable
+     * from the public Angular host graph. Artifact identity is compiler-owned,
+     * so the post-build check uses source provenance rather than authored ids.
+     */
+    await assertNoProtectedFrameModulesInHost(
+      layout.publicRoot,
+      analysis.plan.artifacts,
+    );
+
+    const published = await build.publish();
+
+    reportDiagnostics(
+      published.diagnostics,
+      context,
+    );
+
+    return published.success
+      ? { success: true }
+      : {
+          success: false,
+          error: 'Switchboard publication failed.',
+        };
   } catch (error) {
     const message =
       error instanceof Error

@@ -58,7 +58,7 @@ function validateCompiledRouteParams(
   }
 }
 
-export interface CompiledRoute {
+interface CompiledRoute {
   readonly route: RouteDefinition;
   readonly path: string;
   readonly redirectTo?: string;
@@ -71,7 +71,7 @@ export interface CompiledRouteGroup {
   readonly outlets: readonly CompiledRoute[];
 }
 
-export function compileRedirect(
+function compileRedirect(
   parentPath: string,
   redirectTo:
     string | undefined,
@@ -172,7 +172,7 @@ function compileEntry(
   }
 }
 
-export function compileRoutes(
+function compileRoutes(
   source: NavigationTree,
   parentPath = '/',
   layouts:
@@ -186,7 +186,7 @@ export function compileRoutes(
   return output;
 }
 
-export function groupRoutes(
+function groupRoutes(
   compiled: readonly CompiledRoute[],
 ): readonly CompiledRouteGroup[] {
   const groups = new Map<string, CompiledRouteGroup>();
@@ -273,7 +273,7 @@ function validateRouteGroups(
   }
 }
 
-export interface RouteRegistryRecord {
+interface RouteRegistryRecord {
   readonly route: RouteDefinition;
   readonly fullPath: string;
 }

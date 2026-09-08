@@ -11,16 +11,18 @@ import {
   type Type,
 } from '@angular/core';
 
-import { runWithInjector, unwrapDefault } from './adapter-utils';
+import {
+  replaceChildNodes,
+  runWithInjector,
+  unwrapDefault,
+} from './adapter-utils';
 
 import type {
-  FrameNavigationTarget,
   NamedNavigationTarget,
   NavigationTarget,
 } from './navigation-targets';
 
 import {
-  CompiledRoute,
   CompiledRouteGroup,
   createRouteRegistry,
   type FrameRouteRegistry,
@@ -45,7 +47,6 @@ import type {
   NavigationTree,
   RenderableRoute,
   RedirectRouteDefinition,
-  GuardResult,
   RouteDefinition,
 } from './navigation-definitions';
 
@@ -74,7 +75,6 @@ import {
   createRouter,
   type ActivatedRoute,
   type NavigationTransitionFn,
-  type NavigationContext,
   type NavigationOptions,
   type NavigationTransitionDefinition,
   type PrepareRouteDataFn,
@@ -183,29 +183,6 @@ function snapshotRouterState(state: RouterState): RouterState {
     historyState: state.historyState ?? null,
     routeConfig: state.routeConfig ?? null,
   });
-}
-
-function replaceChildNodes(
-  target: Node & {
-    replaceChildren?: (...nodes: Node[]) => void;
-    firstChild: ChildNode | null;
-    removeChild(node: ChildNode): void;
-    appendChild<T extends Node>(node: T): T;
-  },
-  ...nodes: Node[]
-): void {
-  if (typeof target.replaceChildren === 'function') {
-    target.replaceChildren(...nodes);
-    return;
-  }
-
-  while (target.firstChild) {
-    target.removeChild(target.firstChild);
-  }
-
-  for (const node of nodes) {
-    target.appendChild(node);
-  }
 }
 
 function execute<TContext, TResult>(
@@ -606,12 +583,6 @@ function adaptRoutes(
         group.primary.route;
 
       if (authoredPrimary.kind === 'redirect') {
-        if (group.outlets.length > 0) {
-          throw new Error(
-            `Redirect route "${group.primary.path}" cannot own named outlets.`,
-          );
-        }
-
         return adaptRoute(
           authoredPrimary,
           group.primary.path,
@@ -641,14 +612,9 @@ function adaptRoutes(
 
       const outlets = group.outlets.map(
         (compiled): RuntimeRenderableRoute => {
+          // validateRouteGroups guarantees outlet routes are renderable.
           const authoredOutlet =
-            compiled.route;
-
-          if (authoredOutlet.kind === 'redirect') {
-            throw new Error(
-              `Named outlet for "${primary.path}" cannot be a redirect.`,
-            );
-          }
+            compiled.route as RenderableRoute;
 
           return adaptRoute(
             authoredOutlet,
@@ -1051,12 +1017,6 @@ export class Router<TRoutes extends NavigationTree = any> {
     return routerHref(
       resolveRouterUrl(target, this.baseHref, getRouterLocation(this.document), 'href'),
     );
-  }
-
-  private generateNamedHref(target: NamedNavigationTarget): string | null {
-    const href = buildNamedNavigationPath(this.registry, target);
-
-    return href ? this.resolveHref(href) : null;
   }
 
   private async requireStartedEngine(): Promise<VanillaRouter> {
