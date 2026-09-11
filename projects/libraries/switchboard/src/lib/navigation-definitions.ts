@@ -92,9 +92,9 @@ export type ViewDefinition =
   | EagerViewDefinition
   | LazyViewDefinition;
 
-export type FrameOutletView = Type<unknown> | FrameView<any>;
+export type FrameOutletDefinitionView = Type<unknown> | FrameView<any>;
 
-export interface FrameOutlet<
+export interface FrameOutletDefinition<
   TOutlet extends string = string,
   TView extends FrameView<any> = FrameView<any>,
 > {
@@ -123,7 +123,7 @@ export type FrameView<
   readonly transitions?: readonly string[];
   readonly directEntry?: boolean;
   readonly directEntryRedirectTo?: string;
-  readonly outlets?: readonly FrameOutlet[];
+  readonly outlets?: readonly FrameOutletDefinition[];
   readonly children?: NavigationTree;
   readonly policy?: NavigationPolicy;
   readonly beforeEnter?: readonly CanEnterFn[];
@@ -177,7 +177,7 @@ export interface FrameOptions<
   /** Where a rejected cold entry should land instead. */
   readonly directEntryRedirectTo?: string;
   /** Companion views rendered beside the frame's primary outlet. */
-  readonly outlets?: Readonly<Record<string, FrameOutletView>> | readonly FrameOutlet[];
+  readonly outlets?: Readonly<Record<string, FrameOutletDefinitionView>> | readonly FrameOutletDefinition[];
   /** Child frames rendered inside this frame's primary outlet. */
   readonly children?: NavigationTree;
   readonly policy?: NavigationPolicy;

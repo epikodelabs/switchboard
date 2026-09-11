@@ -1,13 +1,13 @@
 import { Component, inject, input, signal, effect } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { FrameNavigator, RouterLink } from '@epikodelabs/switchboard';
+import { FrameNavigator, FrameLink } from '@epikodelabs/switchboard';
 import { DataInput, ParamsInput, QueryInput } from './route-inputs';
 import { sceneStyles } from './scene-styles';
 import { JournalEntry, LedgerService } from '../services/ledger.service';
 
 @Component({
   standalone: true,
-  imports: [RouterLink, FormsModule],
+  imports: [FrameLink, FormsModule],
   template: `
     <section class="scene">
       <header class="scene-header">
@@ -58,7 +58,7 @@ import { JournalEntry, LedgerService } from '../services/ledger.service';
             @for (line of entry()!.lines; track $index) {
               <tr>
                 <td>
-                  <a [routerLink]="{ name: 'account', params: { accountId: line.accountId } }">
+                  <a [frameLink]="{ name: 'account', params: { accountId: line.accountId } }">
                     {{ accountLabel(line.accountId) }}
                   </a>
                 </td>
@@ -76,7 +76,7 @@ import { JournalEntry, LedgerService } from '../services/ledger.service';
 
         <div class="action-row">
           @if (entry()!.status === 'draft') {
-            <a class="action-link action-link--accent" [routerLink]="{ name: 'journal', query: { entryId: entry()!.id } }">
+            <a class="action-link action-link--accent" [frameLink]="{ name: 'journal', query: { entryId: entry()!.id } }">
               Edit draft
             </a>
             <button type="button" class="action-button action-button--accent" (click)="post()" [disabled]="!canPost()">
@@ -87,8 +87,8 @@ import { JournalEntry, LedgerService } from '../services/ledger.service';
           @if (entry()!.status === 'posted') {
             <button type="button" class="action-button action-button--danger" (click)="showVoid.set(true)">Void entry</button>
           }
-          <a class="action-link" [routerLink]="{ name: 'books' }">Back to books</a>
-          <a class="action-link" [routerLink]="{ name: 'journal' }">New entry</a>
+          <a class="action-link" [frameLink]="{ name: 'books' }">Back to books</a>
+          <a class="action-link" [frameLink]="{ name: 'journal' }">New entry</a>
         </div>
 
         @if (showVoid()) {
@@ -175,3 +175,4 @@ export class EntryPage {
     }
   }
 }
+

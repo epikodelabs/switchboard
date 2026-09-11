@@ -7,7 +7,7 @@ import {
   layout,
   redirect,
   provideFrameGraph,
-  RouterOutlet,
+  FrameOutlet,
   s,
   FrameNavigator,
   NavigationTree,
@@ -20,24 +20,24 @@ class HomeComponent {}
 
 @Component({
   standalone: true,
-  imports: [RouterOutlet],
-  template: '<h2>Parent</h2><router-outlet />',
+  imports: [FrameOutlet],
+  template: '<h2>Parent</h2><frame-outlet />',
   host: { 'parent-cmp': '' },
 })
 class ParentComponent {}
 
 @Component({
   standalone: true,
-  imports: [RouterOutlet],
-  template: '<h2>Shell</h2><router-outlet />',
+  imports: [FrameOutlet],
+  template: '<h2>Shell</h2><frame-outlet />',
   host: { 'shell-cmp': '' },
 })
 class ShellComponent {}
 
 @Component({
   standalone: true,
-  imports: [RouterOutlet],
-  template: '<h2>Shell</h2><router-outlet name="sidebar" /><router-outlet />',
+  imports: [FrameOutlet],
+  template: '<h2>Shell</h2><frame-outlet name="sidebar" /><frame-outlet />',
   host: { 'shell-sidebar-cmp': '' },
 })
 class ShellWithSidebarComponent {}
@@ -56,7 +56,7 @@ class ChildComponent {}
 })
 class SettingsComponent {}
 
-describe('FrameNavigator: flat routes and layouts', () => {
+describe('FrameNavigator: frames and children', () => {
   let outlet: HTMLElement;
   let navigator: FrameNavigator;
 
@@ -548,3 +548,5 @@ describe('FrameNavigator async facade methods', () => {
     ).toBeRejectedWithError('Frame navigator has no active outlet.');
   });
 });
+
+

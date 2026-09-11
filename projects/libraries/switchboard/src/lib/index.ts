@@ -1,15 +1,15 @@
 export * from './navigation-targets';
-export { RouterOutlet } from './router-outlet';
+export { FrameOutlet } from './frame-outlet';
 export { frameSlot, framesFor, resolveFrameSlots } from './frame-slots';
 export * from './frame-delivery';
 export * from './query-schema';
-export * from './route-adapter';
+export * from './frame-input-adapter';
 export * from './frame-builders';
-export * from './route-path';
-export { RouterLink } from './router-link';
+export * from './navigation-path';
+export { FrameLink } from './frame-link';
 export * from './navigation-definitions';
-export * from './router-events';
-export * from './router-url';
+export * from './frame-events';
+export * from './navigation-url';
 export * from './typed-navigation';
 export {
     createRouter,
@@ -45,3 +45,5 @@ export {
     provideFrameGraph, provideServerFrameGraph, ROUTE,
     ROUTE_CONTEXT, FrameNavigator, type FrameGraphOptions
 } from './frame-navigator';
+
+

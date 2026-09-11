@@ -1,27 +1,27 @@
 import { Component, inject, input } from '@angular/core';
-import { RouterLink } from '@epikodelabs/switchboard';
+import { FrameLink } from '@epikodelabs/switchboard';
 import { ParamsInput } from './route-inputs';
 import { sidebarStyles } from './scene-styles';
 import { LedgerService } from '../services/ledger.service';
 
 @Component({
   standalone: true,
-  imports: [RouterLink],
+  imports: [FrameLink],
   template: `
     <section class="sidebar-stack">
       <article class="sidebar-card">
         <h3>Related</h3>
         <div class="sidebar-links">
-          <a [routerLink]="{ name: 'journal', query: { accountId: accountId() } }">Post to this account</a>
-          <a [routerLink]="{ name: 'books' }">All accounts</a>
-          <a [routerLink]="{ name: 'trial' }">Trial balance</a>
+          <a [frameLink]="{ name: 'journal', query: { accountId: accountId() } }">Post to this account</a>
+          <a [frameLink]="{ name: 'books' }">All accounts</a>
+          <a [frameLink]="{ name: 'trial' }">Trial balance</a>
         </div>
       </article>
       <article class="sidebar-card">
         <h3>Other accounts</h3>
         <div class="sidebar-links">
           @for (a of ledger.activeAccounts().slice(0, 8); track a.id) {
-            <a [routerLink]="{ name: 'account', params: { accountId: a.id } }">{{ a.code }} {{ a.name }}</a>
+            <a [frameLink]="{ name: 'account', params: { accountId: a.id } }">{{ a.code }} {{ a.name }}</a>
           }
         </div>
       </article>
@@ -37,3 +37,4 @@ export class AccountSidebarComponent {
     return String(this.params()['accountId'] ?? '');
   }
 }
+

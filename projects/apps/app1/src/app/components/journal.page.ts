@@ -1,6 +1,6 @@
 import { Component, inject, input, signal, effect } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { FrameNavigator, RouterLink } from '@epikodelabs/switchboard';
+import { FrameNavigator, FrameLink } from '@epikodelabs/switchboard';
 import { DataInput, ParamsInput, QueryInput } from './route-inputs';
 import { sceneStyles } from './scene-styles';
 import {
@@ -19,7 +19,7 @@ interface EditableLine {
 
 @Component({
   standalone: true,
-  imports: [RouterLink, FormsModule],
+  imports: [FrameLink, FormsModule],
   template: `
     <section class="scene">
       <header class="scene-header">
@@ -111,7 +111,7 @@ interface EditableLine {
         @if (editingId()) {
           <button type="button" class="action-button action-button--danger" (click)="deleteDraft()">Delete draft</button>
         }
-        <a class="action-link" [routerLink]="{ name: 'books' }">Cancel</a>
+        <a class="action-link" [frameLink]="{ name: 'books' }">Cancel</a>
       </div>
     </section>
   `,
@@ -252,3 +252,4 @@ export class JournalPage {
     }
   }
 }
+

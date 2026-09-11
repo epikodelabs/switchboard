@@ -1,6 +1,6 @@
 import { type DestroyRef, type EnvironmentInjector, runInInjectionContext } from '@angular/core';
 
-import { ROUTER_LOCATION_CHANGE_EVENT } from './router-events';
+import { FRAME_LOCATION_CHANGE_EVENT } from './frame-events';
 
 export type MaybePromise<T> = T | PromiseLike<T>;
 
@@ -53,17 +53,19 @@ export function runWithInjector<TContext, TResult>(
   return runInInjectionContext(injector, () => Promise.resolve(handler(context)));
 }
 
-export function watchRouterLocation(destroyRef: DestroyRef, refresh: () => void): void {
+export function watchFrameLocation(destroyRef: DestroyRef, refresh: () => void): void {
   if (typeof window === 'undefined') {
     return;
   }
 
   const listener = () => refresh();
-  window.addEventListener(ROUTER_LOCATION_CHANGE_EVENT, listener);
+  window.addEventListener(FRAME_LOCATION_CHANGE_EVENT, listener);
   window.addEventListener('popstate', listener);
 
   destroyRef.onDestroy(() => {
-    window.removeEventListener(ROUTER_LOCATION_CHANGE_EVENT, listener);
+    window.removeEventListener(FRAME_LOCATION_CHANGE_EVENT, listener);
     window.removeEventListener('popstate', listener);
   });
 }
+
+

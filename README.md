@@ -49,7 +49,7 @@ export const frames = [
 export const appConfig = { providers: [...provideFrameGraph(frames)] };
 ```
 
-Use `RouterOutlet` in the shell and inject `FrameNavigator` wherever navigation is needed. `FrameNavigator.navigateTo.books({ query: { sort: 'title' } })` and `FrameNavigator.hrefTo.account({ params: { accountId: 42 } })` are type-checked from the same definition.
+Use `FrameOutlet` in the shell and inject `FrameNavigator` wherever navigation is needed. `FrameNavigator.navigateTo.books({ query: { sort: 'title' } })` and `FrameNavigator.hrefTo.account({ params: { accountId: 42 } })` are type-checked from the same definition.
 
 ## Core model
 
@@ -59,7 +59,7 @@ Use `RouterOutlet` in the shell and inject `FrameNavigator` wherever navigation 
 | `frame(id, path, view, { children })` | Adds parent UI around navigable child frames. |
 | `redirect(path, targetFrame)` | Defines a redirect frame that targets another frame. |
 | `s` | Defines typed, runtime-validated params and query strings. |
-| `RouterLink`, `navigateTo`, `hrefTo` | Produces typed links and navigation instructions. |
+| `FrameLink`, `navigateTo`, `hrefTo` | Produces typed links and navigation instructions. |
 
 ### Frame Graph
 
@@ -119,3 +119,4 @@ npm run build:builder
 ## License
 
 MIT
+

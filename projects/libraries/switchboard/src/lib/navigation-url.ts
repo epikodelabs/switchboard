@@ -1,4 +1,4 @@
-export type RouterUrlMode = 'navigate' | 'href';
+export type NavigationUrlMode = 'navigate' | 'href';
 
 const SERVER_LOCATION = {
   origin: 'http://localhost',
@@ -8,7 +8,7 @@ const SERVER_LOCATION = {
   href: 'http://localhost/',
 } satisfies Pick<Location, 'origin' | 'pathname' | 'search' | 'hash' | 'href'>;
 
-export function getRouterLocation(
+export function getNavigationLocation(
   document: Pick<Document, 'location'> | null | undefined,
 ): Pick<Location, 'origin' | 'pathname' | 'search' | 'hash' | 'href'> {
   return document?.location ?? SERVER_LOCATION;
@@ -45,11 +45,11 @@ export function applyBaseHref(pathname: string, baseHref: string): string {
   return path === '/' ? base : normalizePath(`${base}/${path.slice(1)}`);
 }
 
-export function resolveRouterUrl(
+export function resolveNavigationUrl(
   target: string | URL,
   baseHref: string,
   location: Pick<Location, 'origin' | 'pathname' | 'href'>,
-  mode: RouterUrlMode,
+  mode: NavigationUrlMode,
 ): URL {
   if (target instanceof URL) return target;
 
@@ -72,6 +72,7 @@ export function resolveRouterUrl(
   return new URL(value, relativeBase);
 }
 
-export function routerHref(url: URL): string {
+export function navigationHref(url: URL): string {
   return `${url.pathname}${url.search}${url.hash}`;
 }
+

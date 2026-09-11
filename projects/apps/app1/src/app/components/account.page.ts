@@ -1,12 +1,12 @@
 import { Component, inject, input, signal, effect } from '@angular/core';
-import { FrameNavigator, RouterLink } from '@epikodelabs/switchboard';
+import { FrameNavigator, FrameLink } from '@epikodelabs/switchboard';
 import { DataInput, ParamsInput, QueryInput } from './route-inputs';
 import { sceneStyles } from './scene-styles';
 import { Account, LedgerLine, LedgerService } from '../services/ledger.service';
 
 @Component({
   standalone: true,
-  imports: [RouterLink],
+  imports: [FrameLink],
   template: `
     <section class="scene">
       <header class="scene-header">
@@ -42,11 +42,11 @@ import { Account, LedgerLine, LedgerService } from '../services/ledger.service';
       </div>
 
       <div class="action-row">
-        <a class="action-link action-link--accent" [routerLink]="{ name: 'journal', query: { accountId: accountId() } }">
+        <a class="action-link action-link--accent" [frameLink]="{ name: 'journal', query: { accountId: accountId() } }">
           New entry for this account
         </a>
-        <a class="action-link" [routerLink]="{ name: 'books' }">Back to books</a>
-        <a class="action-link" [routerLink]="{ name: 'trial' }">Trial balance</a>
+        <a class="action-link" [frameLink]="{ name: 'books' }">Back to books</a>
+        <a class="action-link" [frameLink]="{ name: 'trial' }">Trial balance</a>
         @if (account() && !account()!.archived) {
           <button type="button" class="action-button" (click)="archive()">Archive</button>
         }
@@ -77,7 +77,7 @@ import { Account, LedgerLine, LedgerService } from '../services/ledger.service';
                 <td class="num">{{ row.credit ? money(row.credit) : '—' }}</td>
                 <td class="num">{{ money(row.balance) }}</td>
                 <td>
-                  <a [routerLink]="{ name: 'entry', params: { entryId: row.entryId } }">View</a>
+                  <a [frameLink]="{ name: 'entry', params: { entryId: row.entryId } }">View</a>
                 </td>
               </tr>
             }
@@ -129,3 +129,4 @@ export class AccountPage {
     }
   }
 }
+

@@ -1,9 +1,9 @@
 import { Component, DestroyRef, DoCheck, inject, signal } from '@angular/core';
 import {
-  ROUTER_LOCATION_CHANGE_EVENT,
+  FRAME_LOCATION_CHANGE_EVENT,
   FrameNavigator,
-  RouterLink,
-  RouterOutlet,
+  FrameLink,
+  FrameOutlet,
 } from '@epikodelabs/switchboard';
 
 interface HeaderSnapshot {
@@ -16,7 +16,7 @@ interface HeaderSnapshot {
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [RouterOutlet, RouterLink],
+  imports: [FrameOutlet, FrameLink],
   templateUrl: './app.html',
   styleUrl: './app.css',
 })
@@ -33,12 +33,12 @@ export class App implements DoCheck {
 
     const sync = () => this.syncHeaderState();
 
-    window.addEventListener(ROUTER_LOCATION_CHANGE_EVENT, sync);
+    window.addEventListener(FRAME_LOCATION_CHANGE_EVENT, sync);
     window.addEventListener('popstate', sync);
     window.addEventListener('routechange', sync as EventListener);
 
     this.destroyRef.onDestroy(() => {
-      window.removeEventListener(ROUTER_LOCATION_CHANGE_EVENT, sync);
+      window.removeEventListener(FRAME_LOCATION_CHANGE_EVENT, sync);
       window.removeEventListener('popstate', sync);
       window.removeEventListener('routechange', sync as EventListener);
     });
@@ -101,3 +101,4 @@ export class App implements DoCheck {
     };
   }
 }
+

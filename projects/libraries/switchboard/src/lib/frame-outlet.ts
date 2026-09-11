@@ -2,8 +2,8 @@ import { DestroyRef, Directive, ElementRef, Input, OnInit, inject } from '@angul
 
 import { FrameNavigator } from './frame-navigator';
 
-@Directive({ selector: 'router-outlet', standalone: true })
-export class RouterOutlet implements OnInit {
+@Directive({ selector: 'frame-outlet', standalone: true })
+export class FrameOutlet implements OnInit {
   private readonly router = inject(FrameNavigator);
   private readonly element = inject(ElementRef<HTMLElement>).nativeElement;
   private readonly destroyRef = inject(DestroyRef);
@@ -36,6 +36,9 @@ export class RouterOutlet implements OnInit {
   }
 
   private shouldConnect(name: string): boolean {
-    return name !== '' || this.element.closest('route-host') === null;
+    return name !== '' || this.element.closest('frame-host') === null;
   }
 }
+
+
+

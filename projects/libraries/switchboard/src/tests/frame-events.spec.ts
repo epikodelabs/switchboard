@@ -1,16 +1,16 @@
 import {
   OUTLET_ACTIVATE_EVENT,
   OUTLET_DEACTIVATE_EVENT,
-  ROUTER_LOCATION_CHANGE_EVENT,
+  FRAME_LOCATION_CHANGE_EVENT,
   dispatchOutletLifecycleEvent,
-  dispatchRouterLocationChange,
-} from '../lib/router-events';
+  dispatchFrameLocationChange,
+} from '../lib/frame-events';
 
-describe('Switchboard router events', () => {
+describe('Switchboard frame events', () => {
   it('uses only switchboard-namespaced events', () => {
     expect(OUTLET_ACTIVATE_EVENT).toBe('switchboard:outlet-activate');
     expect(OUTLET_DEACTIVATE_EVENT).toBe('switchboard:outlet-deactivate');
-    expect(ROUTER_LOCATION_CHANGE_EVENT).toBe('switchboard:location-change');
+    expect(FRAME_LOCATION_CHANGE_EVENT).toBe('switchboard:location-change');
   });
 
   it('dispatches one outlet event', () => {
@@ -25,13 +25,14 @@ describe('Switchboard router events', () => {
 
   it('dispatches one location event', () => {
     const listener = jasmine.createSpy('listener');
-    window.addEventListener(ROUTER_LOCATION_CHANGE_EVENT, listener);
+    window.addEventListener(FRAME_LOCATION_CHANGE_EVENT, listener);
 
     try {
-      dispatchRouterLocationChange();
+      dispatchFrameLocationChange();
       expect(listener).toHaveBeenCalledTimes(1);
     } finally {
-      window.removeEventListener(ROUTER_LOCATION_CHANGE_EVENT, listener);
+      window.removeEventListener(FRAME_LOCATION_CHANGE_EVENT, listener);
     }
   });
 });
+

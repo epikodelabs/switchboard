@@ -1,11 +1,11 @@
 import { Component, inject, signal } from '@angular/core';
-import { RouterLink } from '@epikodelabs/switchboard';
+import { FrameLink } from '@epikodelabs/switchboard';
 import { sceneStyles } from './scene-styles';
 import { LedgerService, TrialBalanceRow } from '../services/ledger.service';
 
 @Component({
   standalone: true,
-  imports: [RouterLink],
+  imports: [FrameLink],
   template: `
     <section class="scene">
       <header class="scene-header">
@@ -17,8 +17,8 @@ import { LedgerService, TrialBalanceRow } from '../services/ledger.service';
           </p>
         </div>
         <div class="action-row">
-          <a class="action-link" [routerLink]="{ name: 'books' }">Books</a>
-          <a class="action-link action-link--accent" [routerLink]="{ name: 'journal' }">New entry</a>
+          <a class="action-link" [frameLink]="{ name: 'books' }">Books</a>
+          <a class="action-link action-link--accent" [frameLink]="{ name: 'journal' }">New entry</a>
         </div>
       </header>
 
@@ -56,7 +56,7 @@ import { LedgerService, TrialBalanceRow } from '../services/ledger.service';
           @for (row of rows(); track row.accountId) {
             <tr>
               <td>
-                <a [routerLink]="{ name: 'account', params: { accountId: row.accountId } }">{{ row.code }}</a>
+                <a [frameLink]="{ name: 'account', params: { accountId: row.accountId } }">{{ row.code }}</a>
               </td>
               <td>{{ row.name }}</td>
               <td>{{ row.type }}</td>
@@ -94,3 +94,4 @@ export class TrialPage {
     return this.rows().reduce((s, r) => s + r.credit, 0);
   }
 }
+

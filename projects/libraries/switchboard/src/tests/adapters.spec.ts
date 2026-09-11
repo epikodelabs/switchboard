@@ -1,10 +1,10 @@
 import { Component, Input } from '@angular/core';
 
 import {
-  bindRouteInputs,
+  bindFrameInputs,
 } from '@epikodelabs/switchboard';
 
-type ActivatedRoute = Parameters<typeof bindRouteInputs>[2];
+type ActivatedRoute = Parameters<typeof bindFrameInputs>[2];
 
 function createRoute(
   overrides: Partial<ActivatedRoute> = {},
@@ -19,7 +19,7 @@ function createRoute(
 }
 
 describe('navigation adapters', () => {
-  it('binds route inputs by source instead of flattening them', () => {
+  it('binds frame inputs by source instead of flattening them', () => {
     const target = {
       setInput: jasmine.createSpy('setInput'),
     };
@@ -54,7 +54,7 @@ describe('navigation adapters', () => {
       },
     });
 
-    bindRouteInputs(target, TestInputsComponent, route);
+    bindFrameInputs(target, TestInputsComponent, route);
 
     expect(target.setInput).toHaveBeenCalledTimes(3);
     expect(target.setInput).toHaveBeenCalledWith(

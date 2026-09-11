@@ -31,7 +31,7 @@ export const frames = [
 export const providers = [...provideFrameGraph(frames)];
 ```
 
-Use `RouterOutlet` to host the primary or named frame outlet. Inject `FrameNavigator` for `navigate`, `href`, `navigateTo`, and `hrefTo`, or use the `RouterLink` directive in templates.
+Use `FrameOutlet` to host the primary or named frame outlet. Inject `FrameNavigator` for `navigate`, `href`, `navigateTo`, and `hrefTo`, or use the `FrameLink` directive in templates.
 
 ## API at a glance
 
@@ -66,3 +66,4 @@ export const frames = [
 ```
 
 Server delivery is opt-in. The companion builder turns `framesFor()` contributions into protected artifacts, and the host server authorizes their delivery. See the repository [README](../../../README.md) for the model, templates, and full documentation links.
+

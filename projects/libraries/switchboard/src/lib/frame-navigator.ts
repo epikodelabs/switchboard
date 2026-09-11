@@ -28,13 +28,13 @@ import {
   type FrameRouteRegistry,
   type FrameRouteRegistryRecord,
   type RouteRegistry,
-} from './route-compiler';
+} from './frame-compiler';
 
 import {
-  composeAngularLeafRouteView,
-  composeAngularRouteView,
-  type ResolvedRouteView,
-} from './route-renderer';
+  composeAngularLeafFrameView,
+  composeAngularFrameView,
+  type ResolvedFrameView,
+} from './frame-renderer';
 
 import type {
   FrameContributionDefinition,
@@ -55,11 +55,11 @@ import type { TypedHref, TypedNavigate } from './typed-navigation';
 import type { ServerFrameResolver } from './frame-delivery';
 import { resolveFrameSlots } from './frame-slots';
 
-import { OUTLET_ACTIVATE_EVENT, dispatchOutletLifecycleEvent } from './router-events';
+import { OUTLET_ACTIVATE_EVENT, dispatchOutletLifecycleEvent } from './frame-events';
 
-import { compileRoutePath, matchRoutePath } from './route-path';
+import { compileRoutePath, matchRoutePath } from './navigation-path';
 
-import { getRouterLocation, resolveRouterUrl, routerHref } from './router-url';
+import { getNavigationLocation, resolveNavigationUrl, navigationHref } from './navigation-url';
 
 import {
   parseParamsRecord,
@@ -147,7 +147,7 @@ function loadComponent(owner: LayoutDefinition | RenderableRoute): Promise<Type<
   }
 
   if (!owner.loadComponent) {
-    return Promise.reject(new Error('A route view must define component or loadComponent.'));
+    return Promise.reject(new Error('A frame view must define component or loadComponent.'));
   }
 
   let pending = lazyComponents.get(owner);
@@ -465,7 +465,7 @@ function adaptQueryParser(
 async function resolveViews(
   layouts: readonly LayoutDefinition[],
   route: RenderableRoute,
-): Promise<readonly ResolvedRouteView[]> {
+): Promise<readonly ResolvedFrameView[]> {
   const resolvedLayouts = await Promise.all(
     layouts.map(async (layout, index) => ({
       component: await loadComponent(layout),
@@ -554,8 +554,8 @@ function adaptRoute(
       const views = await resolveViews(layouts, route);
       return {
         component: route.outlet
-          ? composeAngularLeafRouteView(appRef, documentRef, injector, tokens, views)
-          : composeAngularRouteView(appRef, documentRef, injector, tokens, views),
+          ? composeAngularLeafFrameView(appRef, documentRef, injector, tokens, views)
+          : composeAngularFrameView(appRef, documentRef, injector, tokens, views),
         prepare: [
           ...(sharedPreparers ?? []),
           ...(adaptFramePreparers(route.frame ? [route.frame] : [], injector) ?? []),
@@ -739,7 +739,7 @@ export class FrameNavigator<TFrames extends NavigationTree = any> {
   }
 
   get displayUrl(): string {
-    const location = getRouterLocation(this.document);
+    const location = getNavigationLocation(this.document);
 
     return `${location.pathname}${location.search}${location.hash}`;
   }
@@ -768,7 +768,7 @@ export class FrameNavigator<TFrames extends NavigationTree = any> {
     let task!: Promise<void>;
 
     task = Promise.resolve().then(async () => {
-      const location = getRouterLocation(this.document);
+      const location = getNavigationLocation(this.document);
       const url = new URL(location.href);
       await this.resolveServerFrames(url);
 
@@ -1020,8 +1020,8 @@ export class FrameNavigator<TFrames extends NavigationTree = any> {
   }
 
   private resolveHref(target: string | URL): string {
-    return routerHref(
-      resolveRouterUrl(target, this.baseHref, getRouterLocation(this.document), 'href'),
+    return navigationHref(
+      resolveNavigationUrl(target, this.baseHref, getNavigationLocation(this.document), 'href'),
     );
   }
 
@@ -1116,21 +1116,21 @@ export class FrameNavigator<TFrames extends NavigationTree = any> {
     instruction: ResolvedNavigationInstruction | null,
   ): URL | null {
     if (instruction) {
-      return new URL(instruction.matchTarget, getRouterLocation(this.document).origin);
+      return new URL(instruction.matchTarget, getNavigationLocation(this.document).origin);
     }
     if (typeof target === 'string' || target instanceof URL) {
-      return resolveRouterUrl(
+      return resolveNavigationUrl(
         target,
         this.baseHref,
-        getRouterLocation(this.document),
+        getNavigationLocation(this.document),
         'href',
       );
     }
     if ('path' in target) {
-      return resolveRouterUrl(
+      return resolveNavigationUrl(
         target.path,
         this.baseHref,
-        getRouterLocation(this.document),
+        getNavigationLocation(this.document),
         'href',
       );
     }
@@ -1263,3 +1263,6 @@ export function provideFrameGraph<const TFrames extends NavigationTree>(
 }
 
 export const provideServerFrameGraph = provideFrameGraph;
+
+
+

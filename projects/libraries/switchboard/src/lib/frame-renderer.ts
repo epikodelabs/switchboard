@@ -7,7 +7,7 @@ import {
   createEnvironmentInjector,
 } from '@angular/core';
 
-import { bindRouteInputs } from './route-adapter';
+import { bindFrameInputs } from './frame-input-adapter';
 import { replaceChildNodes } from './adapter-utils';
 
 import type { NavigationProviders } from './navigation-definitions';
@@ -18,7 +18,7 @@ import {
   dispatchOutletLifecycleEvent,
   findContainingOutlet,
   findOutlet,
-} from './router-events';
+} from './frame-events';
 
 import type {
   ActivatedRoute,
@@ -27,12 +27,12 @@ import type {
   RouteRenderContext,
 } from './vanilla-router';
 
-export interface RouteRenderTokens {
+export interface FrameRenderTokens {
   readonly routeToken: unknown;
   readonly contextToken: unknown;
 }
 
-export interface ResolvedRouteView {
+export interface ResolvedFrameView {
   readonly component: Type<unknown>;
   readonly providers?: NavigationProviders;
   readonly label: string;
@@ -56,7 +56,7 @@ function createScopedInjector(
     return createEnvironmentInjector(Array.from(providers), parent, label);
   } catch (error) {
     throw new Error(
-      `Failed to create route injector for "${label}": ` +
+      `Failed to create frame injector for "${label}": ` +
         (error instanceof Error ? error.message : String(error)),
       { cause: error },
     );
@@ -66,13 +66,13 @@ function createScopedInjector(
 function createAngularComponent(
   appRef: ApplicationRef,
   documentRef: Document,
-  tokens: RouteRenderTokens,
+  tokens: FrameRenderTokens,
   component: Type<unknown>,
   environmentInjector: EnvironmentInjector,
   route: ActivatedRoute,
   context: RouteRenderContext,
 ): RenderedRouteNode {
-  const host = documentRef.createElement('route-host');
+  const host = documentRef.createElement('frame-host');
 
   const elementInjector = Injector.create({
     parent: environmentInjector,
@@ -100,10 +100,10 @@ function createAngularComponent(
 
   try {
     try {
-      bindRouteInputs(ref, component, route);
+      bindFrameInputs(ref, component, route);
     } catch (error) {
       throw new Error(
-        `Failed to bind route inputs for "${component.name || 'anonymous component'}": ` +
+        `Failed to bind frame inputs for "${component.name || 'anonymous component'}": ` +
           (error instanceof Error ? error.message : String(error)),
         { cause: error },
       );
@@ -139,9 +139,9 @@ function createAngularComponent(
       containingOutlet ??=
         (
           host as Node & {
-            __routeOutlet?: HTMLElement;
+            __frameOutlet?: HTMLElement;
           }
-        ).__routeOutlet ?? null;
+        ).__frameOutlet ?? null;
 
       const outlet = containingOutlet ?? findContainingOutlet(host);
 
@@ -187,16 +187,16 @@ function disposeLayers(layers: readonly RenderedLayer[]): void {
   }
 
   if (errors.length > 1) {
-    throw new AggregateError(errors, 'Multiple errors occurred while disposing a route view.');
+    throw new AggregateError(errors, 'Multiple errors occurred while disposing a frame view.');
   }
 }
 
-export function composeAngularRouteView(
+export function composeAngularFrameView(
   appRef: ApplicationRef,
   documentRef: Document,
   rootInjector: EnvironmentInjector,
-  tokens: RouteRenderTokens,
-  views: readonly ResolvedRouteView[],
+  tokens: FrameRenderTokens,
+  views: readonly ResolvedFrameView[],
 ): RouteComponent {
   return async (route, context) => {
     const layers: RenderedLayer[] = [];
@@ -224,7 +224,7 @@ export function composeAngularRouteView(
         const parent = layers[layers.length - 1];
 
         if (parent) {
-          // The route outlet selects the application-level render target.
+          // The frame outlet selects the application-level render target.
           // Layout layers always compose through their primary child outlet.
           const outletName = '';
           const outlet = findOutlet(parent.rendered.node, outletName);
@@ -232,7 +232,7 @@ export function composeAngularRouteView(
           if (!outlet) {
             throw new Error(
               `Cannot render "${view.label}": ` +
-                `the parent layout has no nav outlet` +
+                `the parent layout has no frame outlet` +
                 (outletName ? ` named "${outletName}"` : ` (primary)`),
             );
           }
@@ -242,9 +242,9 @@ export function composeAngularRouteView(
           // Capture the outlet while the node is attached. Parent-layer
           // disposal may detach this host before its own dispose() runs.
           const renderedNode = rendered.node as Node & {
-            __routeOutlet?: HTMLElement;
+            __frameOutlet?: HTMLElement;
           };
-          renderedNode.__routeOutlet = outlet;
+          renderedNode.__frameOutlet = outlet;
 
           if (rendered.component !== undefined) {
             dispatchOutletLifecycleEvent(outlet, OUTLET_ACTIVATE_EVENT, rendered.component);
@@ -264,7 +264,7 @@ export function composeAngularRouteView(
       const last = layers[layers.length - 1];
 
       if (!first || !last) {
-        throw new Error('A route view requires at least one component.');
+        throw new Error('A frame view requires at least one component.');
       }
 
       return {
@@ -282,12 +282,12 @@ export function composeAngularRouteView(
   };
 }
 
-export function composeAngularLeafRouteView(
+export function composeAngularLeafFrameView(
   appRef: ApplicationRef,
   documentRef: Document,
   rootInjector: EnvironmentInjector,
-  tokens: RouteRenderTokens,
-  views: readonly ResolvedRouteView[],
+  tokens: FrameRenderTokens,
+  views: readonly ResolvedFrameView[],
 ): RouteComponent {
   return async (route, context) => {
     const scopedInjectors: EnvironmentInjector[] = [];
@@ -307,7 +307,7 @@ export function composeAngularLeafRouteView(
       const leaf = views[views.length - 1];
 
       if (!leaf) {
-        throw new Error('A route view requires at least one component.');
+        throw new Error('A frame view requires at least one component.');
       }
 
       const rendered = createAngularComponent(
@@ -348,7 +348,7 @@ export function composeAngularLeafRouteView(
           if (errors.length > 1) {
             throw new AggregateError(
               errors,
-              'Multiple errors occurred while disposing a route view.',
+              'Multiple errors occurred while disposing a frame view.',
             );
           }
         },
@@ -364,3 +364,5 @@ export function composeAngularLeafRouteView(
     }
   };
 }
+
+

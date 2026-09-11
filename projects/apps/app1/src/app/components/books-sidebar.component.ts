@@ -1,26 +1,26 @@
 import { Component, inject } from '@angular/core';
-import { RouterLink } from '@epikodelabs/switchboard';
+import { FrameLink } from '@epikodelabs/switchboard';
 import { sidebarStyles } from './scene-styles';
 import { LedgerService } from '../services/ledger.service';
 
 @Component({
   standalone: true,
-  imports: [RouterLink],
+  imports: [FrameLink],
   template: `
     <section class="sidebar-stack">
       <article class="sidebar-card">
         <h3>Quick links</h3>
         <div class="sidebar-links">
-          <a [routerLink]="{ name: 'journal' }">New journal entry</a>
-          <a [routerLink]="{ name: 'trial' }">Trial balance</a>
-          <a [routerLink]="{ name: 'settings' }">Settings</a>
+          <a [frameLink]="{ name: 'journal' }">New journal entry</a>
+          <a [frameLink]="{ name: 'trial' }">Trial balance</a>
+          <a [frameLink]="{ name: 'settings' }">Settings</a>
         </div>
       </article>
       <article class="sidebar-card">
         <h3>Drafts</h3>
         <div class="sidebar-links">
           @for (e of ledger.draftEntries(); track e.id) {
-            <a [routerLink]="{ name: 'journal', query: { entryId: e.id } }">{{ e.reference || e.id }}</a>
+            <a [frameLink]="{ name: 'journal', query: { entryId: e.id } }">{{ e.reference || e.id }}</a>
           } @empty {
             <p>No open drafts.</p>
           }
@@ -37,3 +37,4 @@ import { LedgerService } from '../services/ledger.service';
 export class BooksSidebarComponent {
   protected readonly ledger = inject(LedgerService);
 }
+

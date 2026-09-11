@@ -1,6 +1,6 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { FrameNavigator, RouterLink } from '@epikodelabs/switchboard';
+import { FrameNavigator, FrameLink } from '@epikodelabs/switchboard';
 import {
   Account,
   AccountType,
@@ -11,7 +11,7 @@ import { sceneStyles } from './scene-styles';
 
 @Component({
   standalone: true,
-  imports: [RouterLink, FormsModule],
+  imports: [FrameLink, FormsModule],
   template: `
     <section class="scene">
       <header class="scene-header">
@@ -23,8 +23,8 @@ import { sceneStyles } from './scene-styles';
           </p>
         </div>
         <div class="action-row">
-          <a class="action-link action-link--accent" [routerLink]="{ name: 'journal' }">New journal entry</a>
-          <a class="action-link" [routerLink]="{ name: 'trial' }">Trial balance</a>
+          <a class="action-link action-link--accent" [frameLink]="{ name: 'journal' }">New journal entry</a>
+          <a class="action-link" [frameLink]="{ name: 'trial' }">Trial balance</a>
         </div>
       </header>
 
@@ -122,7 +122,7 @@ import { sceneStyles } from './scene-styles';
                   <td>{{ a.type }}</td>
                   <td class="num">{{ money(ledger.accountBalance(a.id)) }}</td>
                   <td>
-                    <a [routerLink]="{ name: 'account', params: { accountId: a.id } }">Open</a>
+                    <a [frameLink]="{ name: 'account', params: { accountId: a.id } }">Open</a>
                   </td>
                 </tr>
               } @empty {
@@ -151,7 +151,7 @@ import { sceneStyles } from './scene-styles';
                     <td>{{ e.reference }}</td>
                     <td>{{ e.description }}</td>
                     <td>
-                      <a [routerLink]="{ name: 'journal', query: { entryId: e.id } }">Edit</a>
+                      <a [frameLink]="{ name: 'journal', query: { entryId: e.id } }">Edit</a>
                     </td>
                   </tr>
                 }
@@ -175,7 +175,7 @@ import { sceneStyles } from './scene-styles';
                 <tr>
                   <td>{{ e.date }}</td>
                   <td>
-                    <a [routerLink]="{ name: 'entry', params: { entryId: e.id } }">{{ e.description }}</a>
+                    <a [frameLink]="{ name: 'entry', params: { entryId: e.id } }">{{ e.description }}</a>
                   </td>
                   <td><span class="badge" [class]="'badge--' + e.status">{{ e.status }}</span></td>
                 </tr>
@@ -187,7 +187,7 @@ import { sceneStyles } from './scene-styles';
 
       <div class="action-row">
         <button type="button" class="action-button" (click)="resetBooks()">Reset demo data</button>
-        <a class="action-link" [routerLink]="{ name: 'settings' }">Settings</a>
+        <a class="action-link" [frameLink]="{ name: 'settings' }">Settings</a>
       </div>
     </section>
   `,
@@ -260,3 +260,4 @@ export class BooksPage {
     }
   }
 }
+

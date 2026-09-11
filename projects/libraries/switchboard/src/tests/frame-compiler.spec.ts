@@ -4,7 +4,7 @@ import {
   s,
 } from '@epikodelabs/switchboard';
 
-import { createRouteRegistry } from '../lib/route-compiler';
+import { createRouteRegistry } from '../lib/frame-compiler';
 
 class TestPage {}
 class TestLayout {}
@@ -141,3 +141,4 @@ describe('frame compiler parameter validation', () => {
     );
   });
 });
+

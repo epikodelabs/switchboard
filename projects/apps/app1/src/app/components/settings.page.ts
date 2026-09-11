@@ -1,11 +1,11 @@
 import { Component, inject } from '@angular/core';
-import { RouterLink } from '@epikodelabs/switchboard';
+import { FrameLink } from '@epikodelabs/switchboard';
 import { sceneStyles } from './scene-styles';
 import { LedgerService } from '../services/ledger.service';
 
 @Component({
   standalone: true,
-  imports: [RouterLink],
+  imports: [FrameLink],
   template: `
     <section class="scene">
       <header class="scene-header">
@@ -53,7 +53,7 @@ import { LedgerService } from '../services/ledger.service';
 
       <div class="action-row">
         <button type="button" class="action-button action-button--danger" (click)="reset()">Reset demo data</button>
-        <a class="action-link" [routerLink]="{ name: 'books' }">Back to books</a>
+        <a class="action-link" [frameLink]="{ name: 'books' }">Back to books</a>
       </div>
     </section>
   `,
@@ -68,3 +68,4 @@ export class SettingsPage {
     }
   }
 }
+

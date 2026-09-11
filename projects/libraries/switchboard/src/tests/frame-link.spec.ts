@@ -3,8 +3,8 @@ import { ensureAngularTestEnvironment } from './angular-testbed.init';
 import { Component } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import {
-  RouterLink,
-  RouterOutlet,
+  FrameLink,
+  FrameOutlet,
   FrameNavigator,
   provideFrameGraph,
   frame,
@@ -53,14 +53,14 @@ class AboutComponent {}
 
 @Component({
   standalone: true,
-  imports: [RouterLink, RouterOutlet],
-  template: '<a [routerLink]="target">About</a><router-outlet />',
+  imports: [FrameLink, FrameOutlet],
+  template: '<a [frameLink]="target">About</a><frame-outlet />',
 })
-class RouterLinkHostComponent {
+class FrameLinkHostComponent {
   target = '/about';
 }
 
-describe('RouterLink', () => {
+describe('FrameLink', () => {
   let navigator: FrameNavigator;
 
   beforeEach(() => {
@@ -72,12 +72,12 @@ describe('RouterLink', () => {
     navigator?.dispose();
   });
 
-  it('binds href for RouterLink and navigates through anchor clicks', async () => {
+  it('binds href for FrameLink and navigates through anchor clicks', async () => {
     await TestBed.configureTestingModule({
       imports: [
         HomeComponent,
         AboutComponent,
-        RouterLinkHostComponent,
+        FrameLinkHostComponent,
       ],
       providers: [
         ...provideFrameGraph([
@@ -87,7 +87,7 @@ describe('RouterLink', () => {
       ],
     }).compileComponents();
 
-    const fixture = TestBed.createComponent(RouterLinkHostComponent);
+    const fixture = TestBed.createComponent(FrameLinkHostComponent);
     navigator = TestBed.inject(FrameNavigator);
 
     fixture.detectChanges();
@@ -110,3 +110,5 @@ describe('RouterLink', () => {
     expect(host.textContent).toContain('About');
   });
 });
+
+

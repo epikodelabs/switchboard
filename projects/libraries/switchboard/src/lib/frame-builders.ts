@@ -3,8 +3,8 @@ import type { Type } from '@angular/core';
 import type { ParamSchemaRecord, QuerySchemaRecord } from './query-schema';
 import type {
   FrameOptions,
-  FrameOutlet,
-  FrameOutletView,
+  FrameOutletDefinition,
+  FrameOutletDefinitionView,
   FramePrepareFn,
   FrameView,
   HookList,
@@ -42,7 +42,7 @@ function asArray<T>(value: import('./navigation-definitions').HookInput<T> | Hoo
 
 function normalizeFrameOutlets(
   outlets: FrameOptions<any>['outlets'],
-): readonly FrameOutlet[] | undefined {
+): readonly FrameOutletDefinition[] | undefined {
   if (!outlets) return undefined;
   if (Array.isArray(outlets)) return Object.freeze([...outlets]);
   return Object.freeze(
@@ -54,8 +54,8 @@ function normalizeFrameOutlets(
 }
 
 function createFrameDefinitionView(
-  view: FrameOutletView,
-): FrameOutlet['view'] {
+  view: FrameOutletDefinitionView,
+): FrameOutletDefinition['view'] {
   return isFrame(view) ? view : { kind: 'frame', component: view };
 }
 

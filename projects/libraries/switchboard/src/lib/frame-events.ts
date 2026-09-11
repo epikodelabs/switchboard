@@ -1,8 +1,8 @@
 export const OUTLET_ACTIVATE_EVENT = 'switchboard:outlet-activate';
 export const OUTLET_DEACTIVATE_EVENT = 'switchboard:outlet-deactivate';
-export const ROUTER_LOCATION_CHANGE_EVENT = 'switchboard:location-change';
+export const FRAME_LOCATION_CHANGE_EVENT = 'switchboard:location-change';
 
-const OUTLET_QUERY = 'router-outlet';
+const OUTLET_QUERY = 'frame-outlet';
 
 function isOutletElement(
   element: HTMLElement,
@@ -10,7 +10,7 @@ function isOutletElement(
 ): boolean {
   const tagName = element.tagName.toLowerCase();
   if (
-    tagName !== 'router-outlet'
+    tagName !== 'frame-outlet'
   ) {
     return false;
   }
@@ -30,14 +30,14 @@ export function dispatchOutletLifecycleEvent(
   );
 }
 
-export function dispatchRouterLocationChange(): void {
+export function dispatchFrameLocationChange(): void {
   if (typeof window === 'undefined') {
     return;
   }
 
   window.dispatchEvent(
     new CustomEvent(
-      ROUTER_LOCATION_CHANGE_EVENT,
+      FRAME_LOCATION_CHANGE_EVENT,
     ),
   );
 }
@@ -73,3 +73,5 @@ export function findContainingOutlet(
 ): HTMLElement | null {
   return node.closest<HTMLElement>(OUTLET_QUERY);
 }
+
+

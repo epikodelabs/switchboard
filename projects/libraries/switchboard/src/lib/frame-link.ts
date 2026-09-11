@@ -14,11 +14,11 @@ import {
 } from '@angular/core';
 
 import {
-  getRouterLocation,
-} from './router-url';
+  getNavigationLocation,
+} from './navigation-url';
 
 import {
-  watchRouterLocation,
+  watchFrameLocation,
 } from './adapter-utils';
 
 import type {
@@ -28,17 +28,17 @@ import type {
 
 import { FrameNavigator } from './frame-navigator';
 
-type RouterLinkCommands =
+type FrameLinkCommands =
   readonly unknown[];
 
-type RouterLinkInput =
+type FrameLinkInput =
   | NavigationTarget
-  | RouterLinkCommands
+  | FrameLinkCommands
   | null
   | undefined;
 
 function buildPathFromCommands(
-  commands: RouterLinkCommands,
+  commands: FrameLinkCommands,
 ): string {
   if (commands.length === 0) {
     return '';
@@ -99,10 +99,10 @@ function appendQueryParams(
 }
 
 @Directive({
-  selector: 'a[routerLink],area[routerLink]',
+  selector: 'a[frameLink],area[frameLink]',
   standalone: true,
 })
-export class RouterLink implements OnChanges {
+export class FrameLink implements OnChanges {
   private readonly router = inject(FrameNavigator);
   private readonly document = inject(DOCUMENT);
   private readonly destroyRef = inject(DestroyRef);
@@ -110,7 +110,7 @@ export class RouterLink implements OnChanges {
     ElementRef<HTMLAnchorElement | HTMLAreaElement>,
   ).nativeElement;
 
-  @Input() routerLink: RouterLinkInput;
+  @Input() frameLink: FrameLinkInput;
   @Input() queryParams:
     Readonly<Record<string, unknown>> |
     null |
@@ -123,7 +123,7 @@ export class RouterLink implements OnChanges {
   href: string | null = null;
 
   constructor() {
-    watchRouterLocation(
+    watchFrameLocation(
       this.destroyRef,
       () => this.refreshHref(),
     );
@@ -214,7 +214,7 @@ export class RouterLink implements OnChanges {
     const url =
       new URL(
         href,
-        getRouterLocation(this.document).origin,
+        getNavigationLocation(this.document).origin,
       );
 
     if (this.queryParams) {
@@ -237,7 +237,7 @@ export class RouterLink implements OnChanges {
   private resolveTarget():
     NavigationTarget | null {
     const link =
-      this.routerLink;
+      this.frameLink;
 
     if (link === null || link === undefined) {
       return null;
@@ -296,7 +296,7 @@ export class RouterLink implements OnChanges {
     const url =
       new URL(
         href,
-        getRouterLocation(this.document).href,
+        getNavigationLocation(this.document).href,
       );
 
     appendQueryParams(
@@ -316,3 +316,6 @@ export class RouterLink implements OnChanges {
     };
   }
 }
+
+
+

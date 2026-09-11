@@ -18,7 +18,7 @@ export interface InputBindingTarget {
   setInput(name: string, value: unknown): void;
 }
 
-export function bindRouteInputs(
+export function bindFrameInputs(
   target: InputBindingTarget,
   component: Type<unknown>,
   route: ActivatedRoute,
@@ -38,7 +38,7 @@ export function bindRouteInputs(
   }
 
   const data = route.data ?? {};
-  // Parsed route inputs stay grouped by their source so component bindings are
+  // Parsed frame inputs stay grouped by their source so component bindings are
   // explicit and collision-free.
   const values: Record<string, unknown> = {
     url: route.url,
@@ -74,3 +74,4 @@ export function bindRouteInputs(
     }
   }
 }
+

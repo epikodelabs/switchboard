@@ -1,10 +1,10 @@
 import { Component, inject } from '@angular/core';
-import { FrameNavigator, RouterLink, RouterOutlet } from '@epikodelabs/switchboard';
+import { FrameNavigator, FrameLink, FrameOutlet } from '@epikodelabs/switchboard';
 import { LedgerService } from '../services/ledger.service';
 
 @Component({
   standalone: true,
-  imports: [RouterOutlet, RouterLink],
+  imports: [FrameOutlet, FrameLink],
   template: `
     <section class="ops-shell" [class.ops-shell--transitioning]="isTransitioning()">
       <aside class="ops-shell__rail">
@@ -15,19 +15,19 @@ import { LedgerService } from '../services/ledger.service';
         </div>
 
         <nav class="ops-shell__mission-grid" aria-label="Primary">
-          <a class="ops-shell__nav-card" [routerLink]="{ name: 'books' }">
+          <a class="ops-shell__nav-card" [frameLink]="{ name: 'books' }">
             <strong>Books</strong>
             <span>Accounts & activity</span>
           </a>
-          <a class="ops-shell__nav-card" [routerLink]="{ name: 'journal' }">
+          <a class="ops-shell__nav-card" [frameLink]="{ name: 'journal' }">
             <strong>Journal</strong>
             <span>New / edit entry</span>
           </a>
-          <a class="ops-shell__nav-card" [routerLink]="{ name: 'trial' }">
+          <a class="ops-shell__nav-card" [frameLink]="{ name: 'trial' }">
             <strong>Trial balance</strong>
             <span>Prove the books</span>
           </a>
-          <a class="ops-shell__nav-card" [routerLink]="{ name: 'settings' }">
+          <a class="ops-shell__nav-card" [frameLink]="{ name: 'settings' }">
             <strong>Settings</strong>
             <span>Period & reset</span>
           </a>
@@ -41,7 +41,7 @@ import { LedgerService } from '../services/ledger.service';
 
         <section class="ops-shell__outlet">
           <p class="ops-shell__label">Companion</p>
-          <router-outlet name="sidebar" />
+          <frame-outlet name="sidebar" />
         </section>
 
         <div class="ops-shell__card">
@@ -56,7 +56,7 @@ import { LedgerService } from '../services/ledger.service';
 
       <main class="ops-shell__stage">
         <div class="ops-shell__content">
-          <router-outlet />
+          <frame-outlet />
         </div>
       </main>
     </section>
@@ -175,3 +175,5 @@ export class LedgerShellPage {
     return this.navigator.state.pending;
   }
 }
+
+
