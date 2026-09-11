@@ -31,7 +31,7 @@ export const frames = [
 export const providers = [...provideFrameGraph(frames)];
 ```
 
-Use `FrameOutlet` to host the primary or named frame outlet. Components rendered by a frame inject their local `Relay` and call `relay.to(...)`; `FrameLink` uses that same local Relay. Relay requests resolve peer-to-peer: direct connections are preferred, otherwise the request bubbles through structural frame owners until a declared transition accepts it, then cascades to the destination. `FrameNavigator` remains available as a compatibility and host-level facade while Relay ownership replaces application-facing navigation.
+Use `FrameOutlet` to host the primary or named frame outlet. Components rendered by a frame inject their local `Relay` and call `relay.to(targetFrame, input)`. `FrameLink` accepts the same frame targets. Relay requests resolve peer-to-peer: direct connections are preferred, otherwise the request bubbles through structural frame owners until a declared transition accepts it, then cascades to the destination. The vanilla router remains an internal URL projection; application code should address frames.
 
 ## API at a glance
 
@@ -39,6 +39,8 @@ Use `FrameOutlet` to host the primary or named frame outlet. Components rendered
 | --- | --- |
 | `frame()` | Define a self-contained application frame and its URL projection. |
 | `redirect()` | Define a redirect frame that targets another frame. |
+| `Relay` | Local frame-to-frame navigation endpoint for rendered components. |
+| `FrameLink` | Anchor directive for frame targets and URL targets. |
 | `s` | Runtime schemas and inferred types for URL values. |
 | `frameSlot()` / `framesFor()` | Declare server-delivery ownership boundaries. |
 | `provideFrameGraph()` / `provideServerFrameGraph()` | Install the frame graph and, optionally, a generated resolver. |
@@ -47,8 +49,7 @@ Use `FrameOutlet` to host the primary or named frame outlet. Components rendered
 
 The `frames` array is the only authored navigation tree. A frame owns its
 identity, URL projection, transitions, outlets, and lifecycle hooks. The
-runtime route table is compiled from the frame tree. A frame id becomes the
-typed navigation name.
+runtime route table is compiled from the frame tree.
 
 ```ts
 const account = frame('account', '/accounts/:id', AccountPage, {
@@ -63,6 +64,22 @@ export const frames = [
     ],
   }),
 ] as const;
+```
+
+Inside a rendered frame component:
+
+```ts
+import { Component, inject } from '@angular/core';
+import { Relay } from '@epikodelabs/switchboard';
+
+@Component({ standalone: true, template: '<button (click)="open()">Open</button>' })
+export class BooksPage {
+  private readonly relay = inject(Relay);
+
+  open(): void {
+    void this.relay.to(account, { params: { id: 42 } });
+  }
+}
 ```
 
 Server delivery is opt-in. The companion builder turns `framesFor()` contributions into protected artifacts, and the host server authorizes their delivery. See the repository [README](../../../README.md) for the model, templates, and full documentation links.
