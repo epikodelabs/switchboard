@@ -8,6 +8,7 @@ import {
 } from '@angular/core';
 
 import { bindFrameInputs } from './frame-input-adapter';
+import { FRAME_RELAY_TRANSPORT, Relay } from './frame-relay';
 import { replaceChildNodes } from './adapter-utils';
 
 import type { NavigationProviders } from './navigation-definitions';
@@ -35,6 +36,7 @@ export interface FrameRenderTokens {
 export interface ResolvedFrameView {
   readonly component: Type<unknown>;
   readonly providers?: NavigationProviders;
+  readonly frameId?: string;
   readonly label: string;
 }
 
@@ -47,13 +49,19 @@ function createScopedInjector(
   providers: NavigationProviders | undefined,
   parent: EnvironmentInjector,
   label: string,
+  frameId?: string,
 ): EnvironmentInjector | undefined {
-  if (!providers?.length) {
+  if (!providers?.length && !frameId) {
     return undefined;
   }
 
   try {
-    return createEnvironmentInjector(Array.from(providers), parent, label);
+    const scopedProviders = [...(providers ? Array.from(providers) : [])];
+    if (frameId) {
+      const transport = parent.get(FRAME_RELAY_TRANSPORT);
+      scopedProviders.push({ provide: Relay, useValue: new Relay(frameId, transport) });
+    }
+    return createEnvironmentInjector(scopedProviders, parent, label);
   } catch (error) {
     throw new Error(
       `Failed to create frame injector for "${label}": ` +
@@ -207,7 +215,7 @@ export function composeAngularFrameView(
       for (let index = 0; index < views.length; index++) {
         const view = views[index];
 
-        const scopedInjector = createScopedInjector(view.providers, parentInjector, view.label);
+        const scopedInjector = createScopedInjector(view.providers, parentInjector, view.label, view.frameId);
 
         const activeInjector = scopedInjector ?? parentInjector;
 
@@ -296,7 +304,7 @@ export function composeAngularLeafFrameView(
 
     try {
       for (const view of views) {
-        const scopedInjector = createScopedInjector(view.providers, parentInjector, view.label);
+        const scopedInjector = createScopedInjector(view.providers, parentInjector, view.label, view.frameId);
 
         if (scopedInjector) {
           scopedInjectors.push(scopedInjector);
@@ -364,5 +372,3 @@ export function composeAngularLeafFrameView(
     }
   };
 }
-
-

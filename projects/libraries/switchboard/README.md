@@ -31,7 +31,7 @@ export const frames = [
 export const providers = [...provideFrameGraph(frames)];
 ```
 
-Use `FrameOutlet` to host the primary or named frame outlet. Inject `FrameNavigator` for `navigate`, `href`, `navigateTo`, and `hrefTo`, or use the `FrameLink` directive in templates.
+Use `FrameOutlet` to host the primary or named frame outlet. Components rendered by a frame inject their local `Relay` and call `relay.to(...)`; `FrameLink` uses that same local Relay. Relay requests resolve peer-to-peer: direct connections are preferred, otherwise the request bubbles through structural frame owners until a declared transition accepts it, then cascades to the destination. `FrameNavigator` remains available as a compatibility and host-level facade while Relay ownership replaces application-facing navigation.
 
 ## API at a glance
 
@@ -66,4 +66,3 @@ export const frames = [
 ```
 
 Server delivery is opt-in. The companion builder turns `framesFor()` contributions into protected artifacts, and the host server authorizes their delivery. See the repository [README](../../../README.md) for the model, templates, and full documentation links.
-

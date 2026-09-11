@@ -1,6 +1,6 @@
 import { Component, inject, input, signal, effect } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { FrameNavigator, FrameLink } from '@epikodelabs/switchboard';
+import { Relay, FrameLink } from '@epikodelabs/switchboard';
 import { DataInput, ParamsInput, QueryInput } from './route-inputs';
 import { sceneStyles } from './scene-styles';
 import { JournalEntry, LedgerService } from '../services/ledger.service';
@@ -110,7 +110,7 @@ import { JournalEntry, LedgerService } from '../services/ledger.service';
 })
 export class EntryPage {
   private readonly ledger = inject(LedgerService);
-  private readonly navigator = inject(FrameNavigator);
+  private readonly relay = inject(Relay);
 
   protected readonly params = input<ParamsInput>({});
   protected readonly query = input<QueryInput>({});
@@ -161,7 +161,7 @@ export class EntryPage {
     if (!e) return;
     if (confirm('Delete draft ' + e.id + '?')) {
       this.ledger.deleteDraft(e.id);
-      void this.navigator.navigate({ frame: 'books' });
+      void this.relay.to({ frame: 'books' });
     }
   }
 
@@ -175,4 +175,3 @@ export class EntryPage {
     }
   }
 }
-

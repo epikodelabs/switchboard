@@ -9,6 +9,7 @@ export * from './navigation-path';
 export { FrameLink } from './frame-link';
 export * from './navigation-definitions';
 export * from './frame-events';
+export { Relay, type RelayPath } from './frame-relay';
 export * from './navigation-url';
 export * from './typed-navigation';
 export {
@@ -45,5 +46,3 @@ export {
     provideFrameGraph, provideServerFrameGraph, ROUTE,
     ROUTE_CONTEXT, FrameNavigator, type FrameGraphOptions
 } from './frame-navigator';
-
-

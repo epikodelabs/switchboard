@@ -140,5 +140,23 @@ describe('frame compiler parameter validation', () => {
       /references unknown transition target "account"/,
     );
   });
-});
 
+  it('records nearest-first frame ownership for Relay bubbling', () => {
+    const routes = [
+      frame('app', '/app', TestLayout, {
+        children: [
+          frame('workspace', '/workspace', TestLayout, {
+            children: [
+              frame('document', '/document', TestPage),
+            ],
+          }),
+        ],
+      }),
+    ] as const;
+
+    const registry = createRouteRegistry(routes);
+    expect(registry.frames.byId.get('document')?.parentFrameIds)
+      .toEqual(['workspace', 'app']);
+  });
+
+});

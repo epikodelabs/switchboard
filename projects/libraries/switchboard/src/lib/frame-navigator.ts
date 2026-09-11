@@ -53,6 +53,7 @@ import type {
 import type { TypedHref, TypedNavigate } from './typed-navigation';
 
 import type { ServerFrameResolver } from './frame-delivery';
+import { FRAME_RELAY_TRANSPORT, resolveRelayPath, type RelayPath, type RelayTransport } from './frame-relay';
 import { resolveFrameSlots } from './frame-slots';
 
 import { OUTLET_ACTIVATE_EVENT, dispatchOutletLifecycleEvent } from './frame-events';
@@ -400,8 +401,13 @@ function adaptFrameGraphTransitions(
             return true;
           }
 
-          if (sourceFrame?.transitions.includes(targetFrame.frameId)) {
-            return true;
+          if (sourceFrame) {
+            const relayCandidates = [sourceFrame.frameId, ...sourceFrame.parentFrameIds];
+            if (relayCandidates.some(frameId =>
+              frames.byId.get(frameId)?.transitions.includes(targetFrame.frameId)
+            )) {
+              return true;
+            }
           }
 
           if (!sourceFrame && transition.redirectCount > 0) {
@@ -470,6 +476,7 @@ async function resolveViews(
     layouts.map(async (layout, index) => ({
       component: await loadComponent(layout),
       providers: (layout.providers ?? []).flat().filter((p) => p),
+      frameId: layout.frame?.id,
       label: `LayoutDefinition(${layout.path || index})`,
     })),
   );
@@ -481,6 +488,7 @@ async function resolveViews(
     {
       component: page,
       providers: (route.providers ?? []).flat().filter((p) => p),
+      frameId: route.frame?.id,
       label: `RouteDefinition(${route.path})`,
     },
   ]);
@@ -687,7 +695,7 @@ function interpolateNamedPath(
   return path;
 }
 
-export class FrameNavigator<TFrames extends NavigationTree = any> {
+export class FrameNavigator<TFrames extends NavigationTree = any> implements RelayTransport {
   private readonly appRef: ApplicationRef;
   private readonly injector: EnvironmentInjector;
   private readonly destroyRef: DestroyRef;
@@ -927,6 +935,53 @@ export class FrameNavigator<TFrames extends NavigationTree = any> {
     if (this.outlets.size === 0) {
       this.dispose();
     }
+  }
+
+
+  resolveRelay(originFrameId: string, target: NavigationTarget): RelayPath | null {
+    const targetFrameId = this.resolveRelayTargetFrameId(target);
+    return targetFrameId
+      ? resolveRelayPath(this.registry.frames.byId, originFrameId, targetFrameId)
+      : null;
+  }
+
+  async navigateRelay(
+    originFrameId: string,
+    target: NavigationTarget,
+    options?: NavigationOptions,
+  ): Promise<boolean> {
+    let path = this.resolveRelay(originFrameId, target);
+
+    if (!path && this.configuration.resolveFrames) {
+      const instruction = this.resolveNavigationInstruction(target);
+      const candidateUrl = this.navigationTargetUrl(target, instruction);
+      if (candidateUrl && await this.resolveServerFrames(candidateUrl)) {
+        path = this.resolveRelay(originFrameId, target);
+      }
+    }
+
+    if (!path) return false;
+    return this.navigate(target, options);
+  }
+
+  hrefRelay(originFrameId: string, target: NavigationTarget): string | null {
+    return this.resolveRelay(originFrameId, target) ? this.href(target) : null;
+  }
+
+  private resolveRelayTargetFrameId(target: NavigationTarget): string | null {
+    if (typeof target === 'object' && target !== null) {
+      if ('frame' in target) return target.frame;
+      if ('name' in target && this.registry.frames.byId.has(target.name)) return target.name;
+    }
+
+    const instruction = this.resolveNavigationInstruction(target);
+    if (!instruction) return null;
+    const url = new URL(instruction.matchTarget, getNavigationLocation(this.document).origin);
+    const group = this.registry.groups.find(current =>
+      matchRoutePath(compileRoutePath(current.primary.path), url.pathname) !== null
+    );
+    const route = group?.primary.route;
+    return route && !isRedirectRouteDefinition(route) ? route.frame?.id ?? null : null;
   }
 
   async navigate(target: NavigationTarget, options?: NavigationOptions): Promise<boolean> {
@@ -1259,10 +1314,11 @@ export function provideFrameGraph<const TFrames extends NavigationTree>(
         new FrameNavigator<TFrames>(configuration),
       deps: [FRAME_GRAPH_CONFIGURATION],
     },
+    {
+      provide: FRAME_RELAY_TRANSPORT,
+      useExisting: FrameNavigator,
+    },
   ];
 }
 
 export const provideServerFrameGraph = provideFrameGraph;
-
-
-

@@ -1,6 +1,6 @@
 import { Component, inject, input, signal, effect } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { FrameNavigator, FrameLink } from '@epikodelabs/switchboard';
+import { Relay, FrameLink } from '@epikodelabs/switchboard';
 import { DataInput, ParamsInput, QueryInput } from './route-inputs';
 import { sceneStyles } from './scene-styles';
 import {
@@ -119,7 +119,7 @@ interface EditableLine {
 })
 export class JournalPage {
   private readonly ledger = inject(LedgerService);
-  private readonly navigator = inject(FrameNavigator);
+  private readonly relay = inject(Relay);
 
   protected readonly params = input<ParamsInput>({});
   protected readonly query = input<QueryInput>({});
@@ -219,7 +219,7 @@ export class JournalPage {
       ? this.ledger.updateDraft(id, body)
       : this.ledger.createDraft(body);
     if (entry) {
-      void this.navigator.navigate({ frame: 'entry', params: { entryId: entry.id } });
+      void this.relay.to({ frame: 'entry', params: { entryId: entry.id } });
     }
   }
 
@@ -237,7 +237,7 @@ export class JournalPage {
     if (!entry) return;
     entry = this.ledger.postEntry(entry.id);
     if (entry) {
-      void this.navigator.navigate({ frame: 'entry', params: { entryId: entry.id } });
+      void this.relay.to({ frame: 'entry', params: { entryId: entry.id } });
     } else {
       alert('Could not post — check balance.');
     }
@@ -248,8 +248,7 @@ export class JournalPage {
     if (!id) return;
     if (confirm('Delete this draft?')) {
       this.ledger.deleteDraft(id);
-      void this.navigator.navigate({ frame: 'books' });
+      void this.relay.to({ frame: 'books' });
     }
   }
 }
-
