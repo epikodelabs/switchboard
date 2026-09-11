@@ -1,14 +1,14 @@
 import { HistoryManager, ZERO_SCROLL, type HistoryEntry, type HistoryUpdate, type ScrollPosition } from './history';
-import { dispatchFrameLocationChange } from './frame-events';
-import { compileRoutePath, matchRoutePath, splitRoutePath, type CompiledRoutePath } from './navigation-path';
+import { dispatchRouterLocationChange } from './router-events';
+import { compileRoutePath, matchRoutePath, splitRoutePath, type CompiledRoutePath } from './route-path';
 import {
   isPathInsideBase,
   normalizeBaseHref,
-  getNavigationLocation,
-  resolveNavigationUrl,
-  navigationHref,
+  getRouterLocation,
+  resolveRouterUrl,
+  routerHref,
   stripBaseHref
-} from './navigation-url';
+} from './router-url';
 
 type MaybePromise<T> = T | PromiseLike<T>;
 
@@ -695,7 +695,7 @@ export function createRouter(config: RouterConfig): Router {
   const browserWindow = typeof window === 'undefined' ? null : window;
   const browserDocument = typeof document === 'undefined' ? null : document;
   const routerLocation = () =>
-    browserWindow?.location ?? getNavigationLocation(browserDocument);
+    browserWindow?.location ?? getRouterLocation(browserDocument);
   const navigateExternal = config.navigateExternal ?? ((url: URL) => {
     browserWindow?.location.assign(url.href);
   });
@@ -937,7 +937,7 @@ export function createRouter(config: RouterConfig): Router {
   }
 
   function resolveAppUrl(target: string | URL, mode: 'navigate' | 'href'): URL {
-    return resolveNavigationUrl(target, baseHref, routerLocation(), mode);
+    return resolveRouterUrl(target, baseHref, routerLocation(), mode);
   }
 
   function readBrowserHistoryState(): unknown {
@@ -1012,7 +1012,7 @@ export function createRouter(config: RouterConfig): Router {
         href,
       );
 
-    dispatchFrameLocationChange();
+    dispatchRouterLocationChange();
   }
 
   function applyHistoryStateToRoute(
@@ -1052,7 +1052,7 @@ export function createRouter(config: RouterConfig): Router {
         nextEntry.href,
       );
     history.commitUpdate({ ...history.createDefaultUpdate(), nextEntry }, nextEntry.href);
-    dispatchFrameLocationChange();
+    dispatchRouterLocationChange();
 
     if (currentState) {
       currentState = applyHistoryStateToRoute(
@@ -1900,7 +1900,7 @@ export function createRouter(config: RouterConfig): Router {
             href,
           );
 
-        dispatchFrameLocationChange();
+        dispatchRouterLocationChange();
 
         await requestNavigation(
           new URL(
@@ -2116,7 +2116,7 @@ export function createRouter(config: RouterConfig): Router {
           );
         const historyUpdate = history.createUpdate(href, result.replace, historyState);
         browserWindow?.history[result.replace ? 'replaceState' : 'pushState'](historyUpdate.nextEntry?.state ?? historyState, '', href);
-        dispatchFrameLocationChange();
+        dispatchRouterLocationChange();
         await requestNavigation(
           displayUrl,
           url,
@@ -2332,7 +2332,7 @@ export function createRouter(config: RouterConfig): Router {
       );
     const historyUpdate = history.createUpdate(href, options.replace ?? false, historyState);
     browserWindow?.history[options.replace ? 'replaceState' : 'pushState'](historyUpdate.nextEntry?.state ?? historyState, '', href);
-    dispatchFrameLocationChange();
+    dispatchRouterLocationChange();
     return requestNavigation(
       displayUrl,
       matchUrl,
@@ -2601,7 +2601,7 @@ export function createRouter(config: RouterConfig): Router {
 
   function href(target: string): string {
     const url = resolveAppUrl(target, 'href');
-    return navigationHref(url);
+    return routerHref(url);
   }
 
   function createLink(to: string, text: string, className = ''): HTMLAnchorElement {
@@ -2701,5 +2701,3 @@ export function createRouter(config: RouterConfig): Router {
 }
 
 export type VanillaRouterInstance = ReturnType<typeof createRouter>;
-
-
