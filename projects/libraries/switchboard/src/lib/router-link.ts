@@ -26,7 +26,7 @@ import type {
   PathNavigationTarget,
 } from './navigation-targets';
 
-import { Router } from './router';
+import { FrameNavigator } from './frame-navigator';
 
 type RouterLinkCommands =
   readonly unknown[];
@@ -103,7 +103,7 @@ function appendQueryParams(
   standalone: true,
 })
 export class RouterLink implements OnChanges {
-  private readonly router = inject(Router);
+  private readonly router = inject(FrameNavigator);
   private readonly document = inject(DOCUMENT);
   private readonly destroyRef = inject(DestroyRef);
   private readonly element = inject(

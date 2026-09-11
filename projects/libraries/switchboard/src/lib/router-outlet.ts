@@ -1,10 +1,10 @@
 import { DestroyRef, Directive, ElementRef, Input, OnInit, inject } from '@angular/core';
 
-import { Router } from './router';
+import { FrameNavigator } from './frame-navigator';
 
 @Directive({ selector: 'router-outlet', standalone: true })
 export class RouterOutlet implements OnInit {
-  private readonly router = inject(Router);
+  private readonly router = inject(FrameNavigator);
   private readonly element = inject(ElementRef<HTMLElement>).nativeElement;
   private readonly destroyRef = inject(DestroyRef);
   private connectedName = '';

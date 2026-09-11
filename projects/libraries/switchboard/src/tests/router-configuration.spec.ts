@@ -16,7 +16,7 @@ function route(path: string, text: string): Route {
   };
 }
 
-idescribe('Router dynamic configuration', () => {
+idescribe('router dynamic configuration', () => {
   let outlet: HTMLElement;
   let router: VanillaRouter;
 

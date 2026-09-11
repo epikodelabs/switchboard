@@ -6,11 +6,10 @@ import {
   frame,
   layout,
   redirect,
-  route,
-  provideRouter,
+  provideFrameGraph,
   RouterOutlet,
   s,
-  Router,
+  FrameNavigator,
   NavigationTree,
 } from '@epikodelabs/switchboard';
 
@@ -57,9 +56,9 @@ class ChildComponent {}
 })
 class SettingsComponent {}
 
-describe('Router: flat routes and layouts', () => {
+describe('FrameNavigator: flat routes and layouts', () => {
   let outlet: HTMLElement;
-  let router: Router;
+  let navigator: FrameNavigator;
 
   function bootstrap(routes: NavigationTree): void {
     TestBed.configureTestingModule({
@@ -71,12 +70,12 @@ describe('Router: flat routes and layouts', () => {
         ChildComponent,
         SettingsComponent,
       ],
-      providers: [...provideRouter(routes)],
+      providers: [...provideFrameGraph(routes)],
     });
 
     outlet = document.createElement('div');
-    router = TestBed.inject(Router);
-    router.connect('', outlet);
+    navigator = TestBed.inject(FrameNavigator);
+    navigator.connect('', outlet);
   }
 
   function getOutletContent(): string {
@@ -84,7 +83,7 @@ describe('Router: flat routes and layouts', () => {
   }
 
   async function navigate(path: string): Promise<void> {
-    await router.navigate({ path });
+    await navigator.navigate({ path });
     await new Promise((resolve) => setTimeout(resolve, 0));
   }
 
@@ -100,12 +99,12 @@ describe('Router: flat routes and layouts', () => {
   });
 
   afterEach(() => {
-    router?.dispose();
+    navigator?.dispose();
     outlet?.remove();
   });
 
   it('renders a leaf route without a layout', async () => {
-    const routes = [route('/', HomeComponent)] as const satisfies NavigationTree;
+    const routes = [frame('home', '/', HomeComponent)] as const satisfies NavigationTree;
 
     bootstrap(routes);
     await navigate('/');
@@ -115,7 +114,7 @@ describe('Router: flat routes and layouts', () => {
 
   it('supports a layout index route', async () => {
     const routes = [
-      layout('/admin', ParentComponent, [route('', HomeComponent)]),
+      layout('/admin', ParentComponent, [frame('home', '', HomeComponent)]),
     ] as const satisfies NavigationTree;
 
     bootstrap(routes);
@@ -128,7 +127,7 @@ describe('Router: flat routes and layouts', () => {
 
   it('renders an eager layout around an eager leaf route', async () => {
     const routes = [
-      layout('/admin', ParentComponent, [route('/child', ChildComponent)]),
+      layout('/admin', ParentComponent, [frame('child', '/child', ChildComponent)]),
     ] as const satisfies NavigationTree;
 
     bootstrap(routes);
@@ -141,19 +140,19 @@ describe('Router: flat routes and layouts', () => {
 
   it('inherits the layout path prefix', async () => {
     const routes = [
-      layout('/admin', ParentComponent, [route('/settings', SettingsComponent)]),
+      layout('/admin', ParentComponent, [frame('settings', '/settings', SettingsComponent)]),
     ] as const satisfies NavigationTree;
 
     bootstrap(routes);
     await navigate('/admin/settings');
 
     expect(getOutletContent()).toContain('<h3>Settings</h3>');
-    expect(router.state.path).toBe('/admin/settings');
+    expect(navigator.state.path).toBe('/admin/settings');
   });
 
   it('renders an eager layout around a lazy leaf route', async () => {
     const routes = [
-      layout('/admin', ParentComponent, [route('/lazy-child', async () => ChildComponent)]),
+      layout('/admin', ParentComponent, [frame('lazy-child', '/lazy-child', async () => ChildComponent)]),
     ] as const satisfies NavigationTree;
 
     bootstrap(routes);
@@ -166,7 +165,7 @@ describe('Router: flat routes and layouts', () => {
 
   it('renders a lazy layout around an eager leaf route', async () => {
     const routes = [
-      layout('/admin', async () => ParentComponent, [route('/child', ChildComponent)]),
+      layout('/admin', async () => ParentComponent, [frame('child', '/child', ChildComponent)]),
     ] as const satisfies NavigationTree;
 
     bootstrap(routes);
@@ -180,7 +179,7 @@ describe('Router: flat routes and layouts', () => {
   it('renders a lazy layout around a lazy leaf route', async () => {
     const routes = [
       layout('/admin', async () => ParentComponent, [
-        route('/lazy-child', async () => ChildComponent),
+        frame('lazy-child', '/lazy-child', async () => ChildComponent),
       ]),
     ] as const satisfies NavigationTree;
 
@@ -195,7 +194,7 @@ describe('Router: flat routes and layouts', () => {
   it('composes multiple layouts without creating a route hierarchy', async () => {
     const routes = [
       layout('/app', ShellComponent, [
-        layout('/admin', ParentComponent, [route('/child', ChildComponent)]),
+        layout('/admin', ParentComponent, [frame('child', '/child', ChildComponent)]),
       ]),
     ] as const satisfies NavigationTree;
 
@@ -211,8 +210,8 @@ describe('Router: flat routes and layouts', () => {
   it('supports multiple leaf routes inside one prefixed layout', async () => {
     const routes = [
       layout('/admin', ParentComponent, [
-        route('/child', ChildComponent),
-        route('/settings', SettingsComponent),
+        frame('child', '/child', ChildComponent),
+        frame('settings', '/settings', SettingsComponent),
       ]),
     ] as const satisfies NavigationTree;
 
@@ -231,8 +230,9 @@ describe('Router: flat routes and layouts', () => {
   it('supports named outlets', async () => {
     const routes = [
       layout('/', ParentComponent, [
-        route('', HomeComponent),
-        route('', SettingsComponent, { outlet: 'sidebar' }),
+        frame('home', '', HomeComponent, {
+          outlets: { sidebar: SettingsComponent },
+        }),
       ]),
     ] as const satisfies NavigationTree;
 
@@ -240,21 +240,22 @@ describe('Router: flat routes and layouts', () => {
     sidebarOutlet.id = 'sidebar-outlet';
 
     bootstrap(routes);
-    router.connect('sidebar', sidebarOutlet);
+    navigator.connect('sidebar', sidebarOutlet);
 
     await navigate('/');
     const content = getOutletContent();
     expect(content).toContain('<h1>Home</h1>');
     expect(sidebarOutlet.innerHTML).toContain('<h3>Settings</h3>');
 
-    router.disconnect('sidebar', sidebarOutlet);
+    navigator.disconnect('sidebar', sidebarOutlet);
   });
 
   it('connects named outlets declared inside a layout component', async () => {
     const routes = [
       layout('/app', ShellWithSidebarComponent, [
-        route('/child', ChildComponent),
-        route('/child', SettingsComponent, { outlet: 'sidebar' }),
+        frame('child', '/child', ChildComponent, {
+          outlets: { sidebar: SettingsComponent },
+        }),
       ]),
     ] as const satisfies NavigationTree;
 
@@ -268,12 +269,12 @@ describe('Router: flat routes and layouts', () => {
   });
 
   it('composes addressable frames directly inside a layout', async () => {
-    const childFrame = frame('child', ChildComponent, {
+    const childFrame = frame('child', '/child', ChildComponent, {
       outlets: { sidebar: SettingsComponent },
     });
 
     const routes = [
-      layout('/app', ShellWithSidebarComponent, [route('/child', childFrame)]),
+      layout('/app', ShellWithSidebarComponent, [childFrame]),
     ] as const satisfies NavigationTree;
 
     bootstrap(routes);
@@ -286,37 +287,37 @@ describe('Router: flat routes and layouts', () => {
   });
 
   it('binds the frame id as the placed route name', async () => {
-    const childFrame = frame('child', ChildComponent, {
+    const childFrame = frame('child', '/child', ChildComponent, {
       directEntry: true,
     });
 
     const routes = [
-      layout('/app', ShellComponent, [route('/child', childFrame)]),
+      layout('/app', ShellComponent, [childFrame]),
     ] as const satisfies NavigationTree;
 
     bootstrap(routes);
 
-    await router.navigate({ name: 'child' });
+    await navigator.navigate({ name: 'child' });
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     const content = getOutletContent();
     expect(content).toContain('<h2>Shell</h2>');
     expect(content).toContain('<h3>Child</h3>');
-    expect(router.state.path).toBe('/app/child');
+    expect(navigator.state.path).toBe('/app/child');
   });
 
   it('accepts frame targets and places them at their authored path', async () => {
-    const childFrame = frame('child', ChildComponent, {
+    const childFrame = frame('child', '/child', ChildComponent, {
       directEntry: true,
     });
 
     const routes = [
-      layout('/app', ShellComponent, [route('/child', childFrame)]),
+      layout('/app', ShellComponent, [childFrame]),
     ] as const satisfies NavigationTree;
 
     bootstrap(routes);
 
-    await router.navigate({
+    await navigator.navigate({
       frame: 'child',
     });
     await new Promise((resolve) => setTimeout(resolve, 0));
@@ -330,10 +331,12 @@ describe('Router: flat routes and layouts', () => {
   it('keeps named outlet navigation working across layout re-renders', async () => {
     const routes = [
       layout('/app', ShellWithSidebarComponent, [
-        route('/child', ChildComponent),
-        route('/child', SettingsComponent, { outlet: 'sidebar' }),
-        route('/settings', SettingsComponent),
-        route('/settings', HomeComponent, { outlet: 'sidebar' }),
+        frame('child', '/child', ChildComponent, {
+          outlets: { sidebar: SettingsComponent },
+        }),
+        frame('settings', '/settings', SettingsComponent, {
+          outlets: { sidebar: HomeComponent },
+        }),
       ]),
     ] as const satisfies NavigationTree;
 
@@ -348,25 +351,24 @@ describe('Router: flat routes and layouts', () => {
     const content = getOutletContent();
     expect(content).toContain('<h3>Settings</h3>');
     expect(content).toContain('<h1>Home</h1>');
-    expect(router.state.path).toBe('/app/settings');
+    expect(navigator.state.path).toBe('/app/settings');
   });
 
   it('redirects direct address-bar entry when a frame disallows direct entry', async () => {
-    const landingFrame = frame('landing', HomeComponent, {
+    const landingFrame = frame('landing', '/landing/:projectId', HomeComponent, {
+      params: {
+        projectId: s.number({ min: 1 }),
+      },
       directEntry: true,
       transitions: ['private'],
     });
-    const privateFrame = frame('private', ChildComponent, {
+    const privateFrame = frame('private', '/private', ChildComponent, {
       transitions: [],
       directEntryRedirectTo: '/landing/7',
     });
     const routes = [
-      route('/landing/:projectId', landingFrame, {
-        params: {
-          projectId: s.number({ min: 1 }),
-        },
-      }),
-      route('/private', privateFrame),
+      landingFrame,
+      privateFrame,
     ] as const satisfies NavigationTree;
 
     window.history.replaceState(null, '', '/private');
@@ -374,22 +376,22 @@ describe('Router: flat routes and layouts', () => {
     bootstrap(routes);
     await settleInitialNavigation();
 
-    expect(router.state.path).toBe('/landing/7');
+    expect(navigator.state.path).toBe('/landing/7');
     expect(getOutletContent()).toContain('<h1>Home</h1>');
   });
 
   it('allows direct entry through redirect routes that canonicalize into a frame', async () => {
-    const landingFrame = frame('landing', HomeComponent, {
+    const landingFrame = frame('landing', '/landing', HomeComponent, {
       directEntry: true,
       transitions: ['workspace'],
     });
-    const workspaceFrame = frame('workspace', ChildComponent, {
+    const workspaceFrame = frame('workspace', '/workspace', ChildComponent, {
       transitions: [],
     });
     const routes = [
-      route('/landing', landingFrame),
-      redirect('/legacy', '/workspace'),
-      route('/workspace', workspaceFrame),
+      landingFrame,
+      redirect('/legacy', workspaceFrame),
+      workspaceFrame,
     ] as const;
 
     window.history.replaceState(null, '', '/legacy');
@@ -397,36 +399,41 @@ describe('Router: flat routes and layouts', () => {
     bootstrap(routes);
     await settleInitialNavigation();
 
-    expect(router.state.path).toBe('/workspace');
+    expect(navigator.state.path).toBe('/workspace');
     expect(window.location.pathname).toBe('/workspace');
     expect(getOutletContent()).toContain('<h3>Child</h3>');
   });
 
   it('allows declared frame-to-frame transitions after initial entry', async () => {
-    const publicFrame = frame('public', HomeComponent, {
+    const publicFrame = frame('public', '/public', HomeComponent, {
       directEntry: true,
       transitions: ['private'],
     });
-    const privateFrame = frame('private', ChildComponent, {
+    const privateFrame = frame('private', '/private', ChildComponent, {
       transitions: ['public'],
     });
     const routes = [
-      route('/public', publicFrame),
-      route('/private', privateFrame),
+      publicFrame,
+      privateFrame,
     ] as const satisfies NavigationTree;
 
     bootstrap(routes);
     await navigate('/public');
     await navigate('/private');
 
-    expect(router.state.path).toBe('/private');
+    expect(navigator.state.path).toBe('/private');
     expect(getOutletContent()).toContain('<h3>Child</h3>');
   });
 
   it('supports redirect targets in frame guards', async () => {
-    const settingsFrame = frame('settings', SettingsComponent);
+    const settingsFrame = frame('settings', '/settings', SettingsComponent, {
+      query: {
+        section: s.string('general'),
+      },
+    });
     const adminFrame = frame(
       'admin',
+      '/admin',
       ChildComponent,
       {
         beforeEnter: [
@@ -438,31 +445,27 @@ describe('Router: flat routes and layouts', () => {
       },
     );
     const routes = [
-      route('/settings', settingsFrame, {
-        query: {
-          section: s.string('general'),
-        },
-      }),
-      route('/admin', adminFrame),
+      settingsFrame,
+      adminFrame,
     ] as const satisfies NavigationTree;
 
     bootstrap(routes);
     await navigate('/admin');
 
-    expect(router.state.path).toBe('/settings');
-    expect(router.state.query['section']).toBe('access');
+    expect(navigator.state.path).toBe('/settings');
+    expect(navigator.state.query['section']).toBe('access');
     expect(getOutletContent()).toContain('<h3>Settings</h3>');
   });
 
   it('accepts frame targets and carries payload through navigation state', async () => {
-    const settingsFrame = frame('settings', SettingsComponent, {
+    const settingsFrame = frame('settings', '/settings', SettingsComponent, {
       directEntry: true,
     });
-    const routes = [route('/settings', settingsFrame)] as const;
+    const routes = [settingsFrame] as const;
 
     bootstrap(routes);
 
-    await router.navigate({
+    await navigator.navigate({
       frame: 'settings',
       payload: {
         source: 'menu',
@@ -470,19 +473,19 @@ describe('Router: flat routes and layouts', () => {
     });
     await new Promise((resolve) => setTimeout(resolve, 0));
 
-    expect(router.state.path).toBe('/settings');
-    expect(router.state.historyState).toEqual({
+    expect(navigator.state.path).toBe('/settings');
+    expect(navigator.state.historyState).toEqual({
       source: 'menu',
     });
-    expect(router.displayUrl).toBe('/settings');
+    expect(navigator.displayUrl).toBe('/settings');
   });
 
   it('restores a frame from browser history state', async () => {
-    const childFrame = frame('child', ChildComponent, {
+    const childFrame = frame('child', '/child', ChildComponent, {
       directEntry: true,
     });
     const routes = [
-      layout('/app', ShellComponent, [route('/child', childFrame)]),
+      layout('/app', ShellComponent, [childFrame]),
     ] as const satisfies NavigationTree;
 
     window.history.replaceState(
@@ -502,46 +505,46 @@ describe('Router: flat routes and layouts', () => {
     await settleInitialNavigation();
 
     expect(getOutletContent()).toContain('<h3>Child</h3>');
-    expect(router.state.historyState).toEqual({
+    expect(navigator.state.historyState).toEqual({
       source: 'restore',
     });
-    expect(router.displayUrl).toBe('/app/child');
+    expect(navigator.displayUrl).toBe('/app/child');
     expect(window.location.pathname).toBe('/app/child');
   });
 });
 
-describe('Router async facade methods', () => {
-  let router: Router;
+describe('FrameNavigator async facade methods', () => {
+  let navigator: FrameNavigator;
 
   beforeEach(() => {
     TestBed.resetTestingModule();
     window.history.replaceState(null, '', '/');
     TestBed.configureTestingModule({
       imports: [HomeComponent],
-      providers: [...provideRouter([route('/', HomeComponent)])],
+      providers: [...provideFrameGraph([frame('home', '/', HomeComponent)])],
     });
-    router = TestBed.inject(Router);
+    navigator = TestBed.inject(FrameNavigator);
   });
 
   afterEach(() => {
-    router?.dispose();
+    navigator?.dispose();
   });
 
   it('rejects navigate when no outlet is active', async () => {
     await expectAsync(
-      router.navigate({ path: '/' }),
-    ).toBeRejectedWithError('Router has no active outlet.');
+      navigator.navigate({ path: '/' }),
+    ).toBeRejectedWithError('Frame navigator has no active outlet.');
   });
 
   it('rejects revalidate when no outlet is active', async () => {
     await expectAsync(
-      router.revalidate(),
-    ).toBeRejectedWithError('Router has no active outlet.');
+      navigator.revalidate(),
+    ).toBeRejectedWithError('Frame navigator has no active outlet.');
   });
 
   it('rejects preload when no outlet is active', async () => {
     await expectAsync(
-      router.preload(),
-    ).toBeRejectedWithError('Router has no active outlet.');
+      navigator.preload(),
+    ).toBeRejectedWithError('Frame navigator has no active outlet.');
   });
 });

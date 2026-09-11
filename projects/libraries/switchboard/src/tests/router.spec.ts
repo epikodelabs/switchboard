@@ -44,7 +44,7 @@ function routeWithComponent(path: string, text: string): Route {
         })
     };
 }
-idescribe('Router', () => {
+idescribe('router', () => {
     let outlet: HTMLElement;
     let router: VanillaRouter;
     beforeEach(() => {
@@ -1404,7 +1404,7 @@ idescribe('Router', () => {
             link.textContent = 'External';
             document.body.appendChild(link);
             const defaultPrevented = dispatchAnchorClick(link);
-            // Router should not intercept external links
+            // router should not intercept external links
             expect(defaultPrevented).toBeFalse();
             document.body.removeChild(link);
         });
@@ -2492,3 +2492,4 @@ idescribe('Router', () => {
         });
     });
 });
+

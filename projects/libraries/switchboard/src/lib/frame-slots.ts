@@ -28,19 +28,19 @@ export function frameSlot<const TSlotId extends string>(
   });
 }
 
-/** Contributes frames/navigation entries to an ownership boundary. */
+/** Contributes child frames to an ownership boundary. */
 export function framesFor<
   const TSlotId extends string,
-  const TEntries extends NavigationTree,
+  const TChildren extends NavigationTree,
 >(
   slotId: TSlotId,
-  entries: TEntries,
-): FrameContributionDefinition<TSlotId, string, TEntries> {
+  children: TChildren,
+): FrameContributionDefinition<TSlotId, string, TChildren> {
   const normalized = normalizeIdentity(slotId, 'Frame contribution slot') as TSlotId;
   return defineFrameContribution(
     normalized,
     `${normalized}@${nextContributionIdentity++}`,
-    entries,
+    children,
   );
 }
 
@@ -48,17 +48,17 @@ export function framesFor<
 function defineFrameContribution<
   const TSlotId extends string,
   const TId extends string,
-  const TEntries extends NavigationTree,
+  const TChildren extends NavigationTree,
 >(
   slotId: TSlotId,
   id: TId,
-  entries: TEntries,
-): FrameContributionDefinition<TSlotId, TId, TEntries> {
+  children: TChildren,
+): FrameContributionDefinition<TSlotId, TId, TChildren> {
   return Object.freeze({
     kind: 'frame-contribution',
     slotId: normalizeIdentity(slotId, 'Frame contribution slot') as TSlotId,
     id: normalizeIdentity(id, 'Frame contribution') as TId,
-    entries,
+    children,
   });
 }
 
@@ -81,9 +81,9 @@ export function resolveFrameSlots(
   const used = new Set<string>();
   const resolving = new Set<string>();
 
-  const resolveEntries = (entries: NavigationTree): NavigationTree => {
+  const resolveChildren = (children: NavigationTree): NavigationTree => {
     const output = [] as unknown as Array<NavigationTree[number]>;
-    for (const entry of entries) {
+    for (const entry of children) {
       if (entry.kind === 'frame-slot') {
         const contribution = bySlot.get(entry.slotId);
         if (!contribution) continue;
@@ -92,7 +92,7 @@ export function resolveFrameSlots(
         }
         resolving.add(entry.slotId);
         used.add(entry.slotId);
-        output.push(...resolveEntries(contribution.entries));
+        output.push(...resolveChildren(contribution.children));
         resolving.delete(entry.slotId);
         continue;
       }
@@ -100,7 +100,15 @@ export function resolveFrameSlots(
       if (entry.kind === 'layout') {
         output.push(Object.freeze({
           ...entry,
-          entries: resolveEntries(entry.entries),
+          children: resolveChildren(entry.children),
+        }) as NavigationTree[number]);
+        continue;
+      }
+
+      if (entry.kind === 'frame' && entry.children) {
+        output.push(Object.freeze({
+          ...entry,
+          children: resolveChildren(entry.children),
         }) as NavigationTree[number]);
         continue;
       }
@@ -110,7 +118,7 @@ export function resolveFrameSlots(
     return Object.freeze(output);
   };
 
-  const resolved = resolveEntries(root);
+  const resolved = resolveChildren(root);
   for (const contribution of contributions) {
     if (!used.has(contribution.slotId)) {
       throw new Error(

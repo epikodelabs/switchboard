@@ -31,9 +31,9 @@ const switchboardProperty = {
   properties: {
     entry: {
       type: 'string',
-      default: 'src/app/app.routes.ts',
+      default: 'src/app/app.frames.ts',
       description:
-        'Switchboard navigation entry relative to the Angular project root.',
+        'Switchboard frame graph entry relative to the Angular project root.',
     },
     buildManifest: {
       type: 'boolean',

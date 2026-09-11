@@ -1,18 +1,18 @@
-export function createHostRoutesSource(slotIds: readonly string[]): string {
+export function createHostFramesSource(slotIds: readonly string[]): string {
   return [
     `// Switchboard generated public frame-graph host.`,
     `import { frameSlot } from '@epikodelabs/switchboard';`,
     ``,
-    `export const routes = [`,
+    `export const frames = [`,
     ...slotIds.map(id => `  frameSlot(${JSON.stringify(id)}),`),
     `];`,
     ``,
   ].join('\n');
 }
 
-export function rootFrameSlotIds(entries: readonly any[]): readonly string[] {
+export function rootFrameSlotIds(frames: readonly any[]): readonly string[] {
   const ids: string[] = [];
-  for (const entry of entries) {
+  for (const entry of frames) {
     if (!entry || typeof entry !== 'object') continue;
     if (entry.kind !== 'frame-slot') {
       throw new Error(

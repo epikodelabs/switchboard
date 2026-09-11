@@ -1,9 +1,10 @@
-import { route } from '../lib/route-builders';
-import type { InferRoutePreparedData } from '../lib/navigation-definitions';
+import { frame } from '../lib/frame-builders';
+import type { InferFrameData } from '../lib/navigation-definitions';
 
 class Page {}
 
-const preparedRoute = route(
+const preparedRoute = frame(
+  'project',
   '/projects/:projectId',
   Page,
   {
@@ -18,7 +19,7 @@ const preparedRoute = route(
   },
 );
 
-type Prepared = InferRoutePreparedData<typeof preparedRoute>;
+type Prepared = InferFrameData<typeof preparedRoute>;
 const prepared: Prepared = {
   project: { id: 1, name: 'Waypoint parity' },
   permissions: ['read'],

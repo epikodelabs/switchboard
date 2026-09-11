@@ -45,7 +45,7 @@ export function createServerFramePlan(snapshot: NavigationSnapshot): ServerFrame
   const context: Context = {
     contributionsBySlot: indexContributions(snapshot.contributions), artifacts: new Map(), frames: [], active: new Set(), nextBranchId: 1,
   };
-  compileEntries(snapshot.rootRoutes, '/', [], context);
+  compileChildren(snapshot.rootFrames, '/', [], context);
   for (const c of snapshot.contributions) {
     if (!context.artifacts.has(c.definition.id)) throw new Error(`Frame contribution "${c.definition.id}" targets unreachable slot "${c.definition.slotId}".`);
   }
@@ -59,11 +59,11 @@ export function createServerFramePlan(snapshot: NavigationSnapshot): ServerFrame
   });
 }
 
-function compileEntries(entries: readonly any[], parentPath: string, inherited: readonly ServerFramePolicy[], context: Context, provenance?: Provenance): void {
-  for (const entry of entries) {
+function compileChildren(children: readonly any[], parentPath: string, inherited: readonly ServerFramePolicy[], context: Context, provenance?: Provenance): void {
+  for (const entry of children) {
     if (!entry || typeof entry !== 'object') continue;
     if (entry.kind === 'layout') {
-      compileEntries(entry.entries ?? [], joinPath(parentPath, String(entry.path ?? '')), appendPolicy(inherited, entry.policy), context, provenance);
+      compileChildren(entry.children ?? [], joinPath(parentPath, String(entry.path ?? '')), appendPolicy(inherited, entry.policy), context, provenance);
       continue;
     }
     if (entry.kind === 'frame-slot') {
@@ -71,33 +71,35 @@ function compileEntries(entries: readonly any[], parentPath: string, inherited: 
       for (const c of context.contributionsBySlot.get(slotId) ?? []) compileContribution(c, parentPath, inherited, context, provenance);
       continue;
     }
-    if (entry.kind === 'route') {
-      compileRoute(entry, joinPath(parentPath, String(entry.path ?? '')), inherited, context, provenance);
+    if (entry.kind === 'redirect-frame') {
+      compileRedirectFrame(entry, joinPath(parentPath, String(entry.path ?? '')), inherited, context, provenance);
       continue;
     }
-    if (entry.kind === 'redirect') {
-      if (!provenance) continue;
-      const artifact = context.artifacts.get(provenance.contributionId);
-      const id = `${provenance.contributionId}:${context.nextBranchId++}`;
-      artifact?.branchIds.push(id);
-      context.frames.push(Object.freeze({ id, path: joinPath(parentPath, String(entry.path ?? '')), staticPrefix: staticPrefix(joinPath(parentPath, String(entry.path ?? ''))), policies: Object.freeze(appendPolicy(inherited, entry.policy)), frameSetId: provenance.contributionId }));
+    if (entry.kind === 'frame') {
+      compileFrame(entry, joinPath(parentPath, String(entry.path ?? '')), inherited, context, provenance);
+      compileChildren(entry.children ?? [], joinPath(parentPath, String(entry.path ?? '')), appendPolicy(inherited, entry.policy), context, provenance);
+      continue;
     }
   }
 }
-function compileRoute(entry: any, path: string, inherited: readonly ServerFramePolicy[], context: Context, provenance?: Provenance): void {
+function compileRedirectFrame(entry: any, path: string, inherited: readonly ServerFramePolicy[], context: Context, provenance?: Provenance): void {
   if (!provenance) return;
   const artifact = context.artifacts.get(provenance.contributionId);
-  const frame = entry.frame;
-  const frameId = typeof frame?.id === 'string' ? frame.id : undefined;
-  if (frameId && !artifact?.frameIds.includes(frameId)) artifact?.frameIds.push(frameId);
-  const enforcesGraph = frameId !== undefined
-    && (frame.transitions !== undefined || frame.directEntry !== undefined || frame.directEntryRedirectTo !== undefined);
-  // Graph-internal frames reject cold entry client-side; the server does not
-  // announce a delivery branch for them.
-  if (enforcesGraph && frame.directEntry !== true) return;
   const id = `${provenance.contributionId}:${context.nextBranchId++}`;
   artifact?.branchIds.push(id);
-  context.frames.push(Object.freeze({ id, frameId, path, staticPrefix: staticPrefix(path), policies: Object.freeze(appendPolicy(inherited, entry.policy ?? frame?.policy)), frameSetId: provenance.contributionId }));
+  context.frames.push(Object.freeze({ id, path, staticPrefix: staticPrefix(path), policies: Object.freeze(appendPolicy(inherited, entry.policy)), frameSetId: provenance.contributionId }));
+}
+function compileFrame(entry: any, path: string, inherited: readonly ServerFramePolicy[], context: Context, provenance?: Provenance): void {
+  if (!provenance) return;
+  const artifact = context.artifacts.get(provenance.contributionId);
+  const frameId = typeof entry.id === 'string' ? entry.id : undefined;
+  if (frameId && !artifact?.frameIds.includes(frameId)) artifact?.frameIds.push(frameId);
+  const enforcesGraph = frameId !== undefined
+    && (entry.transitions !== undefined || entry.directEntry !== undefined || entry.directEntryRedirectTo !== undefined);
+  if (enforcesGraph && entry.directEntry !== true) return;
+  const id = `${provenance.contributionId}:${context.nextBranchId++}`;
+  artifact?.branchIds.push(id);
+  context.frames.push(Object.freeze({ id, frameId, path, staticPrefix: staticPrefix(path), policies: Object.freeze(appendPolicy(inherited, entry.policy)), frameSetId: provenance.contributionId }));
 }
 function compileContribution(c: LoadedContribution, parentPath: string, inherited: readonly ServerFramePolicy[], context: Context, parent?: Provenance): void {
   const id = String(c.definition.id).trim();
@@ -109,7 +111,7 @@ function compileContribution(c: LoadedContribution, parentPath: string, inherite
   }
   if (parent && parent.contributionId !== id) artifact.dependencies.add(parent.contributionId);
   context.active.add(id);
-  try { compileEntries(c.definition.entries ?? [], parentPath, inherited, context, { contributionId:id }); }
+  try { compileChildren(c.definition.children ?? [], parentPath, inherited, context, { contributionId:id }); }
   finally { context.active.delete(id); }
 }
 function indexContributions(contributions: readonly LoadedContribution[]): ReadonlyMap<string, readonly LoadedContribution[]> {

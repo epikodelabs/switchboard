@@ -1,5 +1,5 @@
 import { Component, inject, input, signal, effect } from '@angular/core';
-import { Router, RouterLink } from '@epikodelabs/switchboard';
+import { FrameNavigator, RouterLink } from '@epikodelabs/switchboard';
 import { DataInput, ParamsInput, QueryInput } from './route-inputs';
 import { sceneStyles } from './scene-styles';
 import { Account, LedgerLine, LedgerService } from '../services/ledger.service';
@@ -90,7 +90,7 @@ import { Account, LedgerLine, LedgerService } from '../services/ledger.service';
 })
 export class AccountPage {
   private readonly ledger = inject(LedgerService);
-  private readonly router = inject(Router);
+  private readonly navigator = inject(FrameNavigator);
 
   protected readonly params = input<ParamsInput>({});
   protected readonly query = input<QueryInput>({});
@@ -125,7 +125,7 @@ export class AccountPage {
     if (!a) return;
     if (confirm('Archive account ' + a.code + ' ' + a.name + '?')) {
       this.ledger.updateAccount(a.id, { archived: true });
-      void this.router.navigate({ frame: 'books' });
+      void this.navigator.navigate({ frame: 'books' });
     }
   }
 }

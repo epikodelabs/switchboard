@@ -111,11 +111,20 @@ export type FrameView<
   TData extends RouteData = RouteData,
 > = ViewDefinition & {
   readonly kind: 'frame';
+  readonly path?: string;
   readonly id?: string;
+  readonly name?: string;
+  readonly preload?: boolean;
+  readonly viewTransition?: boolean;
+  readonly params?: ParamSchemaRecord;
+  readonly query?: QuerySchemaRecord;
+  readonly data?: Readonly<Record<string, unknown>>;
+  readonly providers?: NavigationProviders;
   readonly transitions?: readonly string[];
   readonly directEntry?: boolean;
   readonly directEntryRedirectTo?: string;
   readonly outlets?: readonly FrameOutlet[];
+  readonly children?: NavigationTree;
   readonly policy?: NavigationPolicy;
   readonly beforeEnter?: readonly CanEnterFn[];
   readonly beforeLeave?: readonly FrameBeforeLeaveFn<TData>[];
@@ -128,10 +137,39 @@ export type InferFrameData<TFrame> =
     ? TData
     : Readonly<Record<string, never>>;
 
+export type RedirectFrameDefinition<
+  TPath extends string = string,
+  TName extends string | undefined = string | undefined,
+> = {
+  readonly kind: 'redirect-frame';
+  readonly path: TPath;
+  readonly name?: TName;
+  readonly targetFrameId: string;
+  readonly data?: Readonly<Record<string, unknown>>;
+  readonly providers?: NavigationProviders;
+  readonly policy?: NavigationPolicy;
+};
+
+export type RouteFrame<
+  TData extends RouteData = RouteData,
+  TPath extends string = string,
+  TName extends string | undefined = string | undefined,
+> =
+  | FrameView<TData>
+  | RedirectFrameDefinition<TPath, TName>;
+
 export interface FrameOptions<
   TPrepare extends HookInput<FramePrepareFn> | undefined =
     HookInput<FramePrepareFn> | undefined,
+  TParamsSchema extends ParamSchemaRecord | undefined = ParamSchemaRecord | undefined,
+  TQuerySchema extends QuerySchemaRecord | undefined = QuerySchemaRecord | undefined,
 > {
+  readonly preload?: boolean;
+  readonly viewTransition?: boolean;
+  readonly params?: TParamsSchema;
+  readonly query?: TQuerySchema;
+  readonly data?: Readonly<Record<string, unknown>>;
+  readonly providers?: NavigationProviders;
   /** Frame-graph edges: which frame ids may follow this frame. */
   readonly transitions?: readonly string[];
   /** Whether cold URL entry is allowed. Omit for graph-internal frames. */
@@ -140,6 +178,8 @@ export interface FrameOptions<
   readonly directEntryRedirectTo?: string;
   /** Companion views rendered beside the frame's primary outlet. */
   readonly outlets?: Readonly<Record<string, FrameOutletView>> | readonly FrameOutlet[];
+  /** Child frames rendered inside this frame's primary outlet. */
+  readonly children?: NavigationTree;
   readonly policy?: NavigationPolicy;
   readonly beforeEnter?: HookInput<CanEnterFn>;
   readonly beforeLeave?: HookInput<FrameBeforeLeaveFn<any>>;
@@ -191,7 +231,7 @@ export type RedirectRouteDefinition<
   TPath extends string = string,
   TName extends string | undefined = string | undefined,
 > = {
-  readonly kind: 'redirect';
+  readonly kind: 'route';
   readonly path: TPath;
   readonly name?: TName;
   readonly redirectTo: string;
@@ -236,36 +276,29 @@ export type RouteDefinition<
       TFrame
     >;
 
-export type InferRoutePreparedData<TRoute> =
-  TRoute extends RenderableRoute<string, string | undefined, any, any, infer TFrame>
-    ? TFrame extends FrameView<any>
-      ? InferFrameData<TFrame>
-      : Readonly<Record<string, never>>
-    : Readonly<Record<string, never>>;
-
 export interface LayoutDefinitionBase<
   TPath extends string = string,
-  TEntries extends NavigationTree = NavigationTree,
+  TChildren extends NavigationTree = NavigationTree,
 > {
   readonly kind: 'layout';
   readonly path: TPath;
-  readonly entries: TEntries;
+  readonly children: TChildren;
   readonly providers?: NavigationProviders;
 }
 
 export type LayoutOptions = Omit<
   LayoutDefinitionBase,
-  'kind' | 'path' | 'entries'
+  'kind' | 'path' | 'children'
 >;
 
 export type LayoutDefinition<
   TPath extends string = string,
-  TEntries extends NavigationTree = NavigationTree,
+  TChildren extends NavigationTree = NavigationTree,
   TFrame extends FrameView<any> | undefined = FrameView<any> | undefined,
 > =
   LayoutDefinitionBase<
     TPath,
-    TEntries
+    TChildren
   > &
   ViewDefinition & {
   readonly frame?: TFrame;
@@ -274,6 +307,7 @@ export type LayoutDefinition<
 // Any-instantiated route/layout primitives to avoid undefined-widening issues
 export type AnyRouteDefinition = RouteDefinition<any, any, any, any, any>;
 export type AnyLayoutDefinition = LayoutDefinition<any, any, any>;
+export type AnyRouteFrame = RouteFrame<any, any, any>;
 
 export interface FrameSlotDefinition<TSlotId extends string = string> {
   readonly kind: 'frame-slot';
@@ -285,19 +319,19 @@ export interface FrameSlotDefinition<TSlotId extends string = string> {
 export interface FrameContributionDefinition<
   TSlotId extends string = string,
   TId extends string = string,
-  TEntries extends NavigationTree = NavigationTree,
+  TChildren extends NavigationTree = NavigationTree,
 > {
   readonly kind: 'frame-contribution';
   readonly slotId: TSlotId;
   /** @internal Runtime identity; compiler/server owned in protected-delivery builds. */
   readonly id: TId;
-  readonly entries: TEntries;
+  readonly children: TChildren;
 }
 
 export type AnyFrameSlotDefinition = FrameSlotDefinition<any>;
 
 export type NavigationEntry =
-  | AnyRouteDefinition
+  | AnyRouteFrame
   | AnyLayoutDefinition
   | AnyFrameSlotDefinition;
 export type NavigationTree = readonly NavigationEntry[];

@@ -8,9 +8,9 @@ import {
   publishServerFrameOutput,
 } from './server-output.js';
 import {
-  createHostRoutesSource,
+  createHostFramesSource,
   rootFrameSlotIds,
-} from './host-routes-entry.js';
+} from './host-frames-entry.js';
 import {
   createHostResolverSource,
 } from './host-resolver-entry.js';
@@ -99,9 +99,9 @@ export async function prepareBuild(
    */
   await fs.writeFile(
     routesEntry,
-    createHostRoutesSource(
-      rootFrameSlotIds(analysis.snapshot?.rootRoutes ?? []),
-    ),
+          createHostFramesSource(
+            rootFrameSlotIds(analysis.snapshot?.rootFrames ?? []),
+          ),
     'utf8',
   );
 

@@ -9,7 +9,6 @@ import type {
   LayoutDefinition,
   NavigationTree,
   RenderableRoute,
-  RouteDefinition,
 } from './navigation-definitions';
 
 /**
@@ -23,71 +22,64 @@ export type ExtractPathParams<T extends string> =
       : never;
 
 /**
- * Recursively flattens all routes and layout entries into a union of leaf routes.
+ * Recursively flattens child frames into typed navigation leaves.
  */
-export type LeafRouteDefinitions<
+export type LeafFrameDefinitions<
   TTree extends NavigationTree,
 > =
   TTree[number] extends infer TEntry
-    ? TEntry extends { kind: 'route' }
-      ? TEntry
+    ? TEntry extends FrameView<any> & { readonly id: string; readonly path: string }
+        ? TEntry | (
+          TEntry extends { readonly children: infer TChildren extends NavigationTree }
+            ? LeafFrameDefinitions<TChildren>
+            : never
+        )
       : TEntry extends {
             kind: 'layout',
-            entries: infer TEntries extends NavigationTree,
+            children: infer TChildren extends NavigationTree,
           }
-            ? LeafRouteDefinitions<TEntries>
+            ? LeafFrameDefinitions<TChildren>
             : never
     : never;
 
-type RouteName<TRoute> = TRoute extends RouteDefinition<
-  string,
-  infer TName,
-  ParamSchemaRecord | undefined,
-  QuerySchemaRecord | undefined,
-  any
->
-  ? Extract<TName, string>
+type FrameName<TFrame> = TFrame extends FrameView<any> & { readonly id: infer TFrameId }
+    ? Extract<TFrameId, string>
   : never;
 
 /**
- * Extracts route names safely across layout entries without deep recursion.
+ * Extracts frame names safely across child frames without deep recursion.
  */
-export type ExtractRouteNames<
+export type ExtractFrameNames<
   TTree extends NavigationTree,
 > =
-  RouteName<LeafRouteDefinitions<TTree>>;
+  FrameName<LeafFrameDefinitions<TTree>>;
 
 /**
- * Infers route path parameter types from params or path template tokens.
+ * Infers frame path parameter types from params or path template tokens.
  */
-export type InferRouteParams<TRoute> =
-  TRoute extends RouteDefinition<
-    infer TPath extends string,
-    string | undefined,
-    infer TParamsSchema,
-    QuerySchemaRecord | undefined
-  >
-    ? [TParamsSchema] extends [ParamSchemaRecord]
-      ? InferParamType<TParamsSchema>
-      : [ExtractPathParams<TPath>] extends [never]
-        ? Record<string, never>
-        : Record<ExtractPathParams<TPath>, string>
+export type InferFrameParams<TFrame> =
+  TFrame extends FrameView<any> & {
+        readonly path: infer TPath extends string,
+        readonly params?: infer TParamsSchema,
+      }
+        ? [TParamsSchema] extends [ParamSchemaRecord]
+          ? InferParamType<TParamsSchema>
+          : [ExtractPathParams<TPath>] extends [never]
+            ? Record<string, never>
+            : Record<ExtractPathParams<TPath>, string>
     : Record<string, unknown>;
 
-export type InferRouteQueryInput<TRoute> =
-  TRoute extends RouteDefinition<
-    string,
-    string | undefined,
-    ParamSchemaRecord | undefined,
-    infer TQuerySchema
-  >
-    ? [TQuerySchema] extends [QuerySchemaRecord]
-      ? InferQueryInputType<TQuerySchema>
-      : Record<string, unknown>
+export type InferFrameQueryInput<TFrame> =
+  TFrame extends FrameView<any> & {
+        readonly query?: infer TQuerySchema,
+      }
+        ? [TQuerySchema] extends [QuerySchemaRecord]
+          ? InferQueryInputType<TQuerySchema>
+          : Record<string, unknown>
     : Record<string, unknown>;
 
 type HasRequiredParams<TRoute> =
-  InferRouteParams<TRoute> extends infer TParams
+  InferFrameParams<TRoute> extends infer TParams
     ? keyof TParams extends never
       ? false
       : TParams extends Record<string, never>
@@ -98,21 +90,21 @@ type HasRequiredParams<TRoute> =
 /**
  * Maps options (params, query, navigation state) for a target route name.
  */
-export type RouteOptionsByName<
+export type FrameOptionsByName<
   TTree extends NavigationTree,
   TName extends string,
-> = LeafRouteDefinitions<TTree> extends infer TRoute
-  ? TRoute extends RouteDefinition<string, TName, any, any, any>
+> = LeafFrameDefinitions<TTree> extends infer TRoute
+  ? TRoute extends FrameView<any> & { readonly id: TName; readonly path: string }
     ? HasRequiredParams<TRoute> extends true
       ? {
-          readonly params: InferRouteParams<TRoute>;
-          readonly query?: InferRouteQueryInput<TRoute>;
+          readonly params: InferFrameParams<TRoute>;
+          readonly query?: InferFrameQueryInput<TRoute>;
           readonly state?: unknown;
           readonly replace?: boolean;
         }
       : {
-          readonly params?: InferRouteParams<TRoute>;
-          readonly query?: InferRouteQueryInput<TRoute>;
+          readonly params?: InferFrameParams<TRoute>;
+          readonly query?: InferFrameQueryInput<TRoute>;
           readonly state?: unknown;
           readonly replace?: boolean;
         }
@@ -120,24 +112,24 @@ export type RouteOptionsByName<
   : never;
 
 /**
- * Strongly-typed navigation proxy for Router.
+ * Strongly-typed navigation proxy for FrameNavigator.
  */
 export type TypedNavigate<
   TTree extends NavigationTree,
 > = {
-  [K in ExtractRouteNames<TTree>]: (
-    options?: RouteOptionsByName<TTree, K>,
+  [K in ExtractFrameNames<TTree>]: (
+    options?: FrameOptionsByName<TTree, K>,
   ) => Promise<boolean>;
 };
 
 /**
- * Strongly-typed href generator proxy for Router.
+ * Strongly-typed href generator proxy for FrameNavigator.
  */
 export type TypedHref<
   TTree extends NavigationTree,
 > = {
-  [K in ExtractRouteNames<TTree>]: (
-    options?: RouteOptionsByName<TTree, K>,
+  [K in ExtractFrameNames<TTree>]: (
+    options?: FrameOptionsByName<TTree, K>,
   ) => string | null;
 };
 
@@ -162,14 +154,26 @@ type EntryPreparedData<
 > =
   TEntry extends LayoutDefinition<
     string,
-    infer TEntries extends NavigationTree,
+    infer TChildren extends NavigationTree,
     infer TView extends FrameView<any> | undefined
   >
     ? NavigationPreparedDataFromTree<
-        TEntries,
+        TChildren,
         TName,
         MergePrepared<TParent, FrameViewData<TView>>
       >
+    : TEntry extends FrameView<any> & {
+        readonly id: string;
+        readonly path: string;
+        readonly children: infer TChildren extends NavigationTree;
+      }
+      ? TEntry['id'] extends TName
+        ? MergePrepared<TParent, FrameViewData<TEntry>>
+        : NavigationPreparedDataFromTree<
+            TChildren,
+            TName,
+            MergePrepared<TParent, FrameViewData<TEntry>>
+          >
     : TEntry extends RenderableRoute<
         string,
         infer TRouteName extends string | undefined,
@@ -180,6 +184,8 @@ type EntryPreparedData<
       ? TRouteName extends TName
         ? MergePrepared<TParent, FrameViewData<TFrame>>
         : never
+      : TEntry extends FrameView<any> & { readonly id: TName; readonly path: string }
+        ? MergePrepared<TParent, FrameViewData<TEntry>>
       : never;
 
 type NavigationPreparedDataFromTree<

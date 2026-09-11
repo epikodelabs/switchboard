@@ -89,7 +89,7 @@ import {
   type ViewTransitionsOption,
 } from './vanilla-router';
 
-export interface RouterOptions {
+export interface FrameGraphOptions {
   readonly baseHref?: string;
   readonly enableTracing?: boolean;
   readonly maxRedirects?: number;
@@ -112,13 +112,13 @@ interface ResolvedNavigationInstruction {
   readonly href: string | null;
 }
 
-interface RouterConfiguration<
-  TRoutes extends NavigationTree = NavigationTree,
-> extends RouterOptions {
-  readonly routes: TRoutes;
+interface FrameGraphConfiguration<
+  TFrames extends NavigationTree = NavigationTree,
+> extends FrameGraphOptions {
+  readonly frames: TFrames;
 }
 
-const ROUTER_CONFIGURATION = new InjectionToken<RouterConfiguration>('ROUTER_CONFIGURATION');
+const FRAME_GRAPH_CONFIGURATION = new InjectionToken<FrameGraphConfiguration>('FRAME_GRAPH_CONFIGURATION');
 
 const EMPTY_ROUTER_STATE: RouterState = Object.freeze({
   current: null,
@@ -134,6 +134,12 @@ const EMPTY_ROUTER_STATE: RouterState = Object.freeze({
 });
 
 const lazyComponents = new WeakMap<object, Promise<Type<unknown>>>();
+
+function isRedirectRouteDefinition(
+  route: RouteDefinition,
+): route is RedirectRouteDefinition {
+  return 'redirectTo' in route;
+}
 
 function loadComponent(owner: LayoutDefinition | RenderableRoute): Promise<Type<unknown>> {
   if (owner.component) {
@@ -203,7 +209,7 @@ function buildNamedNavigationPath(
     return null;
   }
 
-  if (record.route.kind === 'redirect') {
+  if (isRedirectRouteDefinition(record.route)) {
     return null;
   }
 
@@ -310,7 +316,7 @@ function adaptFrameTransitions(
   for (const group of groups) {
     const primaryRoute = group.primary.route;
 
-    if (primaryRoute.kind === 'redirect') {
+    if (isRedirectRouteDefinition(primaryRoute)) {
       continue;
     }
 
@@ -520,7 +526,7 @@ function adaptRoute(
   documentRef: Document,
   injector: EnvironmentInjector,
 ): Route {
-  if (route.kind === 'redirect') {
+  if (isRedirectRouteDefinition(route)) {
     return {
       kind: 'redirect',
       name: route.name,
@@ -582,7 +588,7 @@ function adaptRoutes(
       const authoredPrimary =
         group.primary.route;
 
-      if (authoredPrimary.kind === 'redirect') {
+      if (isRedirectRouteDefinition(authoredPrimary)) {
         return adaptRoute(
           authoredPrimary,
           group.primary.path,
@@ -681,7 +687,7 @@ function interpolateNamedPath(
   return path;
 }
 
-export class Router<TRoutes extends NavigationTree = any> {
+export class FrameNavigator<TFrames extends NavigationTree = any> {
   private readonly appRef: ApplicationRef;
   private readonly injector: EnvironmentInjector;
   private readonly destroyRef: DestroyRef;
@@ -699,10 +705,10 @@ export class Router<TRoutes extends NavigationTree = any> {
   private readonly outlets = new Map<string, HTMLElement[]>();
   private tickQueued = false;
 
-  public readonly navigateTo: TypedNavigate<TRoutes>;
-  public readonly hrefTo: TypedHref<TRoutes>;
+  public readonly navigateTo: TypedNavigate<TFrames>;
+  public readonly hrefTo: TypedHref<TFrames>;
 
-  constructor(private readonly configuration: RouterConfiguration<TRoutes>) {
+  constructor(private readonly configuration: FrameGraphConfiguration<TFrames>) {
     this.appRef = inject(ApplicationRef);
     this.injector = inject(EnvironmentInjector);
     this.destroyRef = inject(DestroyRef);
@@ -791,7 +797,7 @@ export class Router<TRoutes extends NavigationTree = any> {
     this.startupTask = task;
     void task
       .catch(error => {
-        console.error('Switchboard router startup failed.', error);
+        console.error('Switchboard frame navigation startup failed.', error);
         const target = this.getOutlet('');
         if (target) {
           const heading = this.document.createElement('h1');
@@ -831,7 +837,7 @@ export class Router<TRoutes extends NavigationTree = any> {
         const target = this.getOutlet(targetName);
 
         if (!target) {
-          throw new Error(`Router outlet "${targetName}" is not connected.`);
+          throw new Error(`Frame outlet "${targetName}" is not connected.`);
         }
 
         replaceChildNodes(target, node);
@@ -841,7 +847,7 @@ export class Router<TRoutes extends NavigationTree = any> {
         // First phase: validate all outlets exist before any DOM mutation.
         for (const outlet of outlets) {
           if (!this.outlets.has(outlet.name)) {
-            throw new Error(`Router outlet "${outlet.name}" is not connected.`);
+            throw new Error(`Frame outlet "${outlet.name}" is not connected.`);
           }
         }
 
@@ -850,7 +856,7 @@ export class Router<TRoutes extends NavigationTree = any> {
           const target = this.getOutlet(outlet.name);
 
           if (!target) {
-            throw new Error(`Router outlet "${outlet.name}" is not connected.`);
+            throw new Error(`Frame outlet "${outlet.name}" is not connected.`);
           }
 
           replaceChildNodes(target, outlet.node);
@@ -1007,7 +1013,7 @@ export class Router<TRoutes extends NavigationTree = any> {
 
   private requireEngine(): VanillaRouter {
     if (!this.engine) {
-      throw new Error('Router has no active outlet.');
+      throw new Error('Frame navigator has no active outlet.');
     }
 
     return this.engine;
@@ -1028,7 +1034,7 @@ export class Router<TRoutes extends NavigationTree = any> {
 
   private composeActiveSource(): NavigationTree {
     return resolveFrameSlots(
-      this.configuration.routes,
+      this.configuration.frames,
       Object.freeze([...this.deliveredBySlot.values()]),
     );
   }
@@ -1172,7 +1178,7 @@ export class Router<TRoutes extends NavigationTree = any> {
     };
   }
 
-  private createNavigateProxy(): TypedNavigate<TRoutes> {
+  private createNavigateProxy(): TypedNavigate<TFrames> {
     return new Proxy(Object.create(null), {
       get: (_target, property) => {
         if (typeof property !== 'string' || property === 'then') {
@@ -1187,10 +1193,10 @@ export class Router<TRoutes extends NavigationTree = any> {
             ) as NamedNavigationTarget,
           );
       },
-    }) as TypedNavigate<TRoutes>;
+    }) as TypedNavigate<TFrames>;
   }
 
-  private createHrefProxy(): TypedHref<TRoutes> {
+  private createHrefProxy(): TypedHref<TFrames> {
     return new Proxy(Object.create(null), {
       get: (_target, property) => {
         if (typeof property !== 'string' || property === 'then') {
@@ -1205,7 +1211,7 @@ export class Router<TRoutes extends NavigationTree = any> {
             ) as NamedNavigationTarget,
           );
       },
-    }) as TypedHref<TRoutes>;
+    }) as TypedHref<TFrames>;
   }
 
   private getOutlet(name: string): HTMLElement | null {
@@ -1233,28 +1239,27 @@ export class Router<TRoutes extends NavigationTree = any> {
   }
 }
 
-export function provideRouter<const TRoutes extends NavigationTree>(
-  routes: TRoutes,
-  options: RouterOptions = {},
+export function provideFrameGraph<const TFrames extends NavigationTree>(
+  frames: TFrames,
+  options: FrameGraphOptions = {},
 ): Provider[] {
-  const config: RouterConfiguration<TRoutes> = {
+  const config: FrameGraphConfiguration<TFrames> = {
     ...options,
-    routes,
+    frames,
   };
 
   return [
     {
-      provide: ROUTER_CONFIGURATION,
+      provide: FRAME_GRAPH_CONFIGURATION,
       useValue: config,
     },
     {
-      provide: Router,
-      useFactory: (configuration: RouterConfiguration<TRoutes>) =>
-        new Router<TRoutes>(configuration),
-      deps: [ROUTER_CONFIGURATION],
+      provide: FrameNavigator,
+      useFactory: (configuration: FrameGraphConfiguration<TFrames>) =>
+        new FrameNavigator<TFrames>(configuration),
+      deps: [FRAME_GRAPH_CONFIGURATION],
     },
   ];
 }
 
-/** Server-delivery alias matching Waypoint's provider vocabulary. */
-export const provideServerRouter = provideRouter;
+export const provideServerFrameGraph = provideFrameGraph;

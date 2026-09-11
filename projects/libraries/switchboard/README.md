@@ -2,7 +2,7 @@
 
 Frame-first navigation primitives for standalone Angular applications.
 
-Switchboard models an application as named frames. A frame owns lifecycle hooks, named companion outlets, transition rules, and an optional server-delivery policy. A route places the frame at a public URL and declares typed parameters and query values. This keeps the navigation contract close to the feature it describes instead of spreading it among a URL table, guards, and component wiring.
+Switchboard models an application as named frames. A frame owns lifecycle hooks, named companion outlets, child frames, transition rules, an optional server-delivery policy, and its URL projection. This keeps the navigation contract close to the feature it describes instead of spreading it among a URL table, guards, and component wiring.
 
 ```bash
 npm install @epikodelabs/switchboard
@@ -13,57 +13,55 @@ Peer dependencies: `@angular/core` and `@angular/common` `>=16.0.0`.
 ## Minimal example
 
 ```ts
-import { frame, provideRouter, route, s } from '@epikodelabs/switchboard';
+import { frame, provideFrameGraph, s } from '@epikodelabs/switchboard';
 
-const profile = frame('profile', ProfilePage, {
+const profile = frame('profile', '/profiles/:id', ProfilePage, {
   directEntry: true,
+  params: { id: s.number({ min: 1 }) },
+  query: { tab: s.string('overview') },
   prepare: async context => ({
     profile: await profileApi.get(Number(context.params['id'])),
   }),
 });
 
-export const routes = [
-  route('/profiles/:id', profile, {
-    params: { id: s.number({ min: 1 }) },
-    query: { tab: s.string('overview') },
-  }),
+export const frames = [
+  profile,
 ] as const;
 
-export const providers = [...provideRouter(routes)];
+export const providers = [...provideFrameGraph(frames)];
 ```
 
-Use `RouterOutlet` to host the primary or named frame outlet. Inject `Router` for `navigate`, `href`, `navigateTo`, and `hrefTo`, or use the `RouterLink` directive in templates.
+Use `RouterOutlet` to host the primary or named frame outlet. Inject `FrameNavigator` for `navigate`, `href`, `navigateTo`, and `hrefTo`, or use the `RouterLink` directive in templates.
 
 ## API at a glance
 
 | API | Role |
 | --- | --- |
-| `frame()` | Define a named application frame. |
-| `route()` | Place a frame or view at a URL. |
-| `layout()` | Compose shell UI around a branch. |
-| `redirect()` | Redirect URL paths or navigation targets. |
+| `frame()` | Define a self-contained application frame and its URL projection. |
+| `redirect()` | Define a redirect frame that targets another frame. |
 | `s` | Runtime schemas and inferred types for URL values. |
 | `frameSlot()` / `framesFor()` | Declare server-delivery ownership boundaries. |
-| `provideRouter()` / `provideServerRouter()` | Install the router and, optionally, a generated resolver. |
+| `provideFrameGraph()` / `provideServerFrameGraph()` | Install the frame graph and, optionally, a generated resolver. |
 
-## Frames and routes
+## Frame Graph
 
-The `routes` array is the only authored navigation tree. A frame owns its
-identity, transitions, outlets, and lifecycle hooks. `route()` gives that frame
-a URL and owns path-specific params and query schemas. When a frame is passed
-to `route()`, its id becomes the route name for typed navigation.
+The `frames` array is the only authored navigation tree. A frame owns its
+identity, URL projection, transitions, outlets, and lifecycle hooks. The
+runtime route table is compiled from the frame tree. A frame id becomes the
+typed navigation name.
 
 ```ts
-const account = frame('account', AccountPage, {
+const account = frame('account', '/accounts/:id', AccountPage, {
+  params: { id: s.number({ min: 1 }) },
   transitions: ['books'],
 });
 
-export const routes = [
-  layout('/app', AppShellComponent, [
-    route('/accounts/:id', account, {
-      params: { id: s.number({ min: 1 }) },
-    }),
-  ]),
+export const frames = [
+  frame('app', '/app', AppShellComponent, {
+    children: [
+      account,
+    ],
+  }),
 ] as const;
 ```
 

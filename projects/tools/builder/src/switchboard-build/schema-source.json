@@ -8,7 +8,7 @@
     "properties": {
       "entry": {
         "type": "string",
-        "default": "src/app/app.routes.ts"
+        "default": "src/app/app.frames.ts"
       },
       "buildManifest": {
         "type": "boolean",

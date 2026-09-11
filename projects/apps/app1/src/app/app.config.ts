@@ -2,8 +2,8 @@ import { ApplicationConfig, importProvidersFrom } from '@angular/core';
 import { HttpClientModule } from '@angular/common/http';
 import { HttpClientInMemoryWebApiModule } from 'angular-in-memory-web-api';
 import { InMemoryDataService } from './services/mock-backend';
-import { provideRouter } from '@epikodelabs/switchboard';
-import { routes } from './app.routes';
+import { provideFrameGraph } from '@epikodelabs/switchboard';
+import { frames } from './app.frames';
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -11,6 +11,6 @@ export const appConfig: ApplicationConfig = {
       HttpClientModule,
       HttpClientInMemoryWebApiModule.forRoot(InMemoryDataService, { delay: 300 })
     ),
-    ...provideRouter(routes, { viewTransitions: true }),
+    ...provideFrameGraph(frames, { viewTransitions: true }),
   ],
 };

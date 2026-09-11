@@ -13,8 +13,7 @@ import type {
   Lazy,
   LayoutOptions,
   NavigationTree,
-  RedirectRouteDefinition,
-  RenderableRoute,
+  RedirectFrameDefinition,
   RouteOptions,
   View,
   ViewDefinition,
@@ -135,10 +134,29 @@ type NormalizePrepareInput<TPrepare> =
       : undefined;
 
 /**
- * Declares a frame: a view with a stable identity, optional transition-graph
- * edges, ownership of companion outlets, and lifecycle behavior. Place frames
- * with `route()`; the frame id becomes the placed route's name.
+ * Declares a frame: a self-contained view with address, stable identity,
+ * transition-graph edges, companion outlets, and lifecycle behavior.
  */
+export function frame<
+  const TId extends string,
+  const TPath extends string,
+  const TChildren extends NavigationTree | undefined = undefined,
+  const TParamsSchema extends ParamSchemaRecord | undefined = undefined,
+  const TQuerySchema extends QuerySchemaRecord | undefined = undefined,
+  const TPrepare extends import('./navigation-definitions').HookInput<FramePrepareFn> | undefined =
+    import('./navigation-definitions').HookInput<FramePrepareFn> | undefined,
+>(
+  id: TId,
+  path: TPath,
+  view: View | FrameView<any>,
+  options?: FrameOptions<TPrepare, TParamsSchema, TQuerySchema> & { readonly children?: TChildren },
+): FrameView<InferPreparedData<NormalizePrepareInput<TPrepare>>> & {
+  readonly id: TId;
+  readonly path: TPath;
+  readonly children?: TChildren;
+  readonly params?: TParamsSchema;
+  readonly query?: TQuerySchema;
+};
 export function frame<
   const TId extends string,
   const TPrepare extends import('./navigation-definitions').HookInput<FramePrepareFn> | undefined =
@@ -146,8 +164,22 @@ export function frame<
 >(
   id: TId,
   view: View | FrameView<any>,
-  options: FrameOptions<TPrepare> = {},
-): FrameView<InferPreparedData<NormalizePrepareInput<TPrepare>>> & { readonly id: TId } {
+  options?: FrameOptions<TPrepare>,
+): FrameView<InferPreparedData<NormalizePrepareInput<TPrepare>>> & { readonly id: TId };
+export function frame<
+  const TId extends string,
+  const TPrepare extends import('./navigation-definitions').HookInput<FramePrepareFn> | undefined =
+    import('./navigation-definitions').HookInput<FramePrepareFn> | undefined,
+>(
+  id: TId,
+  pathOrView: string | View | FrameView<any>,
+  viewOrOptions?: View | FrameView<any> | FrameOptions<TPrepare>,
+  maybeOptions: FrameOptions<TPrepare> = {},
+): FrameView<InferPreparedData<NormalizePrepareInput<TPrepare>>> & { readonly id: TId; readonly path?: string } {
+  const hasPath = typeof pathOrView === 'string';
+  const path = hasPath ? pathOrView : undefined;
+  const view = hasPath ? viewOrOptions as View | FrameView<any> : pathOrView;
+  const options = (hasPath ? maybeOptions : viewOrOptions as FrameOptions<TPrepare> | undefined) ?? {};
   const existing = createViewRecord(view);
   const base = existing.frame ?? ({ kind: 'frame' } as FrameView<any>);
   const beforeEnter = asArray(options.beforeEnter) ?? base.beforeEnter;
@@ -158,7 +190,14 @@ export function frame<
   return {
     kind: 'frame',
     id,
+    ...(path !== undefined ? { path } : {}),
     ...(existing.component !== undefined ? { component: existing.component } : { loadComponent: existing.loadComponent }),
+    ...(options.preload !== undefined ? { preload: options.preload } : {}),
+    ...(options.viewTransition !== undefined ? { viewTransition: options.viewTransition } : {}),
+    ...(options.params !== undefined ? { params: options.params } : {}),
+    ...(options.query !== undefined ? { query: options.query } : {}),
+    ...(options.data !== undefined ? { data: options.data } : {}),
+    ...(options.providers !== undefined ? { providers: options.providers } : {}),
     ...(beforeEnter?.length ? { beforeEnter } : {}),
     ...(beforeLeave?.length ? { beforeLeave } : {}),
     ...(prepare?.length ? { prepare } : {}),
@@ -167,6 +206,7 @@ export function frame<
     ...(options.directEntry !== undefined ? { directEntry: options.directEntry } : {}),
     ...(options.directEntryRedirectTo !== undefined ? { directEntryRedirectTo: options.directEntryRedirectTo } : {}),
     outlets: normalizeFrameOutlets(options.outlets),
+    ...(options.children !== undefined ? { children: options.children } : {}),
     ...(options.policy !== undefined ? { policy: options.policy } : {}),
   } as FrameView<InferPreparedData<NormalizePrepareInput<TPrepare>>> & { readonly id: TId };
 }
@@ -176,94 +216,25 @@ type AuthoredFrame<
   TPrepare extends import('./navigation-definitions').HookInput<FramePrepareFn> | undefined,
 > = TPrepare extends import('./navigation-definitions').HookInput<FramePrepareFn>
   ? FrameView<InferPreparedData<NormalizePrepareInput<TPrepare>>>
-  : TView extends FrameView<any>
+    : TView extends FrameView<any>
     ? TView
     : undefined;
 
-export function route<
-  const TPath extends string,
-  const TFrame extends FrameView<any> & { readonly id: string },
-  const TParamsSchema extends ParamSchemaRecord | undefined = undefined,
-  const TQuerySchema extends QuerySchemaRecord | undefined = undefined,
->(
-  path: TPath,
-  frame: TFrame,
-  options?: Omit<RouteOptions<TFrame['id'], TParamsSchema, TQuerySchema>, 'name'>,
-): RenderableRoute<
-  TPath,
-  TFrame['id'],
-  TParamsSchema,
-  TQuerySchema,
-  AuthoredFrame<TFrame, undefined>
->;
-export function route<
-  const TPath extends string,
-  const TView extends View | FrameView<any>,
-  const TName extends string | undefined = undefined,
-  const TParamsSchema extends ParamSchemaRecord | undefined = undefined,
-  const TQuerySchema extends QuerySchemaRecord | undefined = undefined,
-  const TPrepare extends import('./navigation-definitions').HookInput<FramePrepareFn> | undefined =
-    import('./navigation-definitions').HookInput<FramePrepareFn> | undefined,
->(
-  path: TPath,
-  view: TView,
-  options?: RouteOptions<
-    TName,
-    TParamsSchema,
-    TQuerySchema,
-    TPrepare
-  >,
-): RenderableRoute<
-  TPath,
-  TName,
-  TParamsSchema,
-  TQuerySchema,
-  AuthoredFrame<TView, TPrepare>
->;
-export function route(
-  path: string,
-  view: View | FrameView<any>,
-  options: RouteOptions<any, any, any, any> = {},
-): RenderableRoute<any, any, any, any, any> {
-  const {
-    beforeEnter,
-    beforeLeave,
-    prepare,
-    afterEnter,
-    ...routeOptions
-  } = options;
-
-  const record = normalizeInlineHooks(view, { beforeEnter, beforeLeave, prepare, afterEnter });
-  const name = routeOptions.name ?? record.frame?.id;
-
-  return {
-    kind: 'route',
-    path,
-    ...record,
-    ...routeOptions,
-    ...(name !== undefined ? { name } : {}),
-  } as RenderableRoute<any, any, any, any, any>;
-}
-
 export function redirect<
   const TPath extends string,
-  const TRedirectTo extends string,
   const TName extends string | undefined = undefined,
 >(
   path: TPath,
-  redirectTo: TRedirectTo,
+  target: FrameView<any> & { readonly id: string; readonly path?: string },
   options: Pick<
     RouteOptions<TName, undefined, undefined>,
     'name' | 'data' | 'providers' | 'policy'
   > = {},
-): RedirectRouteDefinition<
-  TPath,
-  TName
-> {
+): RedirectFrameDefinition<TPath, TName> {
   return {
-    kind: 'redirect',
+    kind: 'redirect-frame',
     path,
-    redirectTo,
+    targetFrameId: target.id,
     ...options,
   };
 }
@@ -271,20 +242,20 @@ export function redirect<
 export function layout<
   const TPath extends string,
   const TView extends View | FrameView<any>,
-  const TEntries extends NavigationTree,
+  const TChildren extends NavigationTree,
   const TPrepare extends import('./navigation-definitions').HookInput<FramePrepareFn> | undefined =
     import('./navigation-definitions').HookInput<FramePrepareFn> | undefined,
 >(
   path: TPath,
   view: TView,
-  entries: TEntries,
+  children: TChildren,
   options: LayoutOptions & Pick<
     RouteOptions<any, any, any, TPrepare>,
     'beforeEnter' | 'beforeLeave' | 'prepare' | 'afterEnter'
   > = {},
 ): LayoutDefinition<
   TPath,
-  TEntries,
+  TChildren,
   AuthoredFrame<TView, TPrepare>
 > {
   const {
@@ -299,7 +270,7 @@ export function layout<
     kind: 'layout',
     path,
     ...normalizeInlineHooks(view, { beforeEnter, beforeLeave, prepare, afterEnter }),
-    entries,
+    children,
     ...layoutOptions,
-  } as LayoutDefinition<TPath, TEntries, AuthoredFrame<TView, TPrepare>>;
+  } as LayoutDefinition<TPath, TChildren, AuthoredFrame<TView, TPrepare>>;
 }

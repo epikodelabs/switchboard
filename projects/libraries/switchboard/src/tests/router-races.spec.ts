@@ -5,7 +5,7 @@ import {
 } from '@epikodelabs/switchboard';
 import { idescribe } from './env.spec';
 
-idescribe('Router configuration races', () => {
+idescribe('router configuration races', () => {
   let outlet: HTMLElement;
   let router: VanillaRouter;
 

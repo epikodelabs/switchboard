@@ -6,9 +6,8 @@ import {
   frame,
   frameSlot,
   framesFor,
-  provideServerRouter,
-  route,
-  Router,
+  provideServerFrameGraph,
+  FrameNavigator,
   type ServerFrameResolver,
 } from '@epikodelabs/switchboard';
 
@@ -18,7 +17,7 @@ ensureAngularTestEnvironment();
 class ProtectedComponent {}
 
 describe('Switchboard server frame integration', () => {
-  let router: Router;
+  let navigator: FrameNavigator;
   let outlet: HTMLElement;
 
   beforeEach(() => {
@@ -27,15 +26,15 @@ describe('Switchboard server frame integration', () => {
   });
 
   afterEach(() => {
-    router?.dispose();
+    navigator?.dispose();
     outlet?.remove();
   });
 
   it('resolves protected frames before initial navigation starts', async () => {
     const contribution = framesFor('application', [
-      route('/protected', frame('protected', ProtectedComponent, {
+      frame('protected', '/protected', ProtectedComponent, {
         directEntry: true,
-      })),
+      }),
     ]);
     const resolveFrames: ServerFrameResolver = async url =>
       url.pathname === '/protected'
@@ -50,7 +49,7 @@ describe('Switchboard server frame integration', () => {
     TestBed.configureTestingModule({
       imports: [ProtectedComponent],
       providers: [
-        ...provideServerRouter(
+        ...provideServerFrameGraph(
           [frameSlot('application')],
           { resolveFrames },
         ),
@@ -58,21 +57,21 @@ describe('Switchboard server frame integration', () => {
     });
 
     outlet = document.createElement('div');
-    router = TestBed.inject(Router);
-    router.connect('', outlet);
+    navigator = TestBed.inject(FrameNavigator);
+    navigator.connect('', outlet);
 
     await new Promise(resolve => setTimeout(resolve, 0));
     await new Promise(resolve => setTimeout(resolve, 0));
 
-    expect(router.state.path).toBe('/protected');
+    expect(navigator.state.path).toBe('/protected');
     expect(outlet.innerHTML).toContain('<h1>Protected</h1>');
   });
 
   it('resolves a missing path before programmatic navigation', async () => {
     const contribution = framesFor('application', [
-      route('/protected', frame('protected', ProtectedComponent, {
+      frame('protected', '/protected', ProtectedComponent, {
         directEntry: true,
-      })),
+      }),
     ]);
     let calls = 0;
     const resolveFrames: ServerFrameResolver = async url => {
@@ -89,7 +88,7 @@ describe('Switchboard server frame integration', () => {
     TestBed.configureTestingModule({
       imports: [ProtectedComponent],
       providers: [
-        ...provideServerRouter(
+        ...provideServerFrameGraph(
           [frameSlot('application')],
           { resolveFrames },
         ),
@@ -97,13 +96,13 @@ describe('Switchboard server frame integration', () => {
     });
 
     outlet = document.createElement('div');
-    router = TestBed.inject(Router);
-    router.connect('', outlet);
+    navigator = TestBed.inject(FrameNavigator);
+    navigator.connect('', outlet);
     await new Promise(resolve => setTimeout(resolve, 0));
 
-    expect(await router.navigate({ path: '/protected' })).toBeTrue();
+    expect(await navigator.navigate({ path: '/protected' })).toBeTrue();
     expect(calls).toBeGreaterThan(0);
-    expect(router.state.path).toBe('/protected');
+    expect(navigator.state.path).toBe('/protected');
     expect(outlet.innerHTML).toContain('<h1>Protected</h1>');
   });
 });

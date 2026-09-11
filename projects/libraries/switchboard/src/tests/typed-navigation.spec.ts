@@ -1,48 +1,46 @@
 import {
   frame,
-  layout,
-  route,
   s,
-  type Router,
+  type FrameNavigator,
 } from '@epikodelabs/switchboard';
 
 class DashboardLayout {}
 class DashboardPage {}
 class SettingsPage {}
-class LegacyPage {}
 
-const dashboardFrame = frame('dashboard', DashboardPage);
+const dashboardFrame = frame('dashboard', '/dashboard/:projectId', DashboardPage, {
+  params: {
+    projectId: s.number({ min: 1 }),
+  },
+  query: {
+    tab: s.string('overview'),
+    page: s.number({ default: 1, min: 1 }),
+    filters: s.array(),
+    draft: s.optional(s.boolean()),
+  },
+});
 
-const settingsFrame = frame('settings', SettingsPage);
+const settingsFrame = frame('settings', '/settings', SettingsPage, {
+  query: {
+    section: s.string('general'),
+  },
+});
 
-const routes = [
-  layout('/app', DashboardLayout, [
-    route('/settings', settingsFrame, {
-      query: {
-        section: s.string('general'),
-      },
-    }),
-    route('/dashboard/:projectId', dashboardFrame, {
-      params: {
-        projectId: s.number({ min: 1 }),
-      },
-      query: {
-        tab: s.string('overview'),
-        page: s.number({ default: 1, min: 1 }),
-        filters: s.array(),
-        draft: s.optional(s.boolean()),
-      },
-    }),
-    route('/legacy', LegacyPage),
-  ]),
+const frames = [
+  frame('app', '/app', DashboardLayout, {
+    children: [
+      settingsFrame,
+      dashboardFrame,
+    ],
+  }),
 ] as const;
 
-function assertNamedNavigation(router: Router<typeof routes>): void {
-  void router.navigateTo.dashboard({
+function assertNamedNavigation(navigator: FrameNavigator<typeof frames>): void {
+  void navigator.navigateTo.dashboard({
     params: { projectId: 123 },
   });
 
-  void router.navigateTo.dashboard({
+  void navigator.navigateTo.dashboard({
     params: { projectId: 123 },
     query: {
       tab: 'settings',
@@ -52,11 +50,11 @@ function assertNamedNavigation(router: Router<typeof routes>): void {
     },
   });
 
-  void router.navigateTo.settings({
+  void navigator.navigateTo.settings({
     query: { section: 'billing' },
   });
 
-  const href = router.hrefTo.dashboard({
+  const href = navigator.hrefTo.dashboard({
     params: { projectId: 123 },
     query: { tab: 'overview' },
   });
@@ -64,11 +62,11 @@ function assertNamedNavigation(router: Router<typeof routes>): void {
   const typedHref: string | null = href;
   void typedHref;
 
-  // @ts-expect-error route name must exist in the configured navigation tree
-  void router.navigateTo.missing();
+  // @ts-expect-error frame name must exist in the configured navigation tree
+  void navigator.navigateTo.missing();
 }
 
-describe('typed routes typings', () => {
+describe('typed frame navigation typings', () => {
   it('discovers named frames nested inside layouts', () => {
     expect(typeof assertNamedNavigation).toBe('function');
   });

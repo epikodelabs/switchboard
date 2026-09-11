@@ -1,9 +1,13 @@
 import { inject } from '@angular/core';
-import { frame } from '@epikodelabs/switchboard';
+import { frame, s } from '@epikodelabs/switchboard';
 import { JournalPage } from '../components/journal.page';
 import { LedgerService } from '../services/ledger.service';
 
-export const journalFrame = frame('journal', JournalPage, {
+export const journalFrame = frame('journal', '/journal', JournalPage, {
+  query: {
+    entryId: s.optional(s.string()),
+    accountId: s.optional(s.string()),
+  },
   directEntry: true,
   transitions: ['books', 'entry', 'account'],
   prepare: async context => ({

@@ -10,8 +10,7 @@ The authored graph has two ownership primitives:
 frameSlot('administration')
 
 framesFor('administration', [
-  frame('admin', AdminPage, {
-    address: '/admin',
+  frame('admin', '/admin', AdminPage, {
     policy: {
       roles: ['admin'],
       permissions: ['admin:read'],

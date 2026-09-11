@@ -1,7 +1,7 @@
 import { Component, DestroyRef, DoCheck, inject, signal } from '@angular/core';
 import {
   ROUTER_LOCATION_CHANGE_EVENT,
-  Router,
+  FrameNavigator,
   RouterLink,
   RouterOutlet,
 } from '@epikodelabs/switchboard';
@@ -21,7 +21,7 @@ interface HeaderSnapshot {
   styleUrl: './app.css',
 })
 export class App implements DoCheck {
-  private readonly router = inject(Router);
+  private readonly navigator = inject(FrameNavigator);
   private readonly destroyRef = inject(DestroyRef);
   private readonly headerPulseToken = signal<number | null>(null);
   protected readonly headerState = signal<HeaderSnapshot>(this.readHeaderState());
@@ -91,14 +91,13 @@ export class App implements DoCheck {
   }
 
   private readHeaderState(): HeaderSnapshot {
-    const state = this.router.state;
+    const state = this.navigator.state;
 
     return {
       frame: String(state.current?.config.name ?? state.routeConfig?.name ?? 'dock'),
       phase: state.phase ?? 'idle',
-      address: this.router.displayUrl || '/',
+      address: this.navigator.displayUrl || '/',
       transitioning: state.pending,
     };
   }
 }
-

@@ -10,7 +10,7 @@ export interface LoadedContribution {
   readonly exportName: string;
 }
 export interface NavigationSnapshot {
-  readonly rootRoutes: readonly any[];
+  readonly rootFrames: readonly any[];
   readonly contributions: readonly LoadedContribution[];
 }
 
@@ -30,15 +30,15 @@ export async function loadNavigationSnapshot(projectRoot: string, entry: string,
   const imports = transformedFrames.map((file, index) => `import * as frameModule${index} from ${JSON.stringify(asImportPath(file))};`);
   const descriptors = frameFiles.map((file, index) => `{ sourceFile: ${JSON.stringify(file)}, exports: frameModule${index} }`);
   await fs.writeFile(sourceFile, [
-    `import { routes as rootRoutes } from ${JSON.stringify(asImportPath(transformedEntry!))};`,
+    `import * as rootModule from ${JSON.stringify(asImportPath(transformedEntry!))};`,
     ...imports,
-    `export default { rootRoutes, modules: [${descriptors.join(',')}] };`,
+    `export default { rootFrames: rootModule.frames, modules: [${descriptors.join(',')}] };`,
   ].join('\n'), 'utf8');
 
   await build({ entryPoints: [sourceFile], outfile: bundleFile, bundle: true, platform: 'node', format: 'esm', target: 'node22', logLevel: 'silent' });
   const loaded = await import(`${pathToFileURL(bundleFile).href}?t=${Date.now()}`);
-  const payload = loaded.default as { rootRoutes?: unknown; modules?: readonly {sourceFile?: unknown; exports?: unknown}[] };
-  if (!Array.isArray(payload.rootRoutes)) throw new Error(`Switchboard entry "${entry}" did not export a NavigationTree named "routes".`);
+  const payload = loaded.default as { rootFrames?: unknown; modules?: readonly {sourceFile?: unknown; exports?: unknown}[] };
+  if (!Array.isArray(payload.rootFrames)) throw new Error(`Switchboard entry "${entry}" did not export a NavigationTree named "frames".`);
 
   const contributions: LoadedContribution[] = [];
   for (const module of payload.modules ?? []) {
@@ -52,7 +52,7 @@ export async function loadNavigationSnapshot(projectRoot: string, entry: string,
       }));
     }
   }
-  return Object.freeze({ rootRoutes: Object.freeze([...payload.rootRoutes]), contributions: Object.freeze(contributions) });
+  return Object.freeze({ rootFrames: Object.freeze([...payload.rootFrames]), contributions: Object.freeze(contributions) });
 }
 
 async function discoverFrameModules(sourceRoot: string, entry: string): Promise<readonly string[]> {
@@ -126,15 +126,16 @@ function switchboardStubSource(): string {
     `}`,
     `export function frameSlot(slotId) { return { kind: 'frame-slot', slotId }; }`,
     `let nextContributionIdentity = 1;`,
-    `export function framesFor(slotId, entries) { return { kind: 'frame-contribution', slotId, id: slotId + '@' + nextContributionIdentity++, entries }; }`,
-    `export function frame(id, view, options = {}) { return Object.assign({ kind: 'frame', id }, splitView(view), options); }`,
-    `export function route(path, view, options = {}) {`,
-    `  const { beforeEnter, beforeLeave, prepare, afterEnter, ...rest } = options;`,
-    `  const record = splitView(view);`,
-    `  return Object.assign({ kind: 'route', path }, record, rest, { name: rest.name !== undefined ? rest.name : record.frame ? record.frame.id : undefined });`,
+    `export function framesFor(slotId, children) { return { kind: 'frame-contribution', slotId, id: slotId + '@' + nextContributionIdentity++, children }; }`,
+    `export function frame(id, pathOrView, viewOrOptions = {}, maybeOptions = {}) {`,
+    `  const hasPath = typeof pathOrView === 'string';`,
+    `  const path = hasPath ? pathOrView : undefined;`,
+    `  const view = hasPath ? viewOrOptions : pathOrView;`,
+    `  const options = hasPath ? maybeOptions : viewOrOptions;`,
+    `  return Object.assign({ kind: 'frame', id }, path === undefined ? {} : { path }, splitView(view), options);`,
     `}`,
-    `export function redirect(path, redirectTo, options = {}) { return Object.assign({ kind: 'redirect', path, redirectTo }, options); }`,
-    `export function layout(path, view, entries, options = {}) { return Object.assign({ kind: 'layout', path }, splitView(view), { entries }, options); }`,
+    `export function redirect(path, target, options = {}) { return Object.assign({ kind: 'redirect-frame', path, targetFrameId: target && target.id }, options); }`,
+    `export function layout(path, view, children, options = {}) { return Object.assign({ kind: 'layout', path }, splitView(view), { children }, options); }`,
     `export const s = Object.freeze({ number(options = {}) { return { _type: 'number', ...options }; }, string(value) { return { _type: 'string', default: value }; }, array(value) { return { _type: 'array', default: value }; }, optional(inner) { return { _type: 'optional', inner }; }, boolean(value) { return { _type: 'boolean', default: value }; }, date(value) { return { _type: 'date', default: value }; } });`,
     ''
   ].join('\n');
@@ -143,8 +144,8 @@ function contributionArtifactKey(projectRoot: string, sourceFile: string, export
   const relative = path.relative(projectRoot, sourceFile).split(path.sep).join('/').replace(/\.(?:frames?|routes)\.ts$/i, '');
   return `${relative}#${exportName}`;
 }
-function isContribution(value: unknown): value is {kind:'frame-contribution';slotId:string;id:string;entries:readonly unknown[]} {
+function isContribution(value: unknown): value is {kind:'frame-contribution';slotId:string;id:string;children:readonly unknown[]} {
   if (!value || typeof value !== 'object') return false;
   const c = value as any;
-  return c.kind === 'frame-contribution' && typeof c.slotId === 'string' && !!c.slotId.trim() && typeof c.id === 'string' && !!c.id.trim() && Array.isArray(c.entries);
+  return c.kind === 'frame-contribution' && typeof c.slotId === 'string' && !!c.slotId.trim() && typeof c.id === 'string' && !!c.id.trim() && Array.isArray(c.children);
 }

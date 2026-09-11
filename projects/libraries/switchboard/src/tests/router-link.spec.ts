@@ -5,9 +5,9 @@ import { TestBed } from '@angular/core/testing';
 import {
   RouterLink,
   RouterOutlet,
-  Router,
-  provideRouter,
-  route,
+  FrameNavigator,
+  provideFrameGraph,
+  frame,
 } from '@epikodelabs/switchboard';
 
 ensureAngularTestEnvironment();
@@ -61,7 +61,7 @@ class RouterLinkHostComponent {
 }
 
 describe('RouterLink', () => {
-  let router: Router;
+  let navigator: FrameNavigator;
 
   beforeEach(() => {
     TestBed.resetTestingModule();
@@ -69,10 +69,10 @@ describe('RouterLink', () => {
   });
 
   afterEach(() => {
-    router?.dispose();
+    navigator?.dispose();
   });
 
-  it('binds href for routerLink and navigates through anchor clicks', async () => {
+  it('binds href for RouterLink and navigates through anchor clicks', async () => {
     await TestBed.configureTestingModule({
       imports: [
         HomeComponent,
@@ -80,15 +80,15 @@ describe('RouterLink', () => {
         RouterLinkHostComponent,
       ],
       providers: [
-        ...provideRouter([
-          route('/', HomeComponent),
-          route('/about', AboutComponent),
+        ...provideFrameGraph([
+          frame('home', '/', HomeComponent),
+          frame('about', '/about', AboutComponent),
         ]),
       ],
     }).compileComponents();
 
     const fixture = TestBed.createComponent(RouterLinkHostComponent);
-    router = TestBed.inject(Router);
+    navigator = TestBed.inject(FrameNavigator);
 
     fixture.detectChanges();
     await delay();
@@ -106,7 +106,7 @@ describe('RouterLink', () => {
     fixture.detectChanges();
 
     expect(defaultPrevented).toBeTrue();
-    expect(router.state.current?.path).toBe('/about');
+    expect(navigator.state.current?.path).toBe('/about');
     expect(host.textContent).toContain('About');
   });
 });

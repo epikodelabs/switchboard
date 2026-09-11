@@ -2,7 +2,7 @@
 
 Switchboard is frame-first navigation for standalone Angular applications. A frame is a product state—a screen, workflow step, or protected capability—not merely a URL. Frames own their identity, view, lifecycle, typed input, companion outlets, and allowed transitions; URLs are an optional projection of that model.
 
-It is a good fit when navigation needs to describe an application model clearly: multi-step work, internal states, shell layouts, typed URLs, or server-authorized feature branches. It is intentionally not a drop-in replacement for every Angular Router feature.
+It is a good fit when navigation needs to describe an application model clearly: multi-step work, internal states, shell layouts, typed URLs, or server-authorized feature branches. It is intentionally not a drop-in replacement for every Angular FrameNavigator feature.
 
 ## Install
 
@@ -18,89 +18,86 @@ Switchboard supports standalone Angular applications and requires `@angular/core
 import { inject } from '@angular/core';
 import {
   frame,
-  layout,
-  provideRouter,
+  provideFrameGraph,
   redirect,
-  route,
   s,
 } from '@epikodelabs/switchboard';
 
-const books = frame('books', BooksPage, {
+const books = frame('books', '/books', BooksPage, {
   directEntry: true,
   transitions: ['account'],
   outlets: { sidebar: BooksSidebarComponent },
   prepare: async () => ({ books: await inject(BookService).list() }),
 });
 
-const account = frame('account', AccountPage, {
+const account = frame('account', '/accounts/:accountId', AccountPage, {
+  params: { accountId: s.number({ min: 1 }) },
   transitions: ['books'],
 });
 
-export const routes = [
-  redirect('/', '/ledger/books'),
-  layout('/ledger', LedgerShellComponent, [
-    route('/books', books, { query: { sort: s.string('recent') } }),
-    route('/accounts/:accountId', account, {
-      params: { accountId: s.number({ min: 1 }) },
-    }),
-  ]),
+export const frames = [
+  redirect('/', books),
+  frame('ledger', '/ledger', LedgerShellComponent, {
+    children: [
+      redirect('', books),
+      books,
+      account,
+    ],
+  }),
 ] as const;
 
-export const appConfig = { providers: [...provideRouter(routes)] };
+export const appConfig = { providers: [...provideFrameGraph(frames)] };
 ```
 
-Use `RouterOutlet` in the shell and inject `Router` wherever navigation is needed. `router.navigateTo.books({ query: { sort: 'title' } })` and `router.hrefTo.account({ params: { accountId: 42 } })` are type-checked from the same definition.
+Use `RouterOutlet` in the shell and inject `FrameNavigator` wherever navigation is needed. `FrameNavigator.navigateTo.books({ query: { sort: 'title' } })` and `FrameNavigator.hrefTo.account({ params: { accountId: 42 } })` are type-checked from the same definition.
 
 ## Core model
 
 | Building block | Purpose |
 | --- | --- |
-| `frame(id, view, options)` | Defines a named application state and its lifecycle, graph, and companion outlets. |
-| `route(path, frame, options)` | Places a frame at a URL and declares that URL's typed params and query values. |
-| `layout(path, view, entries)` | Adds shell UI around a branch of the route tree. |
-| `redirect(path, target)` | Declares a URL redirect. |
+| `frame(id, path, view, options)` | Defines a self-contained application state, its URL projection, lifecycle, graph, and companion outlets. |
+| `frame(id, path, view, { children })` | Adds parent UI around navigable child frames. |
+| `redirect(path, targetFrame)` | Defines a redirect frame that targets another frame. |
 | `s` | Defines typed, runtime-validated params and query strings. |
 | `RouterLink`, `navigateTo`, `hrefTo` | Produces typed links and navigation instructions. |
 
-### Frames and routes
+### Frame Graph
 
-There is one authored navigation tree: the `routes` array passed to
-`provideRouter()`. A frame is not a route by itself. It owns a stable identity,
-transition rules, companion outlets, and lifecycle behavior; `route()` places
-that frame at a URL. A frame's id becomes the placed route's name, so typed
-navigation is still derived from the same tree.
+There is one authored navigation tree: the `frames` array passed to
+`provideFrameGraph()`. It contains frames, ownership slots, and redirect frames.
+A frame owns a stable identity, URL projection, transition rules, companion
+outlets, child frames, and lifecycle behavior. The runtime route table is
+compiled from that graph.
 
-This separation lets one frame define product behavior while its route owns
-URL-specific details such as a path, params, query schema, and layout. Use
-`transitions` to control which frames may follow one another, and `directEntry`
-or `directEntryRedirectTo` to control cold URL entry.
+Use `transitions` to control which frames may follow one another, and
+`directEntry` or `directEntryRedirectTo` to control cold URL entry.
 
 ## Server-delivered frame graphs
 
 For applications where browser disclosure of a feature branch is authorization-sensitive, split the navigation graph into ownership slots. `frameSlot()` declares a server-owned boundary and `framesFor()` contributes a branch. Artifact ids are generated by the builder—authors only name the slot.
 
 ```ts
-import { frame, frameSlot, framesFor, route } from '@epikodelabs/switchboard';
+import { frame, frameSlot, framesFor } from '@epikodelabs/switchboard';
 
-export const routes = [frameSlot('application')] as const;
+export const frames = [frameSlot('application')] as const;
 
 export const applicationFrames = framesFor('application', [
-  route('/workspace', frame('workspace', WorkspacePage, {
+  frame('workspace', '/workspace', WorkspacePage, {
     policy: { roles: ['member'] },
-  })),
+  }),
 ] as const);
 ```
 
 `@epikodelabs/switchboard-builder` discovers contributions, creates isolated content-addressed artifacts, checks that protected source is absent from the public host, and publishes the metadata consumed by a server template. The server authorizes the complete dependency chain; the client imports only the delivered contributions.
 
 ```ts
-import { provideServerRouter } from '@epikodelabs/switchboard';
+import { provideServerFrameGraph } from '@epikodelabs/switchboard';
 import { resolveFrames } from './switchboard.generated/resolver';
 
-providers: [...provideServerRouter(routes, { resolveFrames })]
+providers: [...provideServerFrameGraph(frames, { resolveFrames })]
 ```
 
-The router handles initial resolution, missing-destination resolution, graph installation, cancellation, and artifact-refresh retry. Do not serve `protected/` as public static files.
+The FrameNavigator handles initial resolution, missing-destination resolution, graph installation, cancellation, and artifact-refresh retry. Do not serve `protected/` as public static files.
 
 ## Documentation and examples
 

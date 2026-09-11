@@ -27,7 +27,7 @@ The build owner is `@epikodelabs/switchboard-builder`. Its Angular builder is `@
 A protected-delivery application should use an entry shaped like:
 
 ```ts
-export const routes = [
+export const frames = [
   frameSlot('public'),
   frameSlot('application'),
 ] as const satisfies NavigationTree;
@@ -37,8 +37,8 @@ and contribute implementation separately:
 
 ```ts
 export const applicationFrames = framesFor('application', [
-  frame('workspace', WorkspacePage, {
-    address: '/workspace',
+  frame('workspace', '/workspace', WorkspacePage, {
+    policy: { roles: ['member'] },
   }),
   frameSlot('administration'),
 ]);

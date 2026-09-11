@@ -4,7 +4,7 @@ export { frameSlot, framesFor, resolveFrameSlots } from './frame-slots';
 export * from './frame-delivery';
 export * from './query-schema';
 export * from './route-adapter';
-export * from './route-builders';
+export * from './frame-builders';
 export * from './route-path';
 export { RouterLink } from './router-link';
 export * from './navigation-definitions';
@@ -42,6 +42,6 @@ export {
     type ViewTransitionsOption
 } from './vanilla-router';
 export {
-    provideRouter, provideServerRouter, ROUTE,
-    ROUTE_CONTEXT, Router, type RouterOptions
-} from './router';
+    provideFrameGraph, provideServerFrameGraph, ROUTE,
+    ROUTE_CONTEXT, FrameNavigator, type FrameGraphOptions
+} from './frame-navigator';

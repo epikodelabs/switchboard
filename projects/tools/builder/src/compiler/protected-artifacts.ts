@@ -124,11 +124,11 @@ export async function buildProtectedFrameArtifacts(
     const hostExports =
       await collectHostModuleExports(aotRoot);
 
-    const entriesRoot =
-      path.join(aotRoot, '.entries');
+    const frameEntrypointsRoot =
+      path.join(aotRoot, '.frame-entrypoints');
 
     await fs.mkdir(
-      entriesRoot,
+      frameEntrypointsRoot,
       { recursive: true },
     );
 
@@ -142,7 +142,7 @@ export async function buildProtectedFrameArtifacts(
         await writeArtifactEntry(
           workspaceRoot,
           aotRoot,
-          entriesRoot,
+          frameEntrypointsRoot,
           artifact,
         );
 
@@ -347,7 +347,7 @@ async function compileFullAot(
 async function writeArtifactEntry(
   workspaceRoot: string,
   aotRoot: string,
-  entriesRoot: string,
+  frameEntrypointsRoot: string,
   artifact: PlannedArtifact,
 ): Promise<string> {
   const relative =
@@ -378,7 +378,7 @@ async function writeArtifactEntry(
 
   const entryPath =
     path.join(
-      entriesRoot,
+      frameEntrypointsRoot,
       `${safeStem(
         artifact.artifactKey,
       )}.mjs`,

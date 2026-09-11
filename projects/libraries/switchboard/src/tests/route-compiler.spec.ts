@@ -1,7 +1,6 @@
 import {
   frame,
-  layout,
-  route,
+  redirect,
   s,
 } from '@epikodelabs/switchboard';
 
@@ -10,12 +9,14 @@ import { createRouteRegistry } from '../lib/route-compiler';
 class TestPage {}
 class TestLayout {}
 
-describe('route compiler parameter validation', () => {
-  it('rejects duplicate parameter names across layouts and leaf routes', () => {
+describe('frame compiler parameter validation', () => {
+  it('rejects duplicate parameter names across parent and child frames', () => {
     const routes = [
-      layout('/teams/:id', TestLayout, [
-        route('/members/:id', TestPage),
-      ]),
+      frame('team', '/teams/:id', TestLayout, {
+        children: [
+          frame('member', '/members/:id', TestPage),
+        ],
+      }),
     ] as const;
 
     expect(() => createRouteRegistry(routes)).toThrowError(
@@ -25,7 +26,7 @@ describe('route compiler parameter validation', () => {
 
   it('rejects params keys that are absent from the compiled path', () => {
     const routes = [
-      route('/users/:userId', TestPage, {
+      frame('user', '/users/:userId', TestPage, {
         params: {
           id: s.number(),
         },
@@ -39,7 +40,7 @@ describe('route compiler parameter validation', () => {
 
   it('requires every path parameter to be declared when params is present', () => {
     const routes = [
-      route('/teams/:teamId/users/:userId', TestPage, {
+      frame('user', '/teams/:teamId/users/:userId', TestPage, {
         params: {
           teamId: s.number(),
         },
@@ -53,23 +54,25 @@ describe('route compiler parameter validation', () => {
 
   it('accepts an exact params schema for the compiled path', () => {
     const routes = [
-      layout('/teams/:teamId', TestLayout, [
-        route('/users/:userId', TestPage, {
-          params: {
-            teamId: s.number(),
-            userId: s.number(),
-          },
-        }),
-      ]),
+      frame('team', '/teams/:teamId', TestLayout, {
+        children: [
+          frame('user', '/users/:userId', TestPage, {
+            params: {
+              teamId: s.number(),
+              userId: s.number(),
+            },
+          }),
+        ],
+      }),
     ] as const;
 
     expect(() => createRouteRegistry(routes)).not.toThrow();
   });
 
-  it('uses the frame id as the placed route name', () => {
-    const frameId = frame('books', TestPage, {});
+  it('uses direct frame entries as named navigation records', () => {
+    const booksFrame = frame('books', '/books', TestPage, {});
     const routes = [
-      route('/books', frameId),
+      booksFrame,
     ] as const;
 
     const registry = createRouteRegistry(routes);
@@ -77,13 +80,45 @@ describe('route compiler parameter validation', () => {
     expect(registry.frames.byId.get('books')?.matchPath).toBe('/books');
   });
 
+  it('resolves redirect frame targets through the compiled frame graph', () => {
+    const booksFrame = frame('books', '/books', TestPage, {});
+    const routes = [
+      frame('ledger', '/ledger', TestLayout, {
+        children: [
+          redirect('', booksFrame),
+          booksFrame,
+        ],
+      }),
+    ] as const;
+
+    const registry = createRouteRegistry(routes);
+    const group = registry.groups.find(g => g.primary.path === '/ledger');
+
+    expect(group?.primary.redirectTo).toBe('/ledger/books');
+  });
+
+  it('compiles child frames through their parent frame', () => {
+    const child = frame('child', '/child', TestPage);
+    const routes = [
+      frame('parent', '/parent', TestLayout, {
+        children: [child],
+      }),
+    ] as const;
+
+    const registry = createRouteRegistry(routes);
+
+    expect(registry.namedRoutes.has('parent')).toBeFalse();
+    expect(registry.namedRoutes.get('child')?.fullPath).toBe('/parent/child');
+    expect(registry.groups.find(g => g.primary.path === '/parent/child')?.primary.layouts.length).toBe(1);
+  });
+
   it('synthesizes outlet routes for a frame that owns outlets', () => {
     class Sidebar {}
-    const withSidebar = frame('books', TestPage, {
+    const withSidebar = frame('books', '/books', TestPage, {
       outlets: { sidebar: Sidebar },
     });
     const routes = [
-      route('/books', withSidebar),
+      withSidebar,
     ] as const;
 
     const registry = createRouteRegistry(routes);
@@ -94,11 +129,11 @@ describe('route compiler parameter validation', () => {
   });
 
   it('rejects transition targets that are not placed', () => {
-    const isolated = frame('books', TestPage, {
+    const isolated = frame('books', '/books', TestPage, {
       transitions: ['account'],
     });
     const routes = [
-      route('/books', isolated),
+      isolated,
     ] as const;
 
     expect(() => createRouteRegistry(routes)).toThrowError(

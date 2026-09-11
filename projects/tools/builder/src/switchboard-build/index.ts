@@ -83,7 +83,7 @@ async function execute(
     const entry = path.resolve(
       workspaceRoot,
       projectRoot,
-      switchboard.entry ?? 'src/app/app.routes.ts',
+      switchboard.entry ?? 'src/app/app.frames.ts',
     );
 
     const analysis = await analyze({

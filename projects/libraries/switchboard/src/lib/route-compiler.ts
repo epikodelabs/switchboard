@@ -1,4 +1,3 @@
-import { route } from './route-builders';
 import {
   compileRoutePath,
   extractRouteParamNames,
@@ -10,14 +9,51 @@ import type {
   FrameView,
   LayoutDefinition,
   NavigationTree,
+  RedirectFrameDefinition,
+  RedirectRouteDefinition,
+  RenderableRoute,
   RouteDefinition,
 } from './navigation-definitions';
+
+function isRedirectRouteDefinition(
+  route: unknown,
+): route is RedirectRouteDefinition {
+  return typeof route === 'object'
+    && route !== null
+    && 'redirectTo' in route;
+}
+
+function isRedirectFrameDefinition(
+  entry: NavigationTree[number],
+): entry is RedirectFrameDefinition {
+  return entry.kind === 'redirect-frame';
+}
+
+function isFrameDefinition(
+  entry: NavigationTree[number],
+): entry is FrameView {
+  return entry.kind === 'frame';
+}
+
+function createOutletRoute(
+  path: string,
+  outlet: string,
+  view: FrameView,
+): RenderableRoute {
+  return {
+    kind: 'route',
+    path,
+    outlet,
+    ...(view.component !== undefined ? { component: view.component } : { loadComponent: view.loadComponent }),
+    frame: view,
+  };
+}
 
 function validateCompiledRouteParams(
   route: RouteDefinition,
   path: string,
 ): void {
-  if (route.kind === 'redirect') {
+  if (isRedirectRouteDefinition(route)) {
     return;
   }
 
@@ -62,6 +98,7 @@ interface CompiledRoute {
   readonly route: RouteDefinition;
   readonly path: string;
   readonly redirectTo?: string;
+  readonly redirectFrameTargetId?: string;
   readonly layouts:
     readonly LayoutDefinition[];
 }
@@ -103,7 +140,7 @@ function compileEntry(
 ): void {
   if (entry.kind === 'layout') {
     compileRoutes(
-      entry.entries,
+      entry.children,
       joinRoutePath(
         parentPath,
         entry.path,
@@ -124,52 +161,100 @@ function compileEntry(
     return;
   }
 
-  if (entry.kind === 'redirect') {
+  if (isRedirectFrameDefinition(entry)) {
     const path =
       joinRoutePath(
         parentPath,
         entry.path,
       );
 
+    const routeRecord: RedirectRouteDefinition = {
+      kind: 'route',
+      path: entry.path,
+      ...(entry.name !== undefined ? { name: entry.name } : {}),
+      redirectTo: entry.targetFrameId,
+      ...(entry.data !== undefined ? { data: entry.data } : {}),
+      ...(entry.providers !== undefined ? { providers: entry.providers } : {}),
+      ...(entry.policy !== undefined ? { policy: entry.policy } : {}),
+    };
+
     output.push({
-      route: entry,
+      route: routeRecord,
       path,
-      redirectTo: compileRedirect(parentPath, entry.redirectTo),
+      redirectFrameTargetId: entry.targetFrameId,
       layouts,
     });
 
     return;
   }
 
-  const path =
-    joinRoutePath(
-      parentPath,
-      entry.path,
-    );
+  if (isFrameDefinition(entry)) {
+    if (entry.path === undefined) {
+      throw new Error(`Frame "${entry.id ?? '(anonymous)'}" cannot be used as a navigation entry without a path.`);
+    }
 
-  const frame = entry.frame;
-  const routeRecord: RouteDefinition =
-    frame?.id !== undefined && entry.name === undefined
-      ? Object.freeze({ ...entry, name: frame.id })
-      : entry;
-
-  output.push({
-    route: routeRecord,
-    path,
-    layouts,
-  });
-
-  for (const outlet of frame?.outlets ?? []) {
-    output.push({
-      route: route(
+    const path =
+      joinRoutePath(
+        parentPath,
         entry.path,
-        outlet.view,
-        { outlet: outlet.outlet },
-      ),
+      );
+
+    if (entry.children) {
+      const frameLayout: LayoutDefinition = {
+        kind: 'layout',
+        path: entry.path,
+        children: entry.children,
+        ...(entry.providers !== undefined ? { providers: entry.providers } : {}),
+        ...(entry.component !== undefined ? { component: entry.component } : { loadComponent: entry.loadComponent }),
+        frame: entry,
+      };
+
+      compileRoutes(
+        entry.children,
+        path,
+        Object.freeze([
+          ...layouts,
+          frameLayout,
+        ]),
+        output,
+      );
+
+      return;
+    }
+
+    const routeRecord: RenderableRoute = {
+      kind: 'route',
+      path: entry.path,
+      ...(entry.name !== undefined ? { name: entry.name } : entry.id !== undefined ? { name: entry.id } : {}),
+      ...(entry.preload !== undefined ? { preload: entry.preload } : {}),
+      ...(entry.viewTransition !== undefined ? { viewTransition: entry.viewTransition } : {}),
+      ...(entry.params !== undefined ? { params: entry.params } : {}),
+      ...(entry.query !== undefined ? { query: entry.query } : {}),
+      ...(entry.data !== undefined ? { data: entry.data } : {}),
+      ...(entry.providers !== undefined ? { providers: entry.providers } : {}),
+      ...(entry.policy !== undefined ? { policy: entry.policy } : {}),
+      ...(entry.component !== undefined ? { component: entry.component } : { loadComponent: entry.loadComponent }),
+      frame: entry,
+    };
+
+    output.push({
+      route: routeRecord,
       path,
       layouts,
     });
+
+    for (const outlet of entry.outlets ?? []) {
+      output.push({
+        route: createOutletRoute(entry.path, outlet.outlet, outlet.view),
+        path,
+        layouts,
+      });
+    }
+
+    return;
   }
+
+  throw new Error(`Unsupported navigation entry kind "${String(entry.kind)}".`);
 }
 
 function compileRoutes(
@@ -186,6 +271,41 @@ function compileRoutes(
   return output;
 }
 
+function resolveRedirectFrameTargets(
+  compiled: readonly CompiledRoute[],
+): readonly CompiledRoute[] {
+  const framePaths = new Map<string, string>();
+
+  for (const item of compiled) {
+    if (isRedirectRouteDefinition(item.route)) {
+      continue;
+    }
+
+    const frameId = item.route.frame?.id;
+    if (frameId) {
+      framePaths.set(frameId, item.path);
+    }
+  }
+
+  return compiled.map((item) => {
+    if (!item.redirectFrameTargetId) {
+      return item;
+    }
+
+    const redirectTo = framePaths.get(item.redirectFrameTargetId);
+    if (!redirectTo) {
+      throw new Error(
+        `Redirect frame "${item.path}" targets unknown frame "${item.redirectFrameTargetId}".`,
+      );
+    }
+
+    return {
+      ...item,
+      redirectTo,
+    };
+  });
+}
+
 function groupRoutes(
   compiled: readonly CompiledRoute[],
 ): readonly CompiledRouteGroup[] {
@@ -196,7 +316,7 @@ function groupRoutes(
     let group = groups.get(key);
 
     if (!group) {
-      if (route.route.kind === 'route' && route.route.outlet) {
+      if (!isRedirectRouteDefinition(route.route) && route.route.outlet) {
         throw new Error(
           `Named outlet route "${route.route.name ?? route.path}" with path "${route.path}" has no corresponding primary outlet route with the same path.`,
         );
@@ -208,7 +328,7 @@ function groupRoutes(
       };
 
       groups.set(key, group);
-    } else if (route.route.kind === 'redirect' || !route.route.outlet) {
+    } else if (isRedirectRouteDefinition(route.route) || !route.route.outlet) {
       throw new Error(
         `Duplicate primary route for path "${route.path}" under the same layout chain.`,
       );
@@ -237,7 +357,7 @@ function validateRouteGroups(
 
     const outletNames = new Set<string>();
     for (const outlet of group.outlets) {
-      if (outlet.route.kind === 'redirect') {
+      if (isRedirectRouteDefinition(outlet.route)) {
         throw new Error(
           `Named outlet routes cannot be redirects. Route path: "${group.primary.path}"`,
         );
@@ -317,7 +437,7 @@ export function createRouteRegistry(
     >();
 
   const groups = groupRoutes(
-    compileRoutes(source),
+    resolveRedirectFrameTargets(compileRoutes(source)),
   );
   validateRouteGroups(groups);
 
@@ -339,8 +459,8 @@ export function createRouteRegistry(
 
     if (
       previous
-      && (previous.kind === 'redirect' || !previous.outlet)
-      && (route.kind === 'redirect' || !route.outlet)
+      && (isRedirectRouteDefinition(previous) || !previous.outlet)
+      && (isRedirectRouteDefinition(route) || !route.outlet)
     ) {
       throw new Error(
         `Duplicate compiled route path "${path}".`,
@@ -394,7 +514,7 @@ export function createRouteRegistry(
 
   for (const group of groups) {
     const route = group.primary.route;
-    const frame = route.kind === 'route' ? route.frame : undefined;
+    const frame = !isRedirectRouteDefinition(route) ? route.frame : undefined;
 
     if (!frame?.id) {
       continue;

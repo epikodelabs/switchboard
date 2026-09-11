@@ -1,5 +1,5 @@
 import { Component, inject } from '@angular/core';
-import { Router, RouterLink, RouterOutlet } from '@epikodelabs/switchboard';
+import { FrameNavigator, RouterLink, RouterOutlet } from '@epikodelabs/switchboard';
 import { LedgerService } from '../services/ledger.service';
 
 @Component({
@@ -168,10 +168,10 @@ import { LedgerService } from '../services/ledger.service';
   `],
 })
 export class LedgerShellPage {
-  private readonly router = inject(Router);
+  private readonly navigator = inject(FrameNavigator);
   protected readonly ledger = inject(LedgerService);
 
   protected isTransitioning(): boolean {
-    return this.router.state.pending;
+    return this.navigator.state.pending;
   }
 }

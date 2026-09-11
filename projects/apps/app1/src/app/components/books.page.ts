@@ -1,6 +1,6 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Router, RouterLink } from '@epikodelabs/switchboard';
+import { FrameNavigator, RouterLink } from '@epikodelabs/switchboard';
 import {
   Account,
   AccountType,
@@ -195,7 +195,7 @@ import { sceneStyles } from './scene-styles';
 })
 export class BooksPage {
   protected readonly ledger = inject(LedgerService);
-  private readonly router = inject(Router);
+  private readonly navigator = inject(FrameNavigator);
 
   protected readonly search = signal('');
   protected readonly typeFilter = signal<AccountType | 'all'>('all');
@@ -250,7 +250,7 @@ export class BooksPage {
     this.newCode = '';
     this.newName = '';
     this.showCreate.set(false);
-    void this.router.navigate({ frame: 'account', params: { accountId: account.id } });
+    void this.navigator.navigate({ frame: 'account', params: { accountId: account.id } });
   }
 
   protected resetBooks(): void {

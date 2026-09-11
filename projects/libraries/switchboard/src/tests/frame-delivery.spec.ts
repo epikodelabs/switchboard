@@ -2,7 +2,6 @@ import {
   createServerFrameResolver,
   framesFor,
   frame,
-  route,
 } from '@epikodelabs/switchboard';
 import { Component } from '@angular/core';
 
@@ -12,10 +11,10 @@ class AdminPage {}
 describe('server frame delivery', () => {
   it('loads dependency-first frame contributions and binds compiler artifact identity', async () => {
     const application = framesFor('application', [
-      route('/workspace', frame('workspace', AdminPage)),
+      frame('workspace', '/workspace', AdminPage),
     ] as const);
     const administration = framesFor('administration', [
-      route('/admin', frame('admin', AdminPage)),
+      frame('admin', '/admin', AdminPage),
     ] as const);
 
     const modules = new Map<string, unknown>([

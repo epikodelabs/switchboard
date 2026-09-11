@@ -270,7 +270,7 @@ function isFrameContributionDefinition(value: unknown): value is FrameContributi
   const candidate = value as Partial<FrameContributionDefinition>;
   return candidate.kind === 'frame-contribution'
     && typeof candidate.slotId === 'string'
-    && Array.isArray(candidate.entries);
+    && Array.isArray(candidate.children);
 }
 
 async function defaultServerFrameFetch(
