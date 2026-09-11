@@ -4,6 +4,7 @@ import { Relay, FrameLink } from '@epikodelabs/switchboard';
 import { DataInput, ParamsInput, QueryInput } from './route-inputs';
 import { sceneStyles } from './scene-styles';
 import { JournalEntry, LedgerService } from '../services/ledger.service';
+import { booksTarget } from '../frame-targets';
 
 @Component({
   standalone: true,
@@ -161,7 +162,7 @@ export class EntryPage {
     if (!e) return;
     if (confirm('Delete draft ' + e.id + '?')) {
       this.ledger.deleteDraft(e.id);
-      void this.relay.to({ frame: 'books' });
+      void this.relay.to(booksTarget);
     }
   }
 

@@ -14,8 +14,8 @@ import {
 } from '@angular/core';
 
 import {
-  getNavigationLocation,
-} from './navigation-url';
+  getRouterLocation as getNavigationLocation,
+} from './router-url';
 
 import {
   watchFrameLocation,
@@ -27,13 +27,14 @@ import type {
 } from './navigation-targets';
 
 import { FrameNavigator } from './frame-navigator';
-import { Relay } from './frame-relay';
+import { Relay, type RelayTarget } from './frame-relay';
 
 type FrameLinkCommands =
   readonly unknown[];
 
 type FrameLinkInput =
   | NavigationTarget
+  | RelayTarget
   | FrameLinkCommands
   | null
   | undefined;
@@ -184,16 +185,19 @@ export class FrameLink implements OnChanges {
         return;
       }
 
-      // Keep the authored target intact. Converting a named/frame target to its
-      // href before relaying loses its peer identity (and breaks redirects and
-      // companion-outlet links). A Relay handles the target only when its
-      // current frame network can resolve it; URL/external ingress remains a
-      // valid fallback while the compatibility navigator exists.
-      if (this.relay?.resolve(target)) {
+      if (this.isRelayTarget(target) && this.relay?.resolve(target)) {
         await this.relay.to(target, options);
-      } else {
-        await this.router.navigate(target, options);
+        return;
       }
+
+      if (this.isRelayTarget(target)) {
+        await this.router.navigate({
+          frame: target.id,
+        }, options);
+        return;
+      }
+
+      await this.router.navigate(target, options);
     } catch {
       // Router state already records the actionable navigation error. The DOM
       // click contract is still best-effort, so keep the failure local here.
@@ -209,13 +213,17 @@ export class FrameLink implements OnChanges {
       return;
     }
 
-    // href generation is not transition execution. A peer may be rendered in
-    // a companion outlet and still legitimately address a URL that enters the
-    // frame network through browser/navigation ingress (redirects are the
-    // obvious example). Prefer Relay when it resolves locally, but never make
-    // an anchor disappear merely because this peer cannot currently accept the
-    // handoff itself.
-    const href = this.relay?.href(target) ?? this.router.href(target);
+    const href = this.isRelayTarget(target)
+      ? this.relay?.href(target, {
+          query: this.queryParams ?? undefined,
+          state: this.state,
+          replace: this.replaceUrl,
+        }) ?? this.router.href({
+          frame: target.id,
+          query: this.queryParams ?? undefined,
+          payload: this.state,
+        })
+      : this.router.href(target);
 
     if (!href) {
       this.href = null;
@@ -254,7 +262,7 @@ export class FrameLink implements OnChanges {
   }
 
   private resolveTarget():
-    NavigationTarget | null {
+    NavigationTarget | RelayTarget | null {
     const link =
       this.frameLink;
 
@@ -275,6 +283,10 @@ export class FrameLink implements OnChanges {
       return this.withQueryParams(
         link,
       );
+    }
+
+    if (this.isRelayTarget(link)) {
+      return link;
     }
 
     if ('name' in link) {
@@ -333,5 +345,14 @@ export class FrameLink implements OnChanges {
       path:
         `${url.pathname}${url.search}${url.hash}`,
     };
+  }
+
+  private isRelayTarget(target: unknown): target is RelayTarget {
+    return typeof target === 'object'
+      && target !== null
+      && 'kind' in target
+      && target.kind === 'frame'
+      && 'id' in target
+      && typeof target.id === 'string';
   }
 }

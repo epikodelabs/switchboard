@@ -53,14 +53,26 @@ import type {
 import type { TypedHref, TypedNavigate } from './typed-navigation';
 
 import type { ServerFrameResolver } from './frame-delivery';
-import { FRAME_RELAY_TRANSPORT, resolveRelayPath, type RelayPath, type RelayTransport } from './frame-relay';
+import {
+  FRAME_RELAY_TRANSPORT,
+  relayNavigationOptions,
+  resolveRelayPath,
+  type RelayInput,
+  type RelayPath,
+  type RelayTarget,
+  type RelayTransport,
+} from './frame-relay';
 import { resolveFrameSlots } from './frame-slots';
 
 import { OUTLET_ACTIVATE_EVENT, dispatchOutletLifecycleEvent } from './frame-events';
 
-import { compileRoutePath, matchRoutePath } from './navigation-path';
+import { compileRoutePath, matchRoutePath } from './route-path';
 
-import { getNavigationLocation, resolveNavigationUrl, navigationHref } from './navigation-url';
+import {
+  getRouterLocation as getNavigationLocation,
+  resolveRouterUrl as resolveNavigationUrl,
+  routerHref as navigationHref,
+} from './router-url';
 
 import {
   parseParamsRecord,
@@ -938,50 +950,49 @@ export class FrameNavigator<TFrames extends NavigationTree = any> implements Rel
   }
 
 
-  resolveRelay(originFrameId: string, target: NavigationTarget): RelayPath | null {
-    const targetFrameId = this.resolveRelayTargetFrameId(target);
-    return targetFrameId
-      ? resolveRelayPath(this.registry.frames.byId, originFrameId, targetFrameId)
-      : null;
+  resolveRelay(originFrameId: string, target: RelayTarget): RelayPath | null {
+    return resolveRelayPath(this.registry.frames.byId, originFrameId, target.id);
   }
 
   async navigateRelay(
     originFrameId: string,
-    target: NavigationTarget,
-    options?: NavigationOptions,
+    target: RelayTarget,
+    input?: RelayInput,
   ): Promise<boolean> {
     let path = this.resolveRelay(originFrameId, target);
 
     if (!path && this.configuration.resolveFrames) {
-      const instruction = this.resolveNavigationInstruction(target);
-      const candidateUrl = this.navigationTargetUrl(target, instruction);
+      const relayTarget = this.createRelayNavigationTarget(target, input);
+      const instruction = this.resolveNavigationInstruction(relayTarget);
+      const candidateUrl = this.navigationTargetUrl(relayTarget, instruction);
       if (candidateUrl && await this.resolveServerFrames(candidateUrl)) {
         path = this.resolveRelay(originFrameId, target);
       }
     }
 
     if (!path) return false;
-    return this.navigate(target, options);
-  }
-
-  hrefRelay(originFrameId: string, target: NavigationTarget): string | null {
-    return this.resolveRelay(originFrameId, target) ? this.href(target) : null;
-  }
-
-  private resolveRelayTargetFrameId(target: NavigationTarget): string | null {
-    if (typeof target === 'object' && target !== null) {
-      if ('frame' in target) return target.frame;
-      if ('name' in target && this.registry.frames.byId.has(target.name)) return target.name;
-    }
-
-    const instruction = this.resolveNavigationInstruction(target);
-    if (!instruction) return null;
-    const url = new URL(instruction.matchTarget, getNavigationLocation(this.document).origin);
-    const group = this.registry.groups.find(current =>
-      matchRoutePath(compileRoutePath(current.primary.path), url.pathname) !== null
+    return this.navigate(
+      this.createRelayNavigationTarget(target, input),
+      relayNavigationOptions(input),
     );
-    const route = group?.primary.route;
-    return route && !isRedirectRouteDefinition(route) ? route.frame?.id ?? null : null;
+  }
+
+  hrefRelay(originFrameId: string, target: RelayTarget, input?: RelayInput): string | null {
+    return this.resolveRelay(originFrameId, target)
+      ? this.href(this.createRelayNavigationTarget(target, input))
+      : null;
+  }
+
+  private createRelayNavigationTarget(
+    target: RelayTarget,
+    input: RelayInput | undefined,
+  ): NavigationTarget {
+    return {
+      frame: target.id,
+      params: input?.params,
+      query: input?.query,
+      payload: input?.state,
+    };
   }
 
   async navigate(target: NavigationTarget, options?: NavigationOptions): Promise<boolean> {

@@ -3,6 +3,7 @@ import { Relay, FrameLink } from '@epikodelabs/switchboard';
 import { DataInput, ParamsInput, QueryInput } from './route-inputs';
 import { sceneStyles } from './scene-styles';
 import { Account, LedgerLine, LedgerService } from '../services/ledger.service';
+import { booksTarget } from '../frame-targets';
 
 @Component({
   standalone: true,
@@ -125,7 +126,7 @@ export class AccountPage {
     if (!a) return;
     if (confirm('Archive account ' + a.code + ' ' + a.name + '?')) {
       this.ledger.updateAccount(a.id, { archived: true });
-      void this.relay.to({ frame: 'books' });
+      void this.relay.to(booksTarget);
     }
   }
 }

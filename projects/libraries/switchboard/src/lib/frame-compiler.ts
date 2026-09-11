@@ -2,9 +2,9 @@ import {
   compileRoutePath,
   extractRouteParamNames,
   joinRoutePath,
-} from './navigation-path';
+} from './route-path';
 
-export { joinRoutePath } from './navigation-path';
+export { joinRoutePath } from './route-path';
 import type {
   FrameView,
   LayoutDefinition,

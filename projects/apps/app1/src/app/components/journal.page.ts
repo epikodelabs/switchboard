@@ -9,6 +9,7 @@ import {
   JournalLine,
   LedgerService,
 } from '../services/ledger.service';
+import { booksTarget, entryTarget } from '../frame-targets';
 
 interface EditableLine {
   accountId: string;
@@ -219,7 +220,7 @@ export class JournalPage {
       ? this.ledger.updateDraft(id, body)
       : this.ledger.createDraft(body);
     if (entry) {
-      void this.relay.to({ frame: 'entry', params: { entryId: entry.id } });
+      void this.relay.to(entryTarget, { params: { entryId: entry.id } });
     }
   }
 
@@ -237,7 +238,7 @@ export class JournalPage {
     if (!entry) return;
     entry = this.ledger.postEntry(entry.id);
     if (entry) {
-      void this.relay.to({ frame: 'entry', params: { entryId: entry.id } });
+      void this.relay.to(entryTarget, { params: { entryId: entry.id } });
     } else {
       alert('Could not post — check balance.');
     }
@@ -248,7 +249,7 @@ export class JournalPage {
     if (!id) return;
     if (confirm('Delete this draft?')) {
       this.ledger.deleteDraft(id);
-      void this.relay.to({ frame: 'books' });
+      void this.relay.to(booksTarget);
     }
   }
 }

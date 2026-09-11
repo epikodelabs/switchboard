@@ -1,7 +1,17 @@
 import { InjectionToken } from '@angular/core';
 
 import type { NavigationOptions } from './vanilla-router';
-import type { NavigationTarget } from './navigation-targets';
+export interface RelayTarget<TId extends string = string> {
+  readonly kind: 'frame';
+  readonly id: TId;
+}
+
+export interface RelayInput {
+  readonly params?: Readonly<Record<string, unknown>>;
+  readonly query?: Readonly<Record<string, unknown>>;
+  readonly state?: unknown;
+  readonly replace?: boolean;
+}
 
 /** A resolved peer-to-peer relay route. Resolution is pure: no lifecycle or DOM work has run yet. */
 export interface RelayPath {
@@ -16,13 +26,13 @@ export interface RelayPath {
 }
 
 export interface RelayTransport {
-  resolveRelay(originFrameId: string, target: NavigationTarget): RelayPath | null;
+  resolveRelay(originFrameId: string, target: RelayTarget): RelayPath | null;
   navigateRelay(
     originFrameId: string,
-    target: NavigationTarget,
-    options?: NavigationOptions,
+    target: RelayTarget,
+    input?: RelayInput,
   ): Promise<boolean>;
-  hrefRelay(originFrameId: string, target: NavigationTarget): string | null;
+  hrefRelay(originFrameId: string, target: RelayTarget, input?: RelayInput): string | null;
 }
 
 
@@ -85,16 +95,22 @@ export class Relay {
     private readonly transport: RelayTransport,
   ) {}
 
-  resolve(target: NavigationTarget): RelayPath | null {
+  resolve(target: RelayTarget): RelayPath | null {
     return this.transport.resolveRelay(this.originFrameId, target);
   }
 
-  to(target: NavigationTarget, options?: NavigationOptions): Promise<boolean> {
-    return this.transport.navigateRelay(this.originFrameId, target, options);
+  to(target: RelayTarget, input?: RelayInput): Promise<boolean> {
+    return this.transport.navigateRelay(this.originFrameId, target, input);
   }
 
-  href(target: NavigationTarget): string | null {
-    return this.transport.hrefRelay(this.originFrameId, target);
+  href(target: RelayTarget, input?: RelayInput): string | null {
+    return this.transport.hrefRelay(this.originFrameId, target, input);
   }
 }
 
+export function relayNavigationOptions(input: RelayInput | undefined): NavigationOptions {
+  return {
+    replace: input?.replace,
+    state: input?.state,
+  };
+}

@@ -2,9 +2,9 @@ import {
   compileRoutePath,
   joinRoutePath,
   matchRoutePath,
-} from '../lib/navigation-path';
+} from '../lib/route-path';
 
-describe('Switchboard navigation paths', () => {
+describe('Switchboard route paths', () => {
   it('joins parent and child frame paths', () => {
     expect(joinRoutePath('/workspace/:workspaceId', '/items/:itemId'))
       .toBe('/workspace/:workspaceId/items/:itemId');

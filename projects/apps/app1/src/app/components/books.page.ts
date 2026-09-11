@@ -8,6 +8,7 @@ import {
   LedgerService,
 } from '../services/ledger.service';
 import { sceneStyles } from './scene-styles';
+import { accountTarget } from '../frame-targets';
 
 @Component({
   standalone: true,
@@ -250,7 +251,7 @@ export class BooksPage {
     this.newCode = '';
     this.newName = '';
     this.showCreate.set(false);
-    void this.relay.to({ frame: 'account', params: { accountId: account.id } });
+    void this.relay.to(accountTarget, { params: { accountId: account.id } });
   }
 
   protected resetBooks(): void {
