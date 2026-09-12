@@ -25,7 +25,7 @@ export const frames = [
 
   frame('ledger', '/ledger', LedgerShellPage, {
     transitions: ['books', 'account', 'journal', 'entry', 'trial', 'settings'],
-    children: [
+    layout: [
       redirect('', booksFrame),
       booksFrame,
       accountFrame,

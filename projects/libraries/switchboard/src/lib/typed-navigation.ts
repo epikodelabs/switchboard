@@ -22,7 +22,7 @@ export type ExtractPathParams<T extends string> =
       : never;
 
 /**
- * Recursively flattens child frames into typed navigation leaves.
+ * Recursively flattens nested frames into typed navigation leaves.
  */
 export type LeafFrameDefinitions<
   TTree extends NavigationTree,
@@ -30,15 +30,15 @@ export type LeafFrameDefinitions<
   TTree[number] extends infer TEntry
     ? TEntry extends FrameView<any> & { readonly id: string; readonly path: string }
         ? TEntry | (
-          TEntry extends { readonly children: infer TChildren extends NavigationTree }
-            ? LeafFrameDefinitions<TChildren>
+          TEntry extends { readonly layout: infer TLayout extends NavigationTree }
+            ? LeafFrameDefinitions<TLayout>
             : never
         )
       : TEntry extends {
             kind: 'layout',
-            children: infer TChildren extends NavigationTree,
+            layout: infer TLayout extends NavigationTree,
           }
-            ? LeafFrameDefinitions<TChildren>
+            ? LeafFrameDefinitions<TLayout>
             : never
     : never;
 
@@ -47,7 +47,7 @@ type FrameName<TFrame> = TFrame extends FrameView<any> & { readonly id: infer TF
   : never;
 
 /**
- * Extracts frame names safely across child frames without deep recursion.
+ * Extracts frame names safely across nested frames without deep recursion.
  */
 export type ExtractFrameNames<
   TTree extends NavigationTree,
@@ -154,23 +154,23 @@ type EntryPreparedData<
 > =
   TEntry extends LayoutDefinition<
     string,
-    infer TChildren extends NavigationTree,
+    infer TLayout extends NavigationTree,
     infer TView extends FrameView<any> | undefined
   >
     ? NavigationPreparedDataFromTree<
-        TChildren,
+        TLayout,
         TName,
         MergePrepared<TParent, FrameViewData<TView>>
       >
     : TEntry extends FrameView<any> & {
         readonly id: string;
         readonly path: string;
-        readonly children: infer TChildren extends NavigationTree;
+        readonly layout: infer TLayout extends NavigationTree;
       }
       ? TEntry['id'] extends TName
         ? MergePrepared<TParent, FrameViewData<TEntry>>
         : NavigationPreparedDataFromTree<
-            TChildren,
+            TLayout,
             TName,
             MergePrepared<TParent, FrameViewData<TEntry>>
           >

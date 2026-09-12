@@ -140,7 +140,7 @@ function compileEntry(
 ): void {
   if (entry.kind === 'layout') {
     compileRoutes(
-      entry.children,
+      entry.layout,
       joinRoutePath(
         parentPath,
         entry.path,
@@ -199,18 +199,18 @@ function compileEntry(
         entry.path,
       );
 
-    if (entry.children) {
+    if (entry.layout) {
       const frameLayout: LayoutDefinition = {
         kind: 'layout',
         path: entry.path,
-        children: entry.children,
+        layout: entry.layout,
         ...(entry.providers !== undefined ? { providers: entry.providers } : {}),
         ...(entry.component !== undefined ? { component: entry.component } : { loadComponent: entry.loadComponent }),
         frame: entry,
       };
 
       compileRoutes(
-        entry.children,
+        entry.layout,
         path,
         Object.freeze([
           ...layouts,
@@ -444,7 +444,7 @@ function collectFrameParentIds(
         const frameId = entry.frame?.id;
         const next = frameId ? Object.freeze([frameId, ...ancestors]) : ancestors;
         if (frameId) parents.set(frameId, Object.freeze([...ancestors]));
-        visit(entry.children, next);
+        visit(entry.layout, next);
         continue;
       }
 
@@ -452,7 +452,7 @@ function collectFrameParentIds(
         const frameId = entry.id;
         const next = frameId ? Object.freeze([frameId, ...ancestors]) : ancestors;
         if (frameId) parents.set(frameId, Object.freeze([...ancestors]));
-        if (entry.children) visit(entry.children, next);
+        if (entry.layout) visit(entry.layout, next);
       }
     }
   };

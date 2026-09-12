@@ -56,7 +56,7 @@ class ChildComponent {}
 })
 class SettingsComponent {}
 
-describe('FrameNavigator: frames and children', () => {
+describe('FrameNavigator: nested frames', () => {
   let outlet: HTMLElement;
   let navigator: FrameNavigator;
 

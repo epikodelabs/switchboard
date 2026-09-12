@@ -9,16 +9,16 @@ class Shell {}
 class Home {}
 class Admin {}
 
-function ids(children: readonly any[]): string[] {
+function ids(frames: readonly any[]): string[] {
   const result: string[] = [];
   const visit = (items: readonly any[]) => {
     for (const entry of items) {
-      if (entry.kind === 'layout') visit(entry.children);
-      if (entry.kind === 'frame' && entry.children) visit(entry.children);
-      if (entry.kind === 'frame' && !entry.children && entry.id) result.push(entry.id);
+      if (entry.kind === 'layout') visit(entry.layout);
+      if (entry.kind === 'frame' && entry.layout) visit(entry.layout);
+      if (entry.kind === 'frame' && !entry.layout && entry.id) result.push(entry.id);
     }
   };
-  visit(children);
+  visit(frames);
   return result;
 }
 
@@ -26,7 +26,7 @@ describe('frame graph ownership', () => {
   it('resolves authorized contributions through nested frame slots', () => {
     const root = [
       frame('app', '/app', Shell, {
-        children: [
+        layout: [
           frame('home', '/home', Home, { transitions: ['admin'] }),
           frameSlot('administration'),
         ],

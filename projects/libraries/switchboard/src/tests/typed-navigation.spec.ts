@@ -28,7 +28,7 @@ const settingsFrame = frame('settings', '/settings', SettingsPage, {
 
 const frames = [
   frame('app', '/app', DashboardLayout, {
-    children: [
+    layout: [
       settingsFrame,
       dashboardFrame,
     ],

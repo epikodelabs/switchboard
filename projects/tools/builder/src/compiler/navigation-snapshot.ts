@@ -126,7 +126,7 @@ function switchboardStubSource(): string {
     `}`,
     `export function frameSlot(slotId) { return { kind: 'frame-slot', slotId }; }`,
     `let nextContributionIdentity = 1;`,
-    `export function framesFor(slotId, children) { return { kind: 'frame-contribution', slotId, id: slotId + '@' + nextContributionIdentity++, children }; }`,
+    `export function framesFor(slotId, layout) { return { kind: 'frame-contribution', slotId, id: slotId + '@' + nextContributionIdentity++, layout }; }`,
     `export function frame(id, pathOrView, viewOrOptions = {}, maybeOptions = {}) {`,
     `  const hasPath = typeof pathOrView === 'string';`,
     `  const path = hasPath ? pathOrView : undefined;`,
@@ -135,7 +135,7 @@ function switchboardStubSource(): string {
     `  return Object.assign({ kind: 'frame', id }, path === undefined ? {} : { path }, splitView(view), options);`,
     `}`,
     `export function redirect(path, target, options = {}) { return Object.assign({ kind: 'redirect-frame', path, targetFrameId: target && target.id }, options); }`,
-    `export function layout(path, view, children, options = {}) { return Object.assign({ kind: 'layout', path }, splitView(view), { children }, options); }`,
+    `export function layout(path, view, layout, options = {}) { return Object.assign({ kind: 'layout', path }, splitView(view), { layout }, options); }`,
     `export const s = Object.freeze({ number(options = {}) { return { _type: 'number', ...options }; }, string(value) { return { _type: 'string', default: value }; }, array(value) { return { _type: 'array', default: value }; }, optional(inner) { return { _type: 'optional', inner }; }, boolean(value) { return { _type: 'boolean', default: value }; }, date(value) { return { _type: 'date', default: value }; } });`,
     ''
   ].join('\n');
@@ -144,8 +144,8 @@ function contributionArtifactKey(projectRoot: string, sourceFile: string, export
   const relative = path.relative(projectRoot, sourceFile).split(path.sep).join('/').replace(/\.(?:frames?|routes)\.ts$/i, '');
   return `${relative}#${exportName}`;
 }
-function isContribution(value: unknown): value is {kind:'frame-contribution';slotId:string;id:string;children:readonly unknown[]} {
+function isContribution(value: unknown): value is {kind:'frame-contribution';slotId:string;id:string;layout:readonly unknown[]} {
   if (!value || typeof value !== 'object') return false;
   const c = value as any;
-  return c.kind === 'frame-contribution' && typeof c.slotId === 'string' && !!c.slotId.trim() && typeof c.id === 'string' && !!c.id.trim() && Array.isArray(c.children);
+  return c.kind === 'frame-contribution' && typeof c.slotId === 'string' && !!c.slotId.trim() && typeof c.id === 'string' && !!c.id.trim() && Array.isArray(c.layout);
 }

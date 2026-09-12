@@ -45,7 +45,7 @@ export function createServerFramePlan(snapshot: NavigationSnapshot): ServerFrame
   const context: Context = {
     contributionsBySlot: indexContributions(snapshot.contributions), artifacts: new Map(), frames: [], active: new Set(), nextBranchId: 1,
   };
-  compileChildren(snapshot.rootFrames, '/', [], context);
+  compileFrames(snapshot.rootFrames, '/', [], context);
   for (const c of snapshot.contributions) {
     if (!context.artifacts.has(c.definition.id)) throw new Error(`Frame contribution "${c.definition.id}" targets unreachable slot "${c.definition.slotId}".`);
   }
@@ -59,11 +59,11 @@ export function createServerFramePlan(snapshot: NavigationSnapshot): ServerFrame
   });
 }
 
-function compileChildren(children: readonly any[], parentPath: string, inherited: readonly ServerFramePolicy[], context: Context, provenance?: Provenance): void {
-  for (const entry of children) {
+function compileFrames(frames: readonly any[], parentPath: string, inherited: readonly ServerFramePolicy[], context: Context, provenance?: Provenance): void {
+  for (const entry of frames) {
     if (!entry || typeof entry !== 'object') continue;
     if (entry.kind === 'layout') {
-      compileChildren(entry.children ?? [], joinPath(parentPath, String(entry.path ?? '')), appendPolicy(inherited, entry.policy), context, provenance);
+      compileFrames(entry.layout ?? [], joinPath(parentPath, String(entry.path ?? '')), appendPolicy(inherited, entry.policy), context, provenance);
       continue;
     }
     if (entry.kind === 'frame-slot') {
@@ -77,7 +77,7 @@ function compileChildren(children: readonly any[], parentPath: string, inherited
     }
     if (entry.kind === 'frame') {
       compileFrame(entry, joinPath(parentPath, String(entry.path ?? '')), inherited, context, provenance);
-      compileChildren(entry.children ?? [], joinPath(parentPath, String(entry.path ?? '')), appendPolicy(inherited, entry.policy), context, provenance);
+      compileFrames(entry.layout ?? [], joinPath(parentPath, String(entry.path ?? '')), appendPolicy(inherited, entry.policy), context, provenance);
       continue;
     }
   }
@@ -111,7 +111,7 @@ function compileContribution(c: LoadedContribution, parentPath: string, inherite
   }
   if (parent && parent.contributionId !== id) artifact.dependencies.add(parent.contributionId);
   context.active.add(id);
-  try { compileChildren(c.definition.children ?? [], parentPath, inherited, context, { contributionId:id }); }
+  try { compileFrames(c.definition.layout ?? [], parentPath, inherited, context, { contributionId:id }); }
   finally { context.active.delete(id); }
 }
 function indexContributions(contributions: readonly LoadedContribution[]): ReadonlyMap<string, readonly LoadedContribution[]> {

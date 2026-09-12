@@ -10,10 +10,10 @@ class TestPage {}
 class TestLayout {}
 
 describe('frame compiler parameter validation', () => {
-  it('rejects duplicate parameter names across parent and child frames', () => {
+  it('rejects duplicate parameter names across parent and nested frames', () => {
     const routes = [
       frame('team', '/teams/:id', TestLayout, {
-        children: [
+        layout: [
           frame('member', '/members/:id', TestPage),
         ],
       }),
@@ -55,7 +55,7 @@ describe('frame compiler parameter validation', () => {
   it('accepts an exact params schema for the compiled path', () => {
     const routes = [
       frame('team', '/teams/:teamId', TestLayout, {
-        children: [
+        layout: [
           frame('user', '/users/:userId', TestPage, {
             params: {
               teamId: s.number(),
@@ -84,7 +84,7 @@ describe('frame compiler parameter validation', () => {
     const booksFrame = frame('books', '/books', TestPage, {});
     const routes = [
       frame('ledger', '/ledger', TestLayout, {
-        children: [
+        layout: [
           redirect('', booksFrame),
           booksFrame,
         ],
@@ -97,11 +97,11 @@ describe('frame compiler parameter validation', () => {
     expect(group?.primary.redirectTo).toBe('/ledger/books');
   });
 
-  it('compiles child frames through their parent frame', () => {
+  it('compiles nested frames through their parent frame', () => {
     const child = frame('child', '/child', TestPage);
     const routes = [
       frame('parent', '/parent', TestLayout, {
-        children: [child],
+        layout: [child],
       }),
     ] as const;
 
@@ -144,9 +144,9 @@ describe('frame compiler parameter validation', () => {
   it('records nearest-first frame ownership for Relay bubbling', () => {
     const routes = [
       frame('app', '/app', TestLayout, {
-        children: [
+        layout: [
           frame('workspace', '/workspace', TestLayout, {
-            children: [
+            layout: [
               frame('document', '/document', TestPage),
             ],
           }),

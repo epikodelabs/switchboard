@@ -1,6 +1,6 @@
 # Switchboard
 
-Switchboard is frame-first navigation for standalone Angular applications. A frame is a product state, screen, workflow step, or protected capability, not merely a URL. Frames own their identity, view, lifecycle, typed input, companion outlets, child frames, and allowed relay transitions; URLs are an optional projection of that model.
+Switchboard is frame-first navigation for standalone Angular applications. A frame is a product state, screen, workflow step, or protected capability, not merely a URL. Frames own their identity, view, lifecycle, typed input, companion outlets, nested frames, and allowed relay transitions; URLs are an optional projection of that model.
 
 It is a good fit when navigation needs to describe an application model clearly: multi-step work, internal states, shell layouts, typed URLs, or server-authorized feature branches. It is intentionally not a drop-in replacement for every Angular Router feature.
 
@@ -38,7 +38,7 @@ const account = frame('account', '/accounts/:accountId', AccountPage, {
 export const frames = [
   redirect('/', books),
   frame('ledger', '/ledger', LedgerShellComponent, {
-    children: [
+    layout: [
       redirect('', books),
       books,
       account,
@@ -72,7 +72,7 @@ export class BooksPage {
 | Building block | Purpose |
 | --- | --- |
 | `frame(id, path, view, options)` | Defines a self-contained application state, its URL projection, lifecycle, relay edges, and companion outlets. |
-| `frame(id, path, view, { children })` | Adds parent UI around navigable child frames. |
+| `frame(id, path, view, { layout })` | Adds parent UI around nested navigable frames. |
 | `redirect(path, targetFrame)` | Defines a redirect frame that targets another frame. |
 | `Relay` | Local frame-to-frame navigation endpoint injected into rendered components. |
 | `FrameLink` | Produces links from frame targets or URL targets. |
@@ -83,7 +83,7 @@ export class BooksPage {
 There is one authored navigation tree: the `frames` array passed to
 `provideFrameGraph()`. It contains frames, ownership slots, and redirect frames.
 A frame owns a stable identity, URL projection, transition rules, companion
-outlets, child frames, and lifecycle behavior. The runtime route table is
+outlets, nested frames, and lifecycle behavior. The runtime route table is
 compiled from that graph.
 
 Use `transitions` to control which frames may relay to one another, and

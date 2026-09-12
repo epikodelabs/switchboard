@@ -124,7 +124,7 @@ export type FrameView<
   readonly directEntry?: boolean;
   readonly directEntryRedirectTo?: string;
   readonly outlets?: readonly FrameOutletDefinition[];
-  readonly children?: NavigationTree;
+  readonly layout?: NavigationTree;
   readonly policy?: NavigationPolicy;
   readonly beforeEnter?: readonly CanEnterFn[];
   readonly beforeLeave?: readonly FrameBeforeLeaveFn<TData>[];
@@ -178,8 +178,8 @@ export interface FrameOptions<
   readonly directEntryRedirectTo?: string;
   /** Companion views rendered beside the frame's primary outlet. */
   readonly outlets?: Readonly<Record<string, FrameOutletDefinitionView>> | readonly FrameOutletDefinition[];
-  /** Child frames rendered inside this frame's primary outlet. */
-  readonly children?: NavigationTree;
+  /** Nested frame layout rendered inside this frame's primary outlet. */
+  readonly layout?: NavigationTree;
   readonly policy?: NavigationPolicy;
   readonly beforeEnter?: HookInput<CanEnterFn>;
   readonly beforeLeave?: HookInput<FrameBeforeLeaveFn<any>>;
@@ -278,27 +278,27 @@ export type RouteDefinition<
 
 export interface LayoutDefinitionBase<
   TPath extends string = string,
-  TChildren extends NavigationTree = NavigationTree,
+  TLayout extends NavigationTree = NavigationTree,
 > {
   readonly kind: 'layout';
   readonly path: TPath;
-  readonly children: TChildren;
+  readonly layout: TLayout;
   readonly providers?: NavigationProviders;
 }
 
 export type LayoutOptions = Omit<
   LayoutDefinitionBase,
-  'kind' | 'path' | 'children'
+  'kind' | 'path' | 'layout'
 >;
 
 export type LayoutDefinition<
   TPath extends string = string,
-  TChildren extends NavigationTree = NavigationTree,
+  TLayout extends NavigationTree = NavigationTree,
   TFrame extends FrameView<any> | undefined = FrameView<any> | undefined,
 > =
   LayoutDefinitionBase<
     TPath,
-    TChildren
+    TLayout
   > &
   ViewDefinition & {
   readonly frame?: TFrame;
@@ -319,13 +319,13 @@ export interface FrameSlotDefinition<TSlotId extends string = string> {
 export interface FrameContributionDefinition<
   TSlotId extends string = string,
   TId extends string = string,
-  TChildren extends NavigationTree = NavigationTree,
+  TLayout extends NavigationTree = NavigationTree,
 > {
   readonly kind: 'frame-contribution';
   readonly slotId: TSlotId;
   /** @internal Runtime identity; compiler/server owned in protected-delivery builds. */
   readonly id: TId;
-  readonly children: TChildren;
+  readonly layout: TLayout;
 }
 
 export type AnyFrameSlotDefinition = FrameSlotDefinition<any>;
