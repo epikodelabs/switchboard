@@ -1,6 +1,6 @@
 {
   "name": "switchboard",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "scripts": {
     "ng": "ng",
     "pretest": "npm run build",
