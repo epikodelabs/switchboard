@@ -40,12 +40,14 @@ function dispatchAnchorClick(target: HTMLAnchorElement): boolean {
 }
 
 @Component({
+  selector: 'sb-test-home',
   standalone: true,
   template: '<h1>Home</h1>',
 })
 class HomeComponent {}
 
 @Component({
+  selector: 'sb-test-about',
   standalone: true,
   template: '<h1>About</h1>',
 })

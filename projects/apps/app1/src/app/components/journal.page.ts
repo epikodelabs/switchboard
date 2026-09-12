@@ -5,7 +5,6 @@ import { DataInput, ParamsInput, QueryInput } from './route-inputs';
 import { sceneStyles } from './scene-styles';
 import {
   Account,
-  JournalEntry,
   JournalLine,
   LedgerService,
 } from '../services/ledger.service';

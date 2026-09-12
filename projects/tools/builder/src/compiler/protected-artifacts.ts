@@ -480,9 +480,6 @@ async function bundleArtifact(
     outputPath,
   );
 
-  const fileName =
-    path.basename(outputPath);
-
   const hash =
     contentHash(output.contents);
 

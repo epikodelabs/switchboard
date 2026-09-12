@@ -108,30 +108,6 @@ export interface CompiledRouteGroup {
   readonly outlets: readonly CompiledRoute[];
 }
 
-function compileRedirect(
-  parentPath: string,
-  redirectTo:
-    string | undefined,
-): string | undefined {
-  if (!redirectTo) {
-    return undefined;
-  }
-
-  if (
-    /^[A-Za-z][A-Za-z\d+.-]*:/.test(redirectTo) ||
-    redirectTo.startsWith('//')
-  ) {
-    return redirectTo;
-  }
-
-  return redirectTo.startsWith('/')
-    ? joinRoutePath('/', redirectTo)
-    : joinRoutePath(
-        parentPath,
-        redirectTo,
-      );
-}
-
 function compileEntry(
   entry: NavigationTree[number],
   parentPath: string,
