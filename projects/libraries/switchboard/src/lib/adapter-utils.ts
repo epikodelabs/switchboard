@@ -53,19 +53,49 @@ export function runWithInjector<TContext, TResult>(
   return runInInjectionContext(injector, () => Promise.resolve(handler(context)));
 }
 
+const frameLocationWatchers = new Set<() => void>();
+let frameLocationListenerInstalled = false;
+
+function notifyFrameLocationWatchers(): void {
+  for (const watcher of [...frameLocationWatchers]) {
+    watcher();
+  }
+}
+
+function installFrameLocationListener(): void {
+  if (frameLocationListenerInstalled || typeof window === 'undefined') {
+    return;
+  }
+
+  window.addEventListener(FRAME_LOCATION_CHANGE_EVENT, notifyFrameLocationWatchers);
+  window.addEventListener('popstate', notifyFrameLocationWatchers);
+  frameLocationListenerInstalled = true;
+}
+
+function uninstallFrameLocationListener(): void {
+  if (
+    !frameLocationListenerInstalled ||
+    frameLocationWatchers.size > 0 ||
+    typeof window === 'undefined'
+  ) {
+    return;
+  }
+
+  window.removeEventListener(FRAME_LOCATION_CHANGE_EVENT, notifyFrameLocationWatchers);
+  window.removeEventListener('popstate', notifyFrameLocationWatchers);
+  frameLocationListenerInstalled = false;
+}
+
 export function watchFrameLocation(destroyRef: DestroyRef, refresh: () => void): void {
   if (typeof window === 'undefined') {
     return;
   }
 
-  const listener = () => refresh();
-  window.addEventListener(FRAME_LOCATION_CHANGE_EVENT, listener);
-  window.addEventListener('popstate', listener);
+  frameLocationWatchers.add(refresh);
+  installFrameLocationListener();
 
   destroyRef.onDestroy(() => {
-    window.removeEventListener(FRAME_LOCATION_CHANGE_EVENT, listener);
-    window.removeEventListener('popstate', listener);
+    frameLocationWatchers.delete(refresh);
+    uninstallFrameLocationListener();
   });
 }
-
-

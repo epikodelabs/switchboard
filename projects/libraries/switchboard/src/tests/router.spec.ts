@@ -545,6 +545,34 @@ idescribe('router', () => {
             expect(router.state.current?.path).toBe('/new');
             expect(outlet.textContent).toBe('New');
         });
+        it('should honor static canActivate guards declared on the route', async () => {
+            router = createRouter({
+                routes: [
+                    {
+                        ...routeWithComponent('guarded', 'Guarded'),
+                        canActivate: [() => false],
+                    },
+                ],
+                outlet
+            });
+            expect(await router.navigate('/guarded')).toBeFalse();
+            expect(router.state.current).toBeNull();
+        });
+        it('should honor static canDeactivate guards declared on the route', async () => {
+            router = createRouter({
+                routes: [
+                    {
+                        ...routeWithComponent('edit', 'Edit'),
+                        canDeactivate: [() => false],
+                    },
+                    routeWithComponent('other', 'Other'),
+                ],
+                outlet
+            });
+            expect(await router.navigate('/edit')).toBeTrue();
+            expect(await router.navigate('/other')).toBeFalse();
+            expect(router.state.current?.path).toBe('/edit');
+        });
         it('should support async guards', async () => {
             const config: VanillaRouterConfig = {
                 routes: [
@@ -714,6 +742,14 @@ idescribe('router', () => {
             expect(warnSpy).toHaveBeenCalledWith('[Router] Ignoring canDeactivate redirect to the pending URL', '/target');
             expect(router.state.current?.path).toBe('/target');
         });
+    });
+    it('preserves repeated raw query keys when no schema parser is declared', async () => {
+        router = createRouter({
+            routes: [routeWithComponent('search', 'Search')],
+            outlet,
+        });
+        expect(await router.navigate('/search?tag=a&tag=b')).toBeTrue();
+        expect(router.state.current?.query['tag']).toEqual(['a', 'b']);
     });
     describe('prepare data', () => {
         it('should prepare data before navigation', async () => {
@@ -1165,6 +1201,40 @@ idescribe('router', () => {
                 });
                 await router.navigate('/about');
                 expect(startViewTransition).toHaveBeenCalled();
+            }
+            finally {
+                transitionDocument.startViewTransition = original;
+            }
+        });
+        it('should not commit twice when a finished view transition rejects after its callback ran', async () => {
+            const transitionDocument = document as Document & {
+                startViewTransition?: (callback: () => void | PromiseLike<void>) => {
+                    finished: Promise<void>;
+                };
+            };
+            const original = transitionDocument.startViewTransition;
+            let commits = 0;
+            transitionDocument.startViewTransition = callback => {
+                void callback();
+                return { finished: Promise.reject(new Error('transition skipped')) };
+            };
+            try {
+                router = createRouter({
+                    routes: [
+                        routeWithComponent('', 'Home'),
+                        routeWithComponent('about', 'About'),
+                    ],
+                    viewTransitions: true,
+                    commit: outlets => {
+                        commits++;
+                        for (const prepared of outlets) {
+                            outlet.replaceChildren(prepared.node);
+                        }
+                    },
+                });
+                expect(await router.navigate('/about')).toBeTrue();
+                expect(commits).toBe(1);
+                expect(outlet.textContent).toBe('About');
             }
             finally {
                 transitionDocument.startViewTransition = original;
@@ -2492,4 +2562,3 @@ idescribe('router', () => {
         });
     });
 });
-

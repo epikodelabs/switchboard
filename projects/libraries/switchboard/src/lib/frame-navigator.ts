@@ -714,6 +714,7 @@ export class FrameNavigator<TFrames extends NavigationTree = any> implements Rel
   private readonly document: Document;
   private readonly appBaseHref: string;
   private registry: ReturnType<typeof createRouteRegistry>;
+  private registryPatterns: readonly ReturnType<typeof compileRoutePath>[] = [];
   private activeSource: NavigationTree;
   private readonly deliveredBySlot = new Map<string, FrameContributionDefinition>();
   private readonly contributionIdentities = new Map<string, string>();
@@ -743,6 +744,9 @@ export class FrameNavigator<TFrames extends NavigationTree = any> implements Rel
     }
     this.activeSource = this.composeActiveSource();
     this.registry = createRouteRegistry(this.activeSource);
+    this.registryPatterns = Object.freeze(
+      this.registry.groups.map(group => compileRoutePath(group.primary.path)),
+    );
     this.navigateTo = this.createNavigateProxy();
 
     this.hrefTo = this.createHrefProxy();
@@ -1049,6 +1053,7 @@ export class FrameNavigator<TFrames extends NavigationTree = any> implements Rel
   }
 
   async revalidate(): Promise<boolean> {
+    this.unresolvedFrameTargets.clear();
     return await (await this.requireStartedEngine()).revalidate();
   }
 
@@ -1065,6 +1070,7 @@ export class FrameNavigator<TFrames extends NavigationTree = any> implements Rel
 
     this.startupTask = null;
     this.pendingFrameResolutions.clear();
+    this.unresolvedFrameTargets.clear();
     this.engine = null;
     this.outlets.clear();
 
@@ -1108,6 +1114,9 @@ export class FrameNavigator<TFrames extends NavigationTree = any> implements Rel
   private rebuildActiveGraph(): void {
     this.activeSource = this.composeActiveSource();
     this.registry = createRouteRegistry(this.activeSource);
+    this.registryPatterns = Object.freeze(
+      this.registry.groups.map(group => compileRoutePath(group.primary.path)),
+    );
 
     if (!this.engine) return;
     this.engine.replaceConfiguration({
@@ -1172,8 +1181,8 @@ export class FrameNavigator<TFrames extends NavigationTree = any> implements Rel
   }
 
   private registryMatchesPath(pathname: string): boolean {
-    return this.registry.groups.some(group =>
-      matchRoutePath(compileRoutePath(group.primary.path), pathname) !== null,
+    return this.registryPatterns.some(pattern =>
+      matchRoutePath(pattern, pathname) !== null,
     );
   }
 

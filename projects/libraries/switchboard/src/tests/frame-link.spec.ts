@@ -8,6 +8,7 @@ import {
   FrameNavigator,
   provideFrameGraph,
   frame,
+  s,
 } from '@epikodelabs/switchboard';
 
 ensureAngularTestEnvironment();
@@ -62,6 +63,17 @@ class FrameLinkHostComponent {
   target = '/about';
 }
 
+
+@Component({
+  standalone: true,
+  imports: [FrameLink],
+  template: '<a [frameLink]="target" [queryParams]="queryParams">Filtered about</a>',
+})
+class NamedFrameLinkHostComponent {
+  target = { name: 'about' } as const;
+  queryParams = { at: new Date('2026-09-12T10:15:30.000Z') };
+}
+
 describe('FrameLink', () => {
   let navigator: FrameNavigator;
 
@@ -111,6 +123,33 @@ describe('FrameLink', () => {
     expect(navigator.state.current?.path).toBe('/about');
     expect(host.textContent).toContain('About');
   });
+
+  it('keeps schema serialization when queryParams are merged into a named target', async () => {
+    await TestBed.configureTestingModule({
+      imports: [
+        AboutComponent,
+        NamedFrameLinkHostComponent,
+      ],
+      providers: [
+        ...provideFrameGraph([
+          frame('about', '/about', AboutComponent, {
+            query: { at: s.date() },
+          }),
+        ]),
+      ],
+    }).compileComponents();
+
+    const fixture = TestBed.createComponent(NamedFrameLinkHostComponent);
+    navigator = TestBed.inject(FrameNavigator);
+
+    fixture.detectChanges();
+    await delay();
+    fixture.detectChanges();
+
+    const anchor = (fixture.nativeElement as HTMLElement).querySelector('a');
+    expect(anchor?.getAttribute('href')).toBe(
+      '/about?at=2026-09-12T10%3A15%3A30.000Z',
+    );
+  });
+
 });
-
-

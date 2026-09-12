@@ -1,13 +1,4 @@
-export const ROUTER_LOCATION_CHANGE_EVENT = 'switchboard:location-change';
-
-export function dispatchRouterLocationChange(): void {
-  if (typeof window === 'undefined') {
-    return;
-  }
-
-  window.dispatchEvent(
-    new CustomEvent(
-      ROUTER_LOCATION_CHANGE_EVENT,
-    ),
-  );
-}
+export {
+  FRAME_LOCATION_CHANGE_EVENT as ROUTER_LOCATION_CHANGE_EVENT,
+  dispatchFrameLocationChange as dispatchRouterLocationChange,
+} from './frame-events';

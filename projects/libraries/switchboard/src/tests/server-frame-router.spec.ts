@@ -105,4 +105,54 @@ describe('Switchboard server frame integration', () => {
     expect(navigator.state.path).toBe('/protected');
     expect(outlet.innerHTML).toContain('<h1>Protected</h1>');
   });
+
+  it('allows a failed server-frame resolution to be retried after revalidate', async () => {
+    const contribution = framesFor('application', [
+      frame('protected', '/protected', ProtectedComponent, {
+        directEntry: true,
+      }),
+    ]);
+    let available = false;
+    let calls = 0;
+    const resolveFrames: ServerFrameResolver = async url => {
+      calls++;
+      if (url.pathname !== '/protected' || !available) {
+        return null;
+      }
+      return {
+        contributions: [contribution],
+        contributionIdentities: { application: 'application:HASH' },
+      };
+    };
+
+    window.history.replaceState(null, '', '/');
+    TestBed.configureTestingModule({
+      imports: [ProtectedComponent],
+      providers: [
+        ...provideServerFrameGraph(
+          [frameSlot('application')],
+          { resolveFrames },
+        ),
+      ],
+    });
+
+    outlet = document.createElement('div');
+    navigator = TestBed.inject(FrameNavigator);
+    navigator.connect('', outlet);
+    await new Promise(resolve => setTimeout(resolve, 0));
+
+    expect(await navigator.navigate({ path: '/protected' })).toBeFalse();
+    const callsAfterFailure = calls;
+
+    expect(await navigator.navigate({ path: '/protected' })).toBeFalse();
+    expect(calls).toBe(callsAfterFailure);
+
+    available = true;
+    await navigator.revalidate();
+
+    expect(await navigator.navigate({ path: '/protected' })).toBeTrue();
+    expect(calls).toBeGreaterThan(callsAfterFailure);
+    expect(navigator.state.path).toBe('/protected');
+  });
+
 });

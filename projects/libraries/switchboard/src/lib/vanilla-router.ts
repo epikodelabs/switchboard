@@ -438,13 +438,15 @@ function readRawQuery(
   url: URL,
 ): RouteQuery {
   const values:
-    Record<string, string> = {};
+    Record<string, string | readonly string[]> = {};
 
-  url.searchParams.forEach(
-    (value, key) => {
-      values[key] = value;
-    },
-  );
+  for (const key of new Set(url.searchParams.keys())) {
+    const entries = url.searchParams.getAll(key);
+    values[key] =
+      entries.length > 1
+        ? Object.freeze([...entries])
+        : entries[0] ?? '';
+  }
 
   return Object.freeze(values);
 }
@@ -664,8 +666,8 @@ function loadRoute(
       )
       .then(loaded => ({
         component: loaded.component,
-        canActivate: loaded.canActivate,
-        canDeactivate: loaded.canDeactivate,
+        canActivate: loaded.canActivate ?? route.canActivate,
+        canDeactivate: loaded.canDeactivate ?? route.canDeactivate,
         prepare: loaded.prepare ?? route.prepare,
         parseParams: loaded.parseParams,
         parseQuery: loaded.parseQuery,
@@ -1102,13 +1104,20 @@ export function createRouter(config: RouterConfig): Router {
       return;
     }
 
+    let committed = false;
+
     try {
       await Promise.resolve(
-        startViewTransition.call(transitionDocument, () => action()).finished,
+        startViewTransition.call(transitionDocument, () => {
+          committed = true;
+          action();
+        }).finished,
       );
     } catch (error) {
       trace('View transition failed', error);
-      action();
+      if (!committed) {
+        action();
+      }
     }
   }
 

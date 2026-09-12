@@ -230,10 +230,7 @@ export class FrameLink implements OnChanges {
       return;
     }
 
-    if (
-      !this.queryParams &&
-      this.fragment === undefined
-    ) {
+    if (this.fragment === undefined) {
       this.href = href;
       return;
     }
@@ -243,13 +240,6 @@ export class FrameLink implements OnChanges {
         href,
         getNavigationLocation(this.document).origin,
       );
-
-    if (this.queryParams) {
-      appendQueryParams(
-        url,
-        this.queryParams,
-      );
-    }
 
     if (this.fragment !== undefined) {
       url.hash = this.fragment
