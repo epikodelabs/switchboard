@@ -665,8 +665,8 @@ function adaptRoutes(
         load: primary.load,
         preload: primary.preload,
         viewTransition: primary.viewTransition,
-        canActivate: primary.canActivate,
-        canDeactivate: primary.canDeactivate,
+        beforeEnter: primary.beforeEnter,
+        beforeLeave: primary.beforeLeave,
         prepare: primary.prepare,
         outlets: Object.freeze(outlets),
       };

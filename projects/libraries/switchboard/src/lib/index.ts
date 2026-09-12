@@ -13,6 +13,8 @@ export * from './typed-navigation';
 export {
     createRouter,
     type ActivatedRoute,
+    type BeforeEnterFn,
+    type BeforeLeaveFn,
     type DeactivationContext,
     type LoadedRoute,
     type NavigationContext,
