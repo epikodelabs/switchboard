@@ -135,7 +135,7 @@ type NormalizePrepareInput<TPrepare> =
 
 /**
  * Declares a frame: a self-contained view with address, stable identity,
- * transition-graph edges, companion outlets, and lifecycle behavior.
+ * local Relay transition declarations, companion outlets, and lifecycle behavior.
  */
 export function frame<
   const TId extends string,

@@ -10,7 +10,7 @@ import {
 
 import { bindFrameInputs } from './frame-input-adapter';
 import { FRAME_RELAY_RUNTIME, Relay } from './frame-relay';
-import { CURRENT_FRAME_NODE, FRAME_TREE, type FrameNode } from './frame-tree';
+import { CURRENT_FRAME_NODE, FRAME_TREE, type FrameNode, type FrameTree } from './frame-tree';
 import { replaceChildNodes } from './adapter-utils';
 
 import type { NavigationProviders } from './navigation-definitions';
@@ -65,11 +65,17 @@ function createScopedInjector(
     return undefined;
   }
 
+  let createdNode: FrameNode | null = null;
+  let owningTree: FrameTree | null = null;
+  let createdInjector: EnvironmentInjector | null = null;
+
   try {
     const scopedProviders = [...(providers ? Array.from(providers) : [])];
     if (host) {
       const tree = parent.get(FRAME_TREE);
       const node = tree.create(frameId ?? null, host, transitions);
+      createdNode = node;
+      owningTree = tree;
       scopedProviders.push({ provide: CURRENT_FRAME_NODE, useValue: node });
 
       // Relay is a capability of authored Frames only. Anonymous structural
@@ -80,12 +86,23 @@ function createScopedInjector(
         scopedProviders.push({ provide: Relay, useValue: new Relay(node, runtime) });
       }
 
-      const scoped = createEnvironmentInjector(scopedProviders, parent, label);
-      scoped.get(DestroyRef).onDestroy(() => tree.remove(node));
-      return scoped;
+      createdInjector = createEnvironmentInjector(scopedProviders, parent, label);
+      createdInjector.get(DestroyRef).onDestroy(() => tree.remove(node));
+      return createdInjector;
     }
     return createEnvironmentInjector(scopedProviders, parent, label);
   } catch (error) {
+    if (createdInjector) {
+      try {
+        createdInjector.destroy();
+      } catch {}
+    }
+    if (createdNode && owningTree) {
+      try {
+        owningTree.remove(createdNode);
+      } catch {}
+    }
+
     throw new Error(
       `Failed to create frame injector for "${label}": ` +
         (error instanceof Error ? error.message : String(error)),
@@ -245,11 +262,27 @@ export function composeAngularFrameView(
 
         const activeInjector = scopedInjector ?? parentInjector;
 
-        const rendered = createAngularComponent(
-          appRef, documentRef, tokens, view.component, activeInjector, route, context, host,
-        );
+        let rendered: RenderedRouteNode;
+        try {
+          rendered = createAngularComponent(
+            appRef, documentRef, tokens, view.component, activeInjector, route, context, host,
+          );
+        } catch (error) {
+          try {
+            scopedInjector?.destroy();
+          } catch {}
+          throw error;
+        }
 
-        const parent = layers[layers.length - 1];
+        // From this point onward the layer must participate in outer rollback.
+        // Parent-outlet lookup, DOM composition, mounting, or lifecycle dispatch
+        // can all throw after the component and its structural node exist.
+        layers.push({
+          rendered,
+          injector: scopedInjector,
+        });
+
+        const parent = layers[layers.length - 2];
 
         if (parent) {
           // The frame outlet selects the application-level render target.
@@ -282,11 +315,6 @@ export function composeAngularFrameView(
           }
         }
 
-        layers.push({
-          rendered,
-          injector: scopedInjector,
-        });
-
         parentInjector = activeInjector;
       }
 
@@ -307,7 +335,14 @@ export function composeAngularFrameView(
         },
       };
     } catch (error) {
-      disposeLayers(layers);
+      try {
+        disposeLayers(layers);
+      } catch (cleanupError) {
+        throw new AggregateError(
+          [error, cleanupError],
+          'Frame composition failed and rollback also reported an error.',
+        );
+      }
       throw error;
     }
   };

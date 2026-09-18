@@ -14,7 +14,7 @@ function normalizeIdentity(value: string, label: string): string {
   return normalized;
 }
 
-/** Declares an ownership boundary in the frame graph. */
+/** Declares a build/delivery ownership boundary for authored frame definitions. */
 export function frameSlot<const TSlotId extends string>(
   slotId: TSlotId,
   load?: () => import('./navigation-definitions').MaybePromise<
@@ -63,7 +63,7 @@ function defineFrameContribution<
 }
 
 /**
- * Resolves a root graph against an authorized contribution set.
+ * Resolves a root definition tree against an authorized contribution set.
  * Missing slots remain empty; unknown contributions are rejected.
  */
 export function resolveFrameSlots(

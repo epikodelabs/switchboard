@@ -115,7 +115,7 @@ export function createServerFrameResolver(
     );
     throwIfAborted(context.signal);
     if (response.status === 404) return null;
-    if (!response.ok) throw new Error(`Failed to resolve frame graph for "${path}": ${response.status}.`);
+    if (!response.ok) throw new Error(`Failed to resolve frame definitions for "${path}": ${response.status}.`);
     const payload = await response.json();
     throwIfAborted(context.signal);
     if (!isServerFrameResolution(payload)) {

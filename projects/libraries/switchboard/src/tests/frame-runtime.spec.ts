@@ -10,6 +10,7 @@ import {
   FrameOutlet,
   s,
   FrameRuntime,
+  FRAME_TREE,
   NavigationTree,
 } from '@epikodelabs/switchboard';
 
@@ -56,6 +57,26 @@ class ChildComponent {}
 })
 class SettingsComponent {}
 
+@Component({
+  standalone: true,
+  template: '<h2>Broken parent</h2>',
+})
+class ParentWithoutOutletComponent {}
+
+@Component({
+  standalone: true,
+  imports: [FrameOutlet],
+  template: '<frame-outlet />',
+})
+class ChildWithOutletComponent {}
+
+@Component({ standalone: true, template: '' })
+class ThrowingComponent {
+  constructor() {
+    throw new Error('construction failed');
+  }
+}
+
 describe('FrameRuntime: nested frames', () => {
   let outlet: HTMLElement;
   let navigator: FrameRuntime;
@@ -69,6 +90,9 @@ describe('FrameRuntime: nested frames', () => {
         ShellWithSidebarComponent,
         ChildComponent,
         SettingsComponent,
+        ParentWithoutOutletComponent,
+        ChildWithOutletComponent,
+        ThrowingComponent,
       ],
       providers: [...provideFrameGraph(routes)],
     });
@@ -433,6 +457,54 @@ describe('FrameRuntime: nested frames', () => {
     expect(navigator.state.path).toBe('/settings');
     expect(navigator.state.query['section']).toBe('access');
     expect(getOutletContent()).toContain('<h3>Settings</h3>');
+  });
+
+  it('rolls back a created child layer when parent composition fails', async () => {
+    const routes = [
+      layout('/broken', ParentWithoutOutletComponent, [
+        frame('nested', '/child', ChildWithOutletComponent),
+      ]),
+    ] as const satisfies NavigationTree;
+
+    bootstrap(routes);
+    const tree = TestBed.inject(FRAME_TREE);
+    expect(tree.outletCount).toBe(1);
+
+    await expectAsync(
+      navigator.navigate({ path: '/broken/child' }),
+    ).toBeRejectedWithError(
+      Error,
+      /parent layout has no frame outlet \(primary\)/,
+    );
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(getOutletContent()).toContain('Page failed to load');
+    expect(tree.outletCount).toBe(1);
+    expect(tree.roots().length).toBe(0);
+  });
+
+  it('removes a structural node when component creation fails', async () => {
+    const routes = [frame('broken', '/broken', ThrowingComponent)] as const satisfies NavigationTree;
+
+    bootstrap(routes);
+    const tree = TestBed.inject(FRAME_TREE);
+    const createdNodes: ReturnType<typeof tree.create>[] = [];
+    const create = tree.create.bind(tree);
+    spyOn(tree, 'create').and.callFake((frameId, host, transitions) => {
+      const node = create(frameId, host, transitions);
+      createdNodes.push(node);
+      return node;
+    });
+
+    await expectAsync(
+      navigator.navigate({ path: '/broken' }),
+    ).toBeRejectedWithError(Error, 'construction failed');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(getOutletContent()).toContain('Page failed to load');
+    expect(createdNodes.length).toBeGreaterThan(0);
+    expect(createdNodes.every((node) => !tree.contains(node))).toBeTrue();
+    expect(tree.roots().length).toBe(0);
   });
 
   it('restores a frame from browser history state', async () => {

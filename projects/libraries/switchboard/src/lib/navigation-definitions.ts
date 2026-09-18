@@ -103,7 +103,7 @@ export interface FrameOutletDefinition<
 }
 
 /**
- * A frame wraps a view with identity, graph edges, and lifecycle behavior.
+ * A frame wraps a view with identity, local Relay transition declarations, and lifecycle behavior.
  * Frames authored through `frame(id, ...)` carry a stable id that doubles as
  * the placed route's name.
  */
@@ -170,9 +170,9 @@ export interface FrameOptions<
   readonly query?: TQuerySchema;
   readonly data?: Readonly<Record<string, unknown>>;
   readonly providers?: NavigationProviders;
-  /** Frame-graph edges: which frame ids may follow this frame. */
+  /** Local Relay declarations: frame ids this authored frame may accept as targets. */
   readonly transitions?: readonly string[];
-  /** Whether cold URL entry is allowed. Omit for graph-internal frames. */
+  /** Whether cold URL entry is allowed. Omit when the frame is Relay-only. */
   readonly directEntry?: boolean;
   /** Where a rejected cold entry should land instead. */
   readonly directEntryRedirectTo?: string;

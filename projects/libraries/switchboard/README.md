@@ -230,6 +230,10 @@ export const applicationFrames = framesFor('application', [
 | Rendering commits / route lifecycle | `VanillaRouter` |
 | Protected contribution boundaries | `frameSlot()` / `framesFor()` |
 
+## Updating to 1.0.6
+
+Switchboard 1.0.6 changes frame navigation from global frame-id lookup to origin-bound Relay propagation through the materialized tree. See the repository [1.0.6 navigation changes](../../docs/migration-1.0.6.md) for compatibility notes and migration steps.
+
 ## Architectural invariants
 
 1. The materialized `FrameTree` is the sole runtime model of frame relationships.

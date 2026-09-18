@@ -51,6 +51,10 @@ export class FrameTree {
   }
 
   registerOutlet(name: string, outlet: HTMLElement, owner: FrameNode | null): void {
+    if (owner && !this.contains(owner)) {
+      throw new Error('Cannot register an outlet for a FrameNode that is not part of this FrameTree.');
+    }
+
     this.outlets.set(outlet, {
       name: name.trim(),
       owner,
@@ -60,6 +64,10 @@ export class FrameTree {
 
   unregisterOutlet(outlet: HTMLElement): void {
     this.outlets.delete(outlet);
+  }
+
+  hasOutlet(outlet: HTMLElement): boolean {
+    return this.outlets.has(outlet);
   }
 
   get outletCount(): number {
@@ -132,10 +140,31 @@ export class FrameTree {
     return depth;
   }
 
-  /** Mount a materialized frame into a concrete outlet. */
+  /** Mount a materialized frame into a concrete, connected outlet. */
   mount(node: FrameNode, outlet: HTMLElement, slot = outlet.getAttribute('name')?.trim() ?? ''): void {
+    if (!this.contains(node)) {
+      throw new Error('Cannot mount a FrameNode that is not part of this FrameTree.');
+    }
+
+    const outletRecord = this.outlets.get(outlet);
+    if (!outletRecord) {
+      throw new Error('Cannot mount a FrameNode into an outlet that is not connected to this FrameTree.');
+    }
+
+    const owner = outletRecord.owner && this.contains(outletRecord.owner)
+      ? outletRecord.owner
+      : null;
+
+    // A tree node cannot be mounted into an outlet owned by itself or one of
+    // its descendants. Besides corrupting bubble()/materialization semantics,
+    // such a cycle would make recursive ownership checks non-terminating.
+    for (let candidate = owner; candidate; candidate = candidate.parent) {
+      if (candidate === node) {
+        throw new Error('Cannot mount a FrameNode into an outlet owned by itself or its descendant.');
+      }
+    }
+
     this.detach(node);
-    const owner = this.ownerOf(outlet);
     node.parent = owner;
     node.slot = slot;
     if (owner) {
@@ -158,13 +187,22 @@ export class FrameTree {
   remove(node: FrameNode): void {
     if (!this.contains(node)) return;
     for (const child of [...node.children.values()]) this.remove(child);
+
+    // A node owns its logical outlets for exactly the same lifetime as the
+    // node itself. Angular directives will also disconnect during component
+    // destruction, but tree removal must be authoritative so a failed or
+    // replaced render cannot leave ghost outlets visible to the runtime.
+    for (const [element, record] of this.outlets) {
+      if (record.owner === node) this.outlets.delete(element);
+    }
+
     this.detach(node);
     this.nodes.delete(node.key);
     this.byHost.delete(node.host);
   }
 
   bubble(origin: FrameNode): readonly FrameNode[] {
-    if (!this.nodes.has(origin.key)) return Object.freeze([]);
+    if (!this.contains(origin)) return Object.freeze([]);
     const chain: FrameNode[] = [];
     for (let node: FrameNode | null = origin; node; node = node.parent) chain.push(node);
     return Object.freeze(chain);

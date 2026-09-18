@@ -501,9 +501,9 @@ function adaptFrameEntryTransitions(
             || targetFrame.directEntryRedirectTo !== undefined;
           if (!enforceEntry) return true;
 
-          // Entry policy is deliberately independent of the authored frame graph.
+          // Entry policy is deliberately independent of Relay propagation.
           // Relay owns frame-to-frame reachability. Once Switchboard is already
-          // active, an address navigation is an address operation, not a graph hop.
+          // active, an address navigation is an address operation, not a Relay hop.
           if (transition.from) return true;
           if (transition.redirectCount > 0) return true;
           if (targetFrame.directEntry) return true;
@@ -1368,8 +1368,20 @@ export class FrameRuntime<TFrames extends NavigationTree = any> implements Relay
   }
 
   private getOutlet(name: string, incoming?: Node): HTMLElement | null {
-    const registered = this.outlets.get(name.trim());
+    const outletName = name.trim();
+    const registered = this.outlets.get(outletName);
     if (!registered?.length) return null;
+
+    // FrameTree owns outlet lifetime. A branch can be removed from the logical
+    // tree before Angular destroys its directives and calls disconnect(), so
+    // prune router-target entries that the tree has already invalidated.
+    for (let index = registered.length - 1; index >= 0; index--) {
+      if (!this.frameTree.hasOutlet(registered[index]!)) registered.splice(index, 1);
+    }
+    if (registered.length === 0) {
+      this.outlets.delete(outletName);
+      return null;
+    }
 
     // Angular may connect outlets contained by an incoming composed frame
     // before VanillaRouter commits that frame. Such an outlet can never be a

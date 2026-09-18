@@ -157,7 +157,7 @@ function compileEntry(
 
   if (entry.kind === 'frame-slot') {
     // An unresolved slot is an empty ownership boundary. Server/client delivery
-    // resolves authorized contributions before compiling the active graph.
+    // resolves authorized contributions before compiling the active definition set.
     return;
   }
 

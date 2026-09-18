@@ -85,6 +85,33 @@ describe('materialized FrameTree', () => {
     expect(books.children.size).toBe(0);
   });
 
+  it('removes outlets owned by a removed branch immediately', () => {
+    const tree = new FrameTree();
+    const app = outlet();
+    tree.registerOutlet('', app, null);
+
+    const root = tree.create('root', host());
+    tree.mount(root, app);
+    const primary = connect(tree, outlet(), root);
+    const sidebar = connect(tree, outlet('sidebar'), root, 'sidebar');
+
+    const child = tree.create('child', host());
+    tree.mount(child, primary);
+    connect(tree, outlet('details'), child, 'details');
+
+    expect(tree.outletCount).toBe(4);
+    expect(tree.hasOutlet(sidebar)).toBeTrue();
+
+    tree.remove(root);
+
+    expect(tree.outletCount).toBe(1);
+    expect(tree.hasOutlet(sidebar)).toBeFalse();
+    expect(tree.outlet('')).toBe(app);
+    expect(tree.outlet('sidebar')).toBeNull();
+    expect(tree.outlet('details')).toBeNull();
+    expect(tree.bubble(child)).toEqual([]);
+  });
+
   it('identifies outlet ownership from the materialized frame tree', () => {
     const tree = new FrameTree();
     const rootHost = document.createElement('frame-host');
@@ -205,6 +232,74 @@ describe('materialized FrameTree', () => {
 
     expect(tree.isMaterialized(layout)).toBeTrue();
     expect(tree.isMaterialized(child)).toBeTrue();
+  });
+
+
+  it('rejects registering an outlet for a node from outside the tree', () => {
+    const tree = new FrameTree();
+    const otherTree = new FrameTree();
+    const foreignOwner = otherTree.create('foreign', host());
+
+    expect(() => tree.registerOutlet('', outlet(), foreignOwner)).toThrowError(/not part of this FrameTree/);
+    expect(tree.outletCount).toBe(0);
+  });
+
+  it('rejects a forged relay origin that only reuses a live node key', () => {
+    const tree = new FrameTree();
+    const app = outlet();
+    tree.registerOutlet('', app, null);
+
+    const live = tree.create('live', host());
+    tree.mount(live, app);
+
+    const forged = {
+      ...live,
+      host: host(),
+      children: new Map(live.children),
+    };
+
+    expect(tree.bubble(forged)).toEqual([]);
+    expect(tree.bubble(live)).toEqual([live]);
+  });
+
+  it('rejects remounting a removed node', () => {
+    const tree = new FrameTree();
+    const app = outlet();
+    tree.registerOutlet('', app, null);
+
+    const node = tree.create('screen', host());
+    tree.mount(node, app);
+    tree.remove(node);
+
+    expect(() => tree.mount(node, app)).toThrowError(/not part of this FrameTree/);
+    expect(tree.roots()).toEqual([]);
+  });
+
+  it('rejects mounting a node into an outlet owned by its descendant', () => {
+    const tree = new FrameTree();
+    const app = outlet();
+    tree.registerOutlet('', app, null);
+
+    const parent = tree.create('parent', host());
+    tree.mount(parent, app);
+    const parentPrimary = connect(tree, outlet(), parent);
+
+    const child = tree.create('child', host());
+    tree.mount(child, parentPrimary);
+    const childPrimary = connect(tree, outlet(), child);
+
+    expect(() => tree.mount(parent, childPrimary)).toThrowError(/itself or its descendant/);
+    expect(parent.parent).toBeNull();
+    expect(parent.children.get('')).toBe(child);
+    expect(child.parent).toBe(parent);
+  });
+
+  it('rejects mounting into an unconnected outlet', () => {
+    const tree = new FrameTree();
+    const node = tree.create('screen', host());
+
+    expect(() => tree.mount(node, outlet())).toThrowError(/not connected/);
+    expect(tree.roots()).toEqual([]);
   });
 
 });
