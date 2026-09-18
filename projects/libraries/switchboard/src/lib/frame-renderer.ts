@@ -66,6 +66,9 @@ function createScopedInjector(
       const runtime = parent.get(FRAME_RELAY_RUNTIME);
       const node = tree.create(frameId, host, transitions);
       scopedProviders.push({ provide: Relay, useValue: new Relay(node, runtime) });
+      const scoped = createEnvironmentInjector(scopedProviders, parent, label);
+      scoped.onDestroy(() => tree.remove(node));
+      return scoped;
     }
     return createEnvironmentInjector(scopedProviders, parent, label);
   } catch (error) {

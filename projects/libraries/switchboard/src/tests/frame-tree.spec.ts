@@ -53,6 +53,28 @@ describe('materialized FrameTree', () => {
     expect(root.children.get('sidebar')).toBe(sidebar);
     expect(root.children.get('')).toBe(journal);
     expect(books.parent).toBeNull();
+    expect(tree.bubble(books)).toEqual([]);
+  });
+
+  it('removes an entire replaced branch from the materialized tree', () => {
+    const tree = new FrameTree();
+    const workspaceHost = host();
+    const workspace = tree.create('workspace', workspaceHost);
+    tree.mount(workspace, outlet());
+
+    const booksHost = host();
+    const books = tree.create('books', booksHost);
+    tree.mount(books, outlet(workspaceHost));
+    const details = tree.create('details', host());
+    tree.mount(details, outlet(booksHost));
+
+    const journal = tree.create('journal', host());
+    tree.mount(journal, outlet(workspaceHost));
+
+    expect(workspace.children.get('')).toBe(journal);
+    expect(tree.bubble(books)).toEqual([]);
+    expect(tree.bubble(details)).toEqual([]);
+    expect(books.children.size).toBe(0);
   });
   describe('tree-native navigation projection', () => {
     it('replaces only the branch through which a relay bubbled', () => {

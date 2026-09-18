@@ -73,11 +73,11 @@ export class FrameTree {
     node.slot = slot;
     if (owner) {
       const previous = owner.children.get(slot);
-      if (previous && previous !== node) this.detach(previous);
+      if (previous && previous !== node) this.remove(previous);
       owner.children.set(slot, node);
     } else {
       const previous = this.rootsBySlot.get(slot);
-      if (previous && previous !== node) this.detach(previous);
+      if (previous && previous !== node) this.remove(previous);
       this.rootsBySlot.set(slot, node);
     }
   }
