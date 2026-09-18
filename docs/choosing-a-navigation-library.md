@@ -123,7 +123,7 @@ The fundamental question is:
 
 Switchboard approaches navigation from a different direction.
 
-URLs are not the runtime relationship model. Authored frames declare possible transitions, while the application the user can currently interact with is represented as a **materialized tree of frame and layout instances**.
+URLs are not the runtime relationship model. Authored frames declare possible transitions, while the application the user can currently interact with is represented as a **materialized tree of frame and Angular view instances**.
 
 A `Relay` is bound to one concrete visible frame. When that frame requests a target, Relay walks the actual materialized ownership chain until the nearest authored frame accepts the target. `FrameRuntime` then projects that accepted target to an address and delegates location navigation to `VanillaRouter`.
 

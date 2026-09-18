@@ -2,7 +2,7 @@
 
 **Frame-first navigation for Angular.**
 
-Switchboard models the application the user can currently interact with as a **materialized tree of frames and structural layout owners**. Authored frames describe possible product states; rendering turns those definitions into concrete runtime nodes. Navigation between visible frames is performed by **Relay** through that materialized tree.
+Switchboard models the application the user can currently interact with as a **materialized tree of authored frames and Angular view scopes**. Authored frames describe possible product states; rendering turns those definitions into concrete runtime nodes. Navigation between visible frames is performed by **Relay** through that materialized tree.
 
 `VanillaRouter` is intentionally separate and constant: it remains the location engine responsible for URL matching, history, popstate, scroll restoration, route lifecycle, view transitions, and rendering commits.
 
@@ -12,11 +12,11 @@ Switchboard models the application the user can currently interact with as a **m
 
 An authored `frame()` definition describes a possible application state. Once rendered, it becomes a concrete `FrameNode` in the runtime `FrameTree`.
 
-Ordinary rendered layouts also receive anonymous structural nodes so their outlets have an explicit owner. Anonymous layout nodes are part of the visible tree, but they are not authored frames: they have no frame id, no transition declarations, and no `Relay` capability.
+Ordinary rendered Angular views receive structural `ViewNode`s so their outlets have an explicit owner. A `ViewNode` is not a frame: it has no frame id, no transition declarations, and no `Relay` capability of its own.
 
 ```text
 application outlet
-└── anonymous layout owner
+└── ViewNode(AdminLayout)
     ├── [sidebar] sidebar frame
     └── [default] ledger frame
         └── child frame
@@ -37,7 +37,7 @@ The runtime relationship model is only:
 ```text
 FrameTree
 ├── concrete authored FrameNode instances
-└── anonymous layout-owner nodes
+└── structural Angular ViewNode instances
 ```
 
 This distinction is fundamental to decentralized navigation: Relay follows what is **actually materialized now**.
@@ -74,7 +74,7 @@ structural parent
 nearest authored frame whose transitions accept target
 ```
 
-Anonymous layout nodes participate in the ancestry walk because they are real structural owners, but only authored frame nodes can accept a transition.
+`ViewNode`s remain in structural ancestry for ownership/lifetime, but Relay skips them; only authored `FrameNode`s can accept a transition.
 
 After a target is accepted, `FrameRuntime` projects the target and payload to an address and delegates the location transition to `VanillaRouter`. Rendering then updates the materialized tree.
 
@@ -108,9 +108,9 @@ export const frames = [
 
 `transitions` belongs to the authored frame definition and is copied onto each materialized authored `FrameNode`. Relay therefore checks reachability against the visible instance tree without consulting a parallel frame registry.
 
-## Structural layouts
+## Angular view composition
 
-A plain `layout()` is visible structure, so it receives an anonymous node even though it has no authored frame identity:
+Angular components are the layout mechanism. For a path-prefixed Angular view that hosts child frames, use `layout()` or the equivalent `view()` spelling:
 
 ```ts
 import { layout } from '@epikodelabs/switchboard';
@@ -121,14 +121,14 @@ export const admin = layout('/admin', AdminLayout, [
 ]);
 ```
 
-If `AdminLayout` contains a primary outlet, that outlet belongs to the concrete anonymous layout node:
+`layout()` and `view()` are both supported first-class helpers and produce the same Angular view-composition definition. At runtime `AdminLayout` receives a structural `ViewNode`, and its primary outlet belongs to that concrete Angular view scope:
 
 ```html
 <header>Admin</header>
 <frame-outlet />
 ```
 
-This prevents a nested layout outlet from being confused with the application root during later navigations or layout re-renders.
+This prevents a nested Angular view outlet from being confused with the application root during later navigations or view re-renders.
 
 ## Outlets
 
@@ -139,7 +139,7 @@ Use `FrameOutlet` to attach structural branches:
 <frame-outlet />
 ```
 
-Every outlet is registered with its logical runtime owner: either an authored frame node, an anonymous layout node, or `null` for an application-level outlet.
+Every outlet is registered with its logical runtime owner: either an authored `FrameNode`, an Angular `ViewNode`, or `null` for an application-level outlet.
 
 Switchboard does not use `closest('frame-host')` or other DOM traversal to discover ownership.
 
@@ -220,7 +220,7 @@ export const applicationFrames = framesFor('application', [
 
 | Concern | Owner |
 | --- | --- |
-| Concrete visible frame/layout instances | `FrameTree` |
+| Concrete visible frame/view instances | `FrameTree` |
 | Parent/child structural relationships | `FrameTree` |
 | Logical outlet ownership | `FrameTree` |
 | Frame-to-frame propagation | `Relay` / `RelayRuntime` |
@@ -230,18 +230,20 @@ export const applicationFrames = framesFor('application', [
 | Rendering commits / route lifecycle | `VanillaRouter` |
 | Protected contribution boundaries | `frameSlot()` / `framesFor()` |
 
-## Updating to 1.0.6
+## Updating to 1.0.7
 
-Switchboard 1.0.6 changes frame navigation from global frame-id lookup to origin-bound Relay propagation through the materialized tree. See the repository [1.0.6 navigation changes](../../docs/migration-1.0.6.md) for compatibility notes and migration steps.
+Switchboard 1.0.7 aligns non-frame layout ownership with Angular view scopes through structural `ViewNode`s. `layout()` remains fully supported and `view()` is an equivalent spelling. See [1.0.7 Angular view-layout changes](../../docs/migration-1.0.7.md).
+
+For the Relay navigation changes introduced previously, see [1.0.6 navigation changes](../../docs/migration-1.0.6.md).
 
 ## Architectural invariants
 
 1. The materialized `FrameTree` is the sole runtime model of frame relationships.
 2. Relay starts from a concrete authored frame node and bubbles only through live materialized ancestry.
-3. Anonymous layout nodes own structure but never become Relay endpoints.
+3. `ViewNode`s own Angular view structure but never become Relay endpoints.
 4. Frame ids identify authored definitions; `FrameNode` identity identifies concrete rendered instances.
 5. Outlet ownership is logical and explicit, never inferred from DOM ancestry.
-6. A frame/layout host is never committed into an outlet contained by that same host.
+6. A frame/view host is never committed into an outlet contained by that same host.
 7. No parallel static frame graph is used for Relay resolution.
 8. No global frame-id navigation bypasses Relay.
 9. Address navigation and frame navigation are separate APIs.

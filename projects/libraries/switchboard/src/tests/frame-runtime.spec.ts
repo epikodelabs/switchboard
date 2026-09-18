@@ -5,6 +5,7 @@ import { TestBed } from '@angular/core/testing';
 import {
   frame,
   layout,
+  view,
   redirect,
   provideFrameGraph,
   FrameOutlet,
@@ -78,6 +79,15 @@ class ThrowingComponent {
 }
 
 describe('FrameRuntime: nested frames', () => {
+  it('supports layout() and view() as equivalent Angular view composition helpers', () => {
+    const legacy = layout('/legacy', ParentComponent, [frame('legacy-child', '/child', ChildComponent)]);
+    const preferred = view('/legacy', ParentComponent, [frame('legacy-child', '/child', ChildComponent)]);
+
+    expect(legacy.kind).toBe('layout');
+    expect(legacy.path).toBe(preferred.path);
+    expect(legacy.layout.length).toBe(preferred.layout.length);
+  });
+
   let outlet: HTMLElement;
   let navigator: FrameRuntime;
 
@@ -138,7 +148,7 @@ describe('FrameRuntime: nested frames', () => {
 
   it('supports a layout index route', async () => {
     const routes = [
-      layout('/admin', ParentComponent, [frame('home', '', HomeComponent)]),
+      view('/admin', ParentComponent, [frame('home', '', HomeComponent)]),
     ] as const satisfies NavigationTree;
 
     bootstrap(routes);
@@ -151,7 +161,7 @@ describe('FrameRuntime: nested frames', () => {
 
   it('renders an eager layout around an eager leaf route', async () => {
     const routes = [
-      layout('/admin', ParentComponent, [frame('child', '/child', ChildComponent)]),
+      view('/admin', ParentComponent, [frame('child', '/child', ChildComponent)]),
     ] as const satisfies NavigationTree;
 
     bootstrap(routes);
@@ -164,7 +174,7 @@ describe('FrameRuntime: nested frames', () => {
 
   it('inherits the layout path prefix', async () => {
     const routes = [
-      layout('/admin', ParentComponent, [frame('settings', '/settings', SettingsComponent)]),
+      view('/admin', ParentComponent, [frame('settings', '/settings', SettingsComponent)]),
     ] as const satisfies NavigationTree;
 
     bootstrap(routes);
@@ -176,7 +186,7 @@ describe('FrameRuntime: nested frames', () => {
 
   it('renders an eager layout around a lazy leaf route', async () => {
     const routes = [
-      layout('/admin', ParentComponent, [frame('lazy-child', '/lazy-child', async () => ChildComponent)]),
+      view('/admin', ParentComponent, [frame('lazy-child', '/lazy-child', async () => ChildComponent)]),
     ] as const satisfies NavigationTree;
 
     bootstrap(routes);
@@ -189,7 +199,7 @@ describe('FrameRuntime: nested frames', () => {
 
   it('renders a lazy layout around an eager leaf route', async () => {
     const routes = [
-      layout('/admin', async () => ParentComponent, [frame('child', '/child', ChildComponent)]),
+      view('/admin', async () => ParentComponent, [frame('child', '/child', ChildComponent)]),
     ] as const satisfies NavigationTree;
 
     bootstrap(routes);
@@ -202,7 +212,7 @@ describe('FrameRuntime: nested frames', () => {
 
   it('renders a lazy layout around a lazy leaf route', async () => {
     const routes = [
-      layout('/admin', async () => ParentComponent, [
+      view('/admin', async () => ParentComponent, [
         frame('lazy-child', '/lazy-child', async () => ChildComponent),
       ]),
     ] as const satisfies NavigationTree;
@@ -217,8 +227,8 @@ describe('FrameRuntime: nested frames', () => {
 
   it('composes multiple layouts without creating a route hierarchy', async () => {
     const routes = [
-      layout('/app', ShellComponent, [
-        layout('/admin', ParentComponent, [frame('child', '/child', ChildComponent)]),
+      view('/app', ShellComponent, [
+        view('/admin', ParentComponent, [frame('child', '/child', ChildComponent)]),
       ]),
     ] as const satisfies NavigationTree;
 
@@ -233,7 +243,7 @@ describe('FrameRuntime: nested frames', () => {
 
   it('supports multiple leaf routes inside one prefixed layout', async () => {
     const routes = [
-      layout('/admin', ParentComponent, [
+      view('/admin', ParentComponent, [
         frame('child', '/child', ChildComponent),
         frame('settings', '/settings', SettingsComponent),
       ]),
@@ -253,7 +263,7 @@ describe('FrameRuntime: nested frames', () => {
 
   it('supports named outlets', async () => {
     const routes = [
-      layout('/', ParentComponent, [
+      view('/', ParentComponent, [
         frame('home', '', HomeComponent, {
           outlets: { sidebar: SettingsComponent },
         }),
@@ -276,7 +286,7 @@ describe('FrameRuntime: nested frames', () => {
 
   it('connects named outlets declared inside a layout component', async () => {
     const routes = [
-      layout('/app', ShellWithSidebarComponent, [
+      view('/app', ShellWithSidebarComponent, [
         frame('child', '/child', ChildComponent, {
           outlets: { sidebar: SettingsComponent },
         }),
@@ -298,7 +308,7 @@ describe('FrameRuntime: nested frames', () => {
     });
 
     const routes = [
-      layout('/app', ShellWithSidebarComponent, [childFrame]),
+      view('/app', ShellWithSidebarComponent, [childFrame]),
     ] as const satisfies NavigationTree;
 
     bootstrap(routes);
@@ -316,7 +326,7 @@ describe('FrameRuntime: nested frames', () => {
     });
 
     const routes = [
-      layout('/app', ShellComponent, [childFrame]),
+      view('/app', ShellComponent, [childFrame]),
     ] as const satisfies NavigationTree;
 
     bootstrap(routes);
@@ -332,7 +342,7 @@ describe('FrameRuntime: nested frames', () => {
 
   it('keeps named outlet navigation working across layout re-renders', async () => {
     const routes = [
-      layout('/app', ShellWithSidebarComponent, [
+      view('/app', ShellWithSidebarComponent, [
         frame('child', '/child', ChildComponent, {
           outlets: { sidebar: SettingsComponent },
         }),
@@ -461,7 +471,7 @@ describe('FrameRuntime: nested frames', () => {
 
   it('rolls back a created child layer when parent composition fails', async () => {
     const routes = [
-      layout('/broken', ParentWithoutOutletComponent, [
+      view('/broken', ParentWithoutOutletComponent, [
         frame('nested', '/child', ChildWithOutletComponent),
       ]),
     ] as const satisfies NavigationTree;
@@ -488,10 +498,10 @@ describe('FrameRuntime: nested frames', () => {
 
     bootstrap(routes);
     const tree = TestBed.inject(FRAME_TREE);
-    const createdNodes: ReturnType<typeof tree.create>[] = [];
-    const create = tree.create.bind(tree);
-    spyOn(tree, 'create').and.callFake((frameId, host, transitions) => {
-      const node = create(frameId, host, transitions);
+    const createdNodes: ReturnType<typeof tree.createFrame>[] = [];
+    const createFrame = tree.createFrame.bind(tree);
+    spyOn(tree, 'createFrame').and.callFake((frameId, host, transitions) => {
+      const node = createFrame(frameId, host, transitions);
       createdNodes.push(node);
       return node;
     });
@@ -512,7 +522,7 @@ describe('FrameRuntime: nested frames', () => {
       directEntry: true,
     });
     const routes = [
-      layout('/app', ShellComponent, [childFrame]),
+      view('/app', ShellComponent, [childFrame]),
     ] as const satisfies NavigationTree;
 
     window.history.replaceState(

@@ -1,14 +1,14 @@
 import { DestroyRef, Directive, ElementRef, Input, OnInit, inject } from '@angular/core';
 
 import { FrameRuntime } from './frame-runtime';
-import { CURRENT_FRAME_NODE } from './frame-tree';
+import { CURRENT_VIEW_NODE } from './frame-tree';
 
 @Directive({ selector: 'frame-outlet', standalone: true })
 export class FrameOutlet implements OnInit {
   private readonly runtime = inject(FrameRuntime);
   private readonly element = inject(ElementRef<HTMLElement>).nativeElement;
   private readonly destroyRef = inject(DestroyRef);
-  private readonly owner = inject(CURRENT_FRAME_NODE, { optional: true });
+  private readonly owner = inject(CURRENT_VIEW_NODE, { optional: true });
   private connected = false;
 
   @Input() name = '';

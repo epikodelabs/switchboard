@@ -1,4 +1,4 @@
-import { FrameTree } from '../lib/frame-tree';
+import { FrameTree, type MaterializedNode } from '../lib/frame-tree';
 
 describe('materialized FrameTree', () => {
   function host(): HTMLElement { return document.createElement('frame-host'); }
@@ -8,7 +8,7 @@ describe('materialized FrameTree', () => {
     return element;
   }
 
-  function connect(tree: FrameTree, element: HTMLElement, owner: ReturnType<FrameTree['create']> | null, name = ''): HTMLElement {
+  function connect(tree: FrameTree, element: HTMLElement, owner: MaterializedNode | null, name = ''): HTMLElement {
     tree.registerOutlet(name, element, owner);
     return element;
   }
@@ -211,27 +211,48 @@ describe('materialized FrameTree', () => {
     expect(tree.outlet('')).toBe(layoutPrimary);
   });
 
-  it('uses anonymous rendered layouts as structural outlet owners', () => {
+  it('uses Angular ViewNodes as structural outlet owners without turning them into frames', () => {
     const tree = new FrameTree();
     const app = outlet();
     tree.registerOutlet('', app, null);
 
-    const layout = tree.create(null, host());
-    const layoutPrimary = outlet();
-    tree.registerOutlet('', layoutPrimary, layout);
+    const rootFrame = tree.createFrame('workspace', host(), ['settings']);
+    tree.mount(rootFrame, app);
 
-    const child = tree.create('settings', host());
-    tree.mount(child, layoutPrimary);
+    const framePrimary = connect(tree, outlet(), rootFrame);
+    const angularView = tree.createView(host());
+    tree.mount(angularView, framePrimary);
 
-    expect(tree.ownerOf(layoutPrimary)).toBe(layout);
-    expect(child.parent).toBe(layout);
-    expect(layout.frameId).toBeNull();
-    expect(tree.outlet('', layout.host)).toBe(app);
+    const viewPrimary = connect(tree, outlet(), angularView);
+    const child = tree.createFrame('settings', host());
+    tree.mount(child, viewPrimary);
 
-    tree.mount(layout, app);
+    expect(tree.ownerOf(viewPrimary)).toBe(angularView);
+    expect(angularView.kind).toBe('view');
+    expect(child.parent).toBe(angularView);
+    expect(tree.ancestry(child)).toEqual([child, angularView, rootFrame]);
+    expect(tree.bubble(child)).toEqual([child, rootFrame]);
+  });
 
-    expect(tree.isMaterialized(layout)).toBeTrue();
+  it('keeps detached Angular view scopes hidden until their root is materialized', () => {
+    const tree = new FrameTree();
+    const app = outlet();
+    tree.registerOutlet('', app, null);
+
+    const angularView = tree.createView(host());
+    const primary = connect(tree, outlet(), angularView);
+    const child = tree.createFrame('settings', host());
+    tree.mount(child, primary);
+
+    expect(tree.isMaterialized(angularView)).toBeFalse();
+    expect(tree.isMaterialized(child)).toBeFalse();
+    expect(tree.outlet('')).toBe(app);
+
+    tree.mount(angularView, app);
+
+    expect(tree.isMaterialized(angularView)).toBeTrue();
     expect(tree.isMaterialized(child)).toBeTrue();
+    expect(tree.outlet('')).toBe(primary);
   });
 
 

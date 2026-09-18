@@ -51,7 +51,7 @@ import {
   type RelayTarget,
   type RelayRuntime,
 } from './frame-relay';
-import { FRAME_TREE, FrameTree, type FrameNode } from './frame-tree';
+import { FRAME_TREE, FrameTree, type FrameNode, type MaterializedNode } from './frame-tree';
 import { resolveFrameSlots } from './frame-slots';
 
 import { OUTLET_ACTIVATE_EVENT, dispatchOutletLifecycleEvent } from './frame-events';
@@ -848,14 +848,14 @@ export class FrameRuntime<TFrames extends NavigationTree = any> implements Relay
     return `${location.pathname}${location.search}${location.hash}`;
   }
 
-  connect(name: string, outlet: HTMLElement, owner: FrameNode | null = null): void {
+  connect(name: string, outlet: HTMLElement, owner: MaterializedNode | null = null): void {
     const outletName = name.trim();
     this.frameTree.registerOutlet(outletName, outlet, owner);
 
-    // Primary outlets owned by a frame are composition slots, not router-level
-    // commit targets. composeAngularFrameView places descendants into them while
-    // building the frame subtree. Root primary and all named outlets remain
-    // addressable by VanillaRouter.
+    // Primary outlets owned by a materialized frame/view scope are composition
+    // slots, not router-level commit targets. composeAngularFrameView places
+    // descendants into them while building the Angular view subtree. Root
+    // primary and all named outlets remain addressable by VanillaRouter.
     if (outletName !== '' || owner === null) {
       const registered = this.outlets.get(outletName) ?? [];
       if (!registered.includes(outlet)) {

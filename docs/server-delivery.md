@@ -42,7 +42,7 @@ authored transition declarations
 materialized FrameTree
 ```
 
-Artifact ownership answers **which definitions may be delivered together**. Authored `transitions` answer **which targets an authored frame may accept**. `FrameTree` answers **which concrete frame/layout instances are visible now and who owns their outlets**.
+Artifact ownership answers **which definitions may be delivered together**. Authored `transitions` answer **which targets an authored frame may accept**. `FrameTree` answers **which concrete frame/view instances are visible now and who owns their outlets**.
 
 Policies control frontend artifact disclosure. They do not replace backend/API authorization.
 

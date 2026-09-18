@@ -10,7 +10,13 @@ import {
 
 import { bindFrameInputs } from './frame-input-adapter';
 import { FRAME_RELAY_RUNTIME, Relay } from './frame-relay';
-import { CURRENT_FRAME_NODE, FRAME_TREE, type FrameNode, type FrameTree } from './frame-tree';
+import {
+  CURRENT_FRAME_NODE,
+  CURRENT_VIEW_NODE,
+  FRAME_TREE,
+  type FrameTree,
+  type MaterializedNode,
+} from './frame-tree';
 import { replaceChildNodes } from './adapter-utils';
 
 import type { NavigationProviders } from './navigation-definitions';
@@ -56,16 +62,15 @@ function createScopedInjector(
   host?: HTMLElement,
   transitions?: readonly string[],
 ): EnvironmentInjector | undefined {
-  // Every rendered layer needs a materialized tree node, even when the authored
-  // layout is not itself a named Frame. Its outlets still need a concrete
-  // logical owner so they cannot be confused with application-root outlets.
-  // Provider-only scopes that are not rendered (for example inherited layout
-  // providers of a named outlet) do not create structural nodes.
+  // Angular owns the view hierarchy. Switchboard mirrors each rendered view as
+  // a structural ViewNode (or FrameNode when the view is an authored frame) so
+  // FrameOutlet ownership follows Angular view lifetime without inventing a
+  // second public layout model. Provider-only scopes do not create view nodes.
   if (!providers?.length && !host) {
     return undefined;
   }
 
-  let createdNode: FrameNode | null = null;
+  let createdNode: MaterializedNode | null = null;
   let owningTree: FrameTree | null = null;
   let createdInjector: EnvironmentInjector | null = null;
 
@@ -73,16 +78,20 @@ function createScopedInjector(
     const scopedProviders = [...(providers ? Array.from(providers) : [])];
     if (host) {
       const tree = parent.get(FRAME_TREE);
-      const node = tree.create(frameId ?? null, host, transitions);
+      const node = frameId !== undefined
+        ? tree.createFrame(frameId, host, transitions)
+        : tree.createView(host);
       createdNode = node;
       owningTree = tree;
-      scopedProviders.push({ provide: CURRENT_FRAME_NODE, useValue: node });
 
-      // Relay is a capability of authored Frames only. Anonymous structural
-      // layout nodes participate in ownership/bubbling but cannot originate a
-      // frame-addressed navigation request themselves.
-      if (frameId !== undefined) {
+      // Angular view hierarchy owns structural outlet scope. Every rendered
+      // component gets CURRENT_VIEW_NODE, but only authored frames add frame
+      // identity/Relay to that scope.
+      scopedProviders.push({ provide: CURRENT_VIEW_NODE, useValue: node });
+
+      if (node.kind === 'frame') {
         const runtime = parent.get(FRAME_RELAY_RUNTIME);
+        scopedProviders.push({ provide: CURRENT_FRAME_NODE, useValue: node });
         scopedProviders.push({ provide: Relay, useValue: new Relay(node, runtime) });
       }
 
@@ -104,7 +113,7 @@ function createScopedInjector(
     }
 
     throw new Error(
-      `Failed to create frame injector for "${label}": ` +
+      `Failed to create render-scope injector for "${label}": ` +
         (error instanceof Error ? error.message : String(error)),
       { cause: error },
     );
