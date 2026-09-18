@@ -20,8 +20,6 @@ import {
 import {
   CompiledRouteGroup,
   createRouteRegistry,
-  type FrameRouteRegistry,
-  type FrameRouteRegistryRecord,
   type RouteRegistry,
 } from './frame-compiler';
 
@@ -319,10 +317,10 @@ function buildFrameNavigationPath(
   params: Readonly<Record<string, unknown>> = {},
   query: Readonly<Record<string, unknown>> | undefined,
 ): string | null {
-  const record = registry.frames.byId.get(frameId);
+  const record = registry.namedRoutes.get(frameId);
   if (!record || isRedirectRouteDefinition(record.route)) return null;
 
-  const path = interpolateNamedPath(record.matchPath, params, record.route.params);
+  const path = interpolateNamedPath(record.fullPath, params, record.route.params);
   if (!path) return null;
 
   const serializedQuery =
@@ -463,73 +461,60 @@ function adaptFrameTransitions(
   return transitions;
 }
 
-function resolveFrameRouteRecord(
-  frames: FrameRouteRegistry,
-  route: ActivatedRoute | null,
-): FrameRouteRegistryRecord | null {
-  const frameId = route?.config.name;
+function frameForActivatedRoute(route: ActivatedRoute | null): FrameView | null {
+  const source = route?.config.sourceRoute as RouteDefinition | undefined;
+  if (!source || isRedirectRouteDefinition(source)) return null;
+  return source.frame ?? null;
+}
 
-  if (frameId && frames.byId.has(frameId)) {
-    return frames.byId.get(frameId) ?? null;
+function defaultDirectEntryPath(groups: readonly CompiledRouteGroup[]): string | null {
+  for (const group of groups) {
+    const route = group.primary.route;
+    if (!isRedirectRouteDefinition(route) && route.frame?.directEntry === true) {
+      return group.primary.path;
+    }
   }
-
   return null;
 }
 
 function adaptFrameGraphTransitions(
-  registry: RouteRegistry,
+  groups: readonly CompiledRouteGroup[],
   consumeRelayAuthorization: (targetFrameId: string) => boolean,
 ): readonly NavigationTransitionDefinition[] {
-  const { frames } = registry;
-
-  if (frames.byId.size === 0) {
-    return [];
-  }
+  const defaultEntryPath = defaultDirectEntryPath(groups);
 
   return [
     {
-      to: (route) => !!resolveFrameRouteRecord(frames, route)?.enforceGraph,
+      to: (route) => {
+        const frame = frameForActivatedRoute(route);
+        return !!frame && (
+          frame.transitions !== undefined
+          || frame.directEntry !== undefined
+          || frame.directEntryRedirectTo !== undefined
+        );
+      },
       beforeEnter: [
         (transition) => {
-          const targetFrame = resolveFrameRouteRecord(frames, transition.to);
+          const targetFrame = frameForActivatedRoute(transition.to);
+          if (!targetFrame?.id) return true;
 
-          if (!targetFrame?.enforceGraph) {
-            return true;
-          }
+          const enforceGraph =
+            targetFrame.transitions !== undefined
+            || targetFrame.directEntry !== undefined
+            || targetFrame.directEntryRedirectTo !== undefined;
+          if (!enforceGraph) return true;
 
-          const sourceFrame = resolveFrameRouteRecord(frames, transition.from);
+          const sourceFrame = frameForActivatedRoute(transition.from);
+          if (sourceFrame?.id === targetFrame.id) return true;
+          if (consumeRelayAuthorization(targetFrame.id)) return true;
+          if (sourceFrame?.transitions?.includes(targetFrame.id)) return true;
+          if (!sourceFrame && transition.redirectCount > 0) return true;
+          if (targetFrame.directEntry) return true;
 
-          if (sourceFrame && sourceFrame.frameId === targetFrame.frameId) {
-            return true;
-          }
-
-          if (consumeRelayAuthorization(targetFrame.frameId)) {
-            return true;
-          }
-
-          if (sourceFrame?.transitions.includes(targetFrame.frameId)) {
-            return true;
-          }
-
-          if (!sourceFrame && transition.redirectCount > 0) {
-            return true;
-          }
-
-          if (targetFrame.directEntry) {
-            return true;
-          }
-
-          const redirectTo = targetFrame.directEntryRedirectTo
-            ?? frames.defaultEntryPath;
-
-          if (!redirectTo || redirectTo === targetFrame.matchPath) {
-            return false;
-          }
-
-          return {
-            redirectTo,
-            replace: true,
-          };
+          const redirectTo = targetFrame.directEntryRedirectTo ?? defaultEntryPath;
+          const targetPath = transition.to.url.pathname;
+          if (!redirectTo || redirectTo === targetPath) return false;
+          return { redirectTo, replace: true };
         },
       ],
     },
@@ -578,6 +563,7 @@ async function resolveViews(
       component: await loadComponent(layout),
       providers: (layout.providers ?? []).flat().filter((p) => p),
       frameId: layout.frame?.id,
+      transitions: layout.frame?.transitions,
       label: `LayoutDefinition(${layout.path || index})`,
     })),
   );
@@ -590,6 +576,7 @@ async function resolveViews(
       component: page,
       providers: (route.providers ?? []).flat().filter((p) => p),
       frameId: route.frame?.id,
+      transitions: route.frame?.transitions,
       label: `RouteDefinition(${route.path})`,
     },
   ]);
@@ -943,7 +930,7 @@ export class FrameRuntime<TFrames extends NavigationTree = any> implements Relay
       preloading: this.configuration.preloading,
 
       transitions: [
-        ...adaptFrameGraphTransitions(this.registry, frameId => this.consumeRelayAuthorization(frameId)),
+        ...adaptFrameGraphTransitions(this.registry.groups, frameId => this.consumeRelayAuthorization(frameId)),
         ...adaptFrameTransitions(this.registry.groups, this.injector),
       ],
 
@@ -1050,12 +1037,12 @@ export class FrameRuntime<TFrames extends NavigationTree = any> implements Relay
 
   resolve(origin: FrameNode, target: RelayTarget): RelayPath | null {
     const bubble = this.frameTree.bubble(origin);
-    if (bubble.length === 0 || !this.registry.frames.byId.has(target.id)) return null;
+    if (bubble.length === 0 || !this.registry.namedRoutes.has(target.id)) return null;
 
     for (let index = 0; index < bubble.length; index++) {
       const candidate = bubble[index]!;
       const acceptsSelf = candidate.frameId === target.id;
-      const acceptsPeer = this.registry.frames.byId.get(candidate.frameId)?.transitions.includes(target.id) ?? false;
+      const acceptsPeer = candidate.transitions.includes(target.id);
       if (!acceptsSelf && !acceptsPeer) continue;
       const projection = this.frameTree.project(origin, candidate, target.id);
       if (!projection) return null;
@@ -1269,7 +1256,7 @@ export class FrameRuntime<TFrames extends NavigationTree = any> implements Relay
         this.injector,
       ),
       transitions: [
-        ...adaptFrameGraphTransitions(this.registry, frameId => this.consumeRelayAuthorization(frameId)),
+        ...adaptFrameGraphTransitions(this.registry.groups, frameId => this.consumeRelayAuthorization(frameId)),
         ...adaptFrameTransitions(this.registry.groups, this.injector),
       ],
     });

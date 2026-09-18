@@ -77,7 +77,7 @@ describe('frame compiler parameter validation', () => {
 
     const registry = createRouteRegistry(routes);
     expect(registry.namedRoutes.has('books')).toBeTrue();
-    expect(registry.frames.byId.get('books')?.matchPath).toBe('/books');
+    expect(registry.namedRoutes.get('books')?.fullPath).toBe('/books');
   });
 
   it('resolves redirect frame targets through the compiled frame graph', () => {
@@ -141,20 +141,6 @@ describe('frame compiler parameter validation', () => {
     );
   });
 
-  it('does not encode authored frame ancestry into the route registry', () => {
-    const routes = [
-      frame('app', '/app', TestLayout, {
-        layout: [
-          frame('workspace', '/workspace', TestLayout, {
-            layout: [frame('document', '/document', TestPage)],
-          }),
-        ],
-      }),
-    ] as const;
 
-    const registry = createRouteRegistry(routes);
-    expect(Object.keys(registry.frames.byId.get('document') ?? {}))
-      .not.toContain('parentFrameIds');
-  });
 
 });

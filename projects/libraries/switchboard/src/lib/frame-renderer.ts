@@ -38,6 +38,7 @@ export interface ResolvedFrameView {
   readonly component: Type<unknown>;
   readonly providers?: NavigationProviders;
   readonly frameId?: string;
+  readonly transitions?: readonly string[];
   readonly label: string;
 }
 
@@ -52,6 +53,7 @@ function createScopedInjector(
   label: string,
   frameId?: string,
   host?: HTMLElement,
+  transitions?: readonly string[],
 ): EnvironmentInjector | undefined {
   if (!providers?.length && !frameId) {
     return undefined;
@@ -62,7 +64,7 @@ function createScopedInjector(
     if (frameId && host) {
       const tree = parent.get(FRAME_TREE);
       const runtime = parent.get(FRAME_RELAY_RUNTIME);
-      const node = tree.create(frameId, host);
+      const node = tree.create(frameId, host, transitions);
       scopedProviders.push({ provide: Relay, useValue: new Relay(node, runtime) });
     }
     return createEnvironmentInjector(scopedProviders, parent, label);
@@ -222,7 +224,7 @@ export function composeAngularFrameView(
       for (let index = 0; index < views.length; index++) {
         const view = views[index];
         const host = documentRef.createElement('frame-host');
-        const scopedInjector = createScopedInjector(view.providers, parentInjector, view.label, view.frameId, host);
+        const scopedInjector = createScopedInjector(view.providers, parentInjector, view.label, view.frameId, host, view.transitions);
 
         const activeInjector = scopedInjector ?? parentInjector;
 
@@ -311,7 +313,7 @@ export function composeAngularLeafFrameView(
       const leafView = views[views.length - 1];
       for (const view of views) {
         const scopedInjector = createScopedInjector(
-          view.providers, parentInjector, view.label, view.frameId, view === leafView ? leafHost : undefined,
+          view.providers, parentInjector, view.label, view.frameId, view === leafView ? leafHost : undefined, view.transitions,
         );
 
         if (scopedInjector) {

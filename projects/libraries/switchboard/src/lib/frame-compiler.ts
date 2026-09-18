@@ -398,23 +398,6 @@ interface RouteRegistryRecord {
   readonly fullPath: string;
 }
 
-export interface FrameRouteRegistryRecord {
-  readonly frameId: string;
-  readonly matchPath: string;
-  readonly route: RouteDefinition;
-  readonly frame: FrameView | null;
-  readonly transitions: readonly string[];
-  readonly directEntry: boolean;
-  readonly directEntryRedirectTo?: string;
-  readonly enforceGraph: boolean;
-}
-
-export interface FrameRouteRegistry {
-  readonly byId:
-    ReadonlyMap<string, FrameRouteRegistryRecord>;
-  readonly defaultEntryPath: string | null;
-}
-
 export interface RouteRegistry {
   readonly namedRoutes:
     ReadonlyMap<
@@ -423,8 +406,6 @@ export interface RouteRegistry {
     >;
   readonly groups:
     readonly CompiledRouteGroup[];
-  readonly frames:
-    FrameRouteRegistry;
 }
 
 export function createRouteRegistry(
@@ -446,7 +427,7 @@ export function createRouteRegistry(
   const framesById =
     new Map<
       string,
-      FrameRouteRegistryRecord
+      { readonly frameId: string; readonly transitions: readonly string[] }
     >();
   const patterns =
     new Map<string, string>();
@@ -509,9 +490,6 @@ export function createRouteRegistry(
     );
   }
 
-  let defaultEntryPath:
-    string | null = null;
-
   for (const group of groups) {
     const route = group.primary.route;
     const frame = !isRedirectRouteDefinition(route) ? route.frame : undefined;
@@ -520,27 +498,10 @@ export function createRouteRegistry(
       continue;
     }
 
-    const enforceGraph =
-      frame.transitions !== undefined
-      || frame.directEntry !== undefined
-      || frame.directEntryRedirectTo !== undefined;
-
-    const record:
-      FrameRouteRegistryRecord = {
-        frameId: frame.id,
-        matchPath: group.primary.path,
-        route,
-        frame,
-        transitions:
-          Object.freeze([
-            ...(frame.transitions ?? []),
-          ]),
-        directEntry:
-          frame.directEntry === true,
-        directEntryRedirectTo:
-          frame.directEntryRedirectTo,
-        enforceGraph,
-      };
+    const record = {
+      frameId: frame.id,
+      transitions: Object.freeze([...(frame.transitions ?? [])]),
+    };
 
     if (
       framesById.has(
@@ -556,14 +517,6 @@ export function createRouteRegistry(
       record.frameId,
       record,
     );
-
-    if (
-      defaultEntryPath === null
-      && record.directEntry
-    ) {
-      defaultEntryPath =
-        record.matchPath;
-    }
   }
 
   for (const placedFrame of framesById.values()) {
@@ -589,9 +542,5 @@ export function createRouteRegistry(
   return {
     namedRoutes,
     groups,
-    frames: {
-      byId: framesById,
-      defaultEntryPath,
-    },
   };
 }

@@ -4,6 +4,7 @@ export interface FrameNode {
   readonly key: number;
   readonly frameId: string;
   readonly host: HTMLElement;
+  readonly transitions: readonly string[];
   parent: FrameNode | null;
   slot: string;
   readonly children: Map<string, FrameNode>;
@@ -44,11 +45,12 @@ export class FrameTree {
   private readonly nodes = new Map<number, FrameNode>();
   private readonly rootsBySlot = new Map<string, FrameNode>();
 
-  create(frameId: string, host: HTMLElement): FrameNode {
+  create(frameId: string, host: HTMLElement, transitions: readonly string[] = []): FrameNode {
     const node: FrameNode = {
       key: this.nextKey++,
       frameId,
       host,
+      transitions: Object.freeze([...transitions]),
       parent: null,
       slot: '',
       children: new Map(),
