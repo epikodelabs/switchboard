@@ -477,9 +477,8 @@ function defaultDirectEntryPath(groups: readonly CompiledRouteGroup[]): string |
   return null;
 }
 
-function adaptFrameGraphTransitions(
+function adaptFrameEntryTransitions(
   groups: readonly CompiledRouteGroup[],
-  consumeRelayAuthorization: (targetFrameId: string) => boolean,
 ): readonly NavigationTransitionDefinition[] {
   const defaultEntryPath = defaultDirectEntryPath(groups);
 
@@ -488,8 +487,7 @@ function adaptFrameGraphTransitions(
       to: (route) => {
         const frame = frameForActivatedRoute(route);
         return !!frame && (
-          frame.transitions !== undefined
-          || frame.directEntry !== undefined
+          frame.directEntry !== undefined
           || frame.directEntryRedirectTo !== undefined
         );
       },
@@ -498,17 +496,16 @@ function adaptFrameGraphTransitions(
           const targetFrame = frameForActivatedRoute(transition.to);
           if (!targetFrame?.id) return true;
 
-          const enforceGraph =
-            targetFrame.transitions !== undefined
-            || targetFrame.directEntry !== undefined
+          const enforceEntry =
+            targetFrame.directEntry !== undefined
             || targetFrame.directEntryRedirectTo !== undefined;
-          if (!enforceGraph) return true;
+          if (!enforceEntry) return true;
 
-          const sourceFrame = frameForActivatedRoute(transition.from);
-          if (sourceFrame?.id === targetFrame.id) return true;
-          if (consumeRelayAuthorization(targetFrame.id)) return true;
-          if (sourceFrame?.transitions?.includes(targetFrame.id)) return true;
-          if (!sourceFrame && transition.redirectCount > 0) return true;
+          // Entry policy is deliberately independent of the authored frame graph.
+          // Relay owns frame-to-frame reachability. Once Switchboard is already
+          // active, an address navigation is an address operation, not a graph hop.
+          if (transition.from) return true;
+          if (transition.redirectCount > 0) return true;
           if (targetFrame.directEntry) return true;
 
           const redirectTo = targetFrame.directEntryRedirectTo ?? defaultEntryPath;
@@ -797,7 +794,6 @@ export class FrameRuntime<TFrames extends NavigationTree = any> implements Relay
   private readonly contributionIdentities = new Map<string, string>();
   private readonly pendingFrameResolutions = new Map<string, Promise<boolean>>();
   private readonly unresolvedFrameTargets = new Set<string>();
-  private readonly relayAuthorizations = new Map<string, number>();
   private startupTask: Promise<void> | null = null;
   private engine: VanillaRouter | null = null;
   private currentState: RouterState = EMPTY_ROUTER_STATE;
@@ -930,7 +926,7 @@ export class FrameRuntime<TFrames extends NavigationTree = any> implements Relay
       preloading: this.configuration.preloading,
 
       transitions: [
-        ...adaptFrameGraphTransitions(this.registry.groups, frameId => this.consumeRelayAuthorization(frameId)),
+        ...adaptFrameEntryTransitions(this.registry.groups),
         ...adaptFrameTransitions(this.registry.groups, this.injector),
       ],
 
@@ -1084,15 +1080,10 @@ export class FrameRuntime<TFrames extends NavigationTree = any> implements Relay
         }
       }
       if (!path || !instruction) return false;
-      this.authorizeRelayTarget(target.id);
-      try {
-        return await (await this.requireStartedEngine()).navigate(
-          instruction.matchTarget,
-          { replace: input?.replace, state: input?.state },
-        );
-      } finally {
-        this.consumeRelayAuthorization(target.id);
-      }
+      return await (await this.requireStartedEngine()).navigate(
+        instruction.matchTarget,
+        { replace: input?.replace, state: input?.state },
+      );
     }
     return this.navigateAddress(originOrTarget, targetOrOptions as NavigationOptions | undefined);
   }
@@ -1168,17 +1159,6 @@ export class FrameRuntime<TFrames extends NavigationTree = any> implements Relay
     return null;
   }
 
-  private authorizeRelayTarget(frameId: string): void {
-    this.relayAuthorizations.set(frameId, (this.relayAuthorizations.get(frameId) ?? 0) + 1);
-  }
-
-  private consumeRelayAuthorization(frameId: string): boolean {
-    const count = this.relayAuthorizations.get(frameId) ?? 0;
-    if (count <= 0) return false;
-    if (count === 1) this.relayAuthorizations.delete(frameId);
-    else this.relayAuthorizations.set(frameId, count - 1);
-    return true;
-  }
 
   async revalidate(): Promise<boolean> {
     this.unresolvedFrameTargets.clear();
@@ -1199,7 +1179,6 @@ export class FrameRuntime<TFrames extends NavigationTree = any> implements Relay
     this.startupTask = null;
     this.pendingFrameResolutions.clear();
     this.unresolvedFrameTargets.clear();
-    this.relayAuthorizations.clear();
     this.engine = null;
     this.outlets.clear();
 
@@ -1256,7 +1235,7 @@ export class FrameRuntime<TFrames extends NavigationTree = any> implements Relay
         this.injector,
       ),
       transitions: [
-        ...adaptFrameGraphTransitions(this.registry.groups, frameId => this.consumeRelayAuthorization(frameId)),
+        ...adaptFrameEntryTransitions(this.registry.groups),
         ...adaptFrameTransitions(this.registry.groups, this.injector),
       ],
     });

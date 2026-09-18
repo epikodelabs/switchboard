@@ -382,7 +382,7 @@ describe('FrameRuntime: nested frames', () => {
     expect(getOutletContent()).toContain('<h3>Child</h3>');
   });
 
-  it('allows declared frame-to-frame transitions after initial entry', async () => {
+  it('keeps internal address navigation independent from frame relay transitions', async () => {
     const publicFrame = frame('public', '/public', HomeComponent, {
       directEntry: true,
       transitions: ['private'],
