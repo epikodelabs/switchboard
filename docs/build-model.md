@@ -4,7 +4,7 @@ Switchboard uses the same deployment principle as Waypoint, but the protected un
 
 This is a build-time and delivery-time model. It is deliberately separate from the runtime `FrameTree`: `frameSlot()` and `framesFor()` decide which authored definitions may be shipped to the browser, while the `FrameTree` contains only concrete render instances that are actually materialized. Ordinary rendered Angular views may therefore appear in the runtime tree as structural `ViewNode`s even though they are not protected-delivery artifacts.
 
-Path-prefixed Angular composition may be authored with either `layout()` or `view()`. They are equivalent definitions and the protected-delivery analyzer recognizes both forms.
+Path-prefixed Angular composition is authored with `view()`. The protected-delivery analyzer recognizes `view()` directly; Angular components remain responsible for the actual rendered layout.
 
 The public application entry owns a root definition tree made only from `frameSlot()` declarations. Concrete public or protected definitions live in exported `framesFor()` contributions. This keeps implementation modules out of the public Angular host graph.
 

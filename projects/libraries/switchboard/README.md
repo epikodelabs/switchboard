@@ -110,18 +110,18 @@ export const frames = [
 
 ## Angular view composition
 
-Angular components are the layout mechanism. For a path-prefixed Angular view that hosts child frames, use `layout()` or the equivalent `view()` spelling:
+Angular components are the layout mechanism. For a path-prefixed Angular view that hosts child frames, use `view()`:
 
 ```ts
-import { layout } from '@epikodelabs/switchboard';
+import { view } from '@epikodelabs/switchboard';
 
-export const admin = layout('/admin', AdminLayout, [
+export const admin = view('/admin', AdminLayout, [
   settings,
   users,
 ]);
 ```
 
-`layout()` and `view()` are both supported first-class helpers and produce the same Angular view-composition definition. At runtime `AdminLayout` receives a structural `ViewNode`, and its primary outlet belongs to that concrete Angular view scope:
+`view()` is the single public composition helper in 1.0.7. At runtime `AdminLayout` receives a structural `ViewNode`, and its primary outlet belongs to that concrete Angular view scope:
 
 ```html
 <header>Admin</header>
@@ -232,7 +232,7 @@ export const applicationFrames = framesFor('application', [
 
 ## Updating to 1.0.7
 
-Switchboard 1.0.7 aligns non-frame layout ownership with Angular view scopes through structural `ViewNode`s. `layout()` remains fully supported and `view()` is an equivalent spelling. See [1.0.7 Angular view-layout changes](../../docs/migration-1.0.7.md).
+Switchboard 1.0.7 aligns non-frame layout ownership with Angular view scopes through structural `ViewNode`s and uses `view()` as the single public composition helper. See [1.0.7 Angular view-layout changes](../../docs/migration-1.0.7.md).
 
 For the Relay navigation changes introduced previously, see [1.0.6 navigation changes](../../docs/migration-1.0.6.md).
 

@@ -4,7 +4,6 @@ import { Component } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import {
   frame,
-  layout,
   view,
   redirect,
   provideFrameGraph,
@@ -79,13 +78,12 @@ class ThrowingComponent {
 }
 
 describe('FrameRuntime: nested frames', () => {
-  it('supports layout() and view() as equivalent Angular view composition helpers', () => {
-    const legacy = layout('/legacy', ParentComponent, [frame('legacy-child', '/child', ChildComponent)]);
-    const preferred = view('/legacy', ParentComponent, [frame('legacy-child', '/child', ChildComponent)]);
+  it('authors Angular view composition through view()', () => {
+    const definition = view('/parent', ParentComponent, [frame('child', '/child', ChildComponent)]);
 
-    expect(legacy.kind).toBe('layout');
-    expect(legacy.path).toBe(preferred.path);
-    expect(legacy.layout.length).toBe(preferred.layout.length);
+    expect(definition.kind).toBe('layout');
+    expect(definition.path).toBe('/parent');
+    expect(definition.layout.length).toBe(1);
   });
 
   let outlet: HTMLElement;

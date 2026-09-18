@@ -135,8 +135,7 @@ function switchboardStubSource(): string {
     `  return Object.assign({ kind: 'frame', id }, path === undefined ? {} : { path }, splitView(view), options);`,
     `}`,
     `export function redirect(path, target, options = {}) { return Object.assign({ kind: 'redirect-frame', path, targetFrameId: target && target.id }, options); }`,
-    `export function layout(path, view, layout, options = {}) { return Object.assign({ kind: 'layout', path }, splitView(view), { layout }, options); }`,
-    `export function view(path, viewComponent, layout, options = {}) { return layout(path, viewComponent, layout, options); }`,
+    `export function view(path, viewComponent, layout, options = {}) { return Object.assign({ kind: 'layout', path }, splitView(viewComponent), { layout }, options); }`,
     `export const s = Object.freeze({ number(options = {}) { return { _type: 'number', ...options }; }, string(value) { return { _type: 'string', default: value }; }, array(value) { return { _type: 'array', default: value }; }, optional(inner) { return { _type: 'optional', inner }; }, boolean(value) { return { _type: 'boolean', default: value }; }, date(value) { return { _type: 'date', default: value }; } });`,
     ''
   ].join('\n');

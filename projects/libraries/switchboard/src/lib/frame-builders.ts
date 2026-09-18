@@ -240,13 +240,13 @@ export function redirect<
 }
 
 /**
- * Declares a path-prefixed Angular layout/view composition boundary.
+ * Declares a path-prefixed Angular view composition boundary.
  *
  * The component is ordinary Angular view structure. Switchboard records its
  * materialized view scope so nested FrameOutlet instances have an explicit
- * owner; the layout itself is not a frame and does not participate in Relay.
+ * owner; the view itself is not a frame and does not participate in Relay.
  */
-export function layout<
+export function view<
   const TPath extends string,
   const TView extends View | FrameView<any>,
   const TLayout extends NavigationTree,
@@ -270,7 +270,7 @@ export function layout<
     beforeLeave,
     prepare,
     afterEnter,
-    ...layoutOptions
+    ...viewOptions
   } = options;
 
   return {
@@ -278,32 +278,6 @@ export function layout<
     path,
     ...normalizeInlineHooks(viewComponent, { beforeEnter, beforeLeave, prepare, afterEnter }),
     layout: children,
-    ...layoutOptions,
+    ...viewOptions,
   } as LayoutDefinition<TPath, TLayout, AuthoredFrame<TView, TPrepare>>;
-}
-
-/**
- * Angular-view spelling of `layout()`. Both helpers are first-class and
- * produce the same layout definition and runtime ViewNode ownership model.
- */
-export function view<
-  const TPath extends string,
-  const TView extends View | FrameView<any>,
-  const TLayout extends NavigationTree,
-  const TPrepare extends import('./navigation-definitions').HookInput<FramePrepareFn> | undefined =
-    import('./navigation-definitions').HookInput<FramePrepareFn> | undefined,
->(
-  path: TPath,
-  viewComponent: TView,
-  children: TLayout,
-  options: LayoutOptions & Pick<
-    RouteOptions<any, any, any, TPrepare>,
-    'beforeEnter' | 'beforeLeave' | 'prepare' | 'afterEnter'
-  > = {},
-): LayoutDefinition<
-  TPath,
-  TLayout,
-  AuthoredFrame<TView, TPrepare>
-> {
-  return layout(path, viewComponent, children, options);
 }

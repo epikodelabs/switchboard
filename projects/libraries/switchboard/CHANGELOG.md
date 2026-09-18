@@ -7,8 +7,8 @@
 - Angular component layouts are represented at runtime by structural `ViewNode`s instead of anonymous frame nodes.
 - Authored navigation states remain `FrameNode`s with real frame ids, transition declarations, and Relay capability.
 - Relay traverses the materialized ownership tree but skips `ViewNode`s when looking for a frame that can accept a target.
-- `layout()` remains a first-class public authoring helper.
-- Added `view()` as an equivalent Angular-view spelling; `layout()` and `view()` produce the same `LayoutDefinition` and runtime ownership model.
+- Added `view()` as the single public helper for path-prefixed Angular view composition.
+- Removed the public `layout()` helper; use `view()` instead. The compiled/runtime `LayoutDefinition` representation remains internal-compatible and still materializes structural `ViewNode` ownership.
 
 ### Runtime hardening
 
@@ -20,13 +20,13 @@
 
 ### Builder and server delivery
 
-- Protected-delivery analysis now understands both `layout()` and `view()` definitions.
+- Protected-delivery analysis now understands `view()` definitions directly; the removed `layout()` helper is no longer part of the analysis shim.
 - Kept build-time `frameSlot()` / `framesFor()` ownership separate from the materialized runtime `FrameTree`.
 
 ### Documentation
 
 - Updated the root README and package README around Angular-owned view/layout composition.
-- Added 1.0.7 migration/release notes covering `ViewNode`, `layout()` / `view()`, Relay ancestry, and release verification.
+- Added 1.0.7 migration/release notes covering `ViewNode`, the move from `layout()` to `view()`, Relay ancestry, and release verification.
 - Updated build/server-delivery documentation to keep authored definitions, delivered contributions, and materialized view ownership distinct.
 
 ## 1.0.6

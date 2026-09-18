@@ -172,18 +172,18 @@ A frame target that cannot be resolved from the current Relay does not silently 
 
 Angular components are the layout mechanism. `FrameOutlet` registers logical ownership through the current rendered Angular view scope; Switchboard does not reconstruct ownership with DOM traversal such as `closest('frame-host')`.
 
-For path-prefixed Angular view composition, use `layout()` (or the equivalent `view()` spelling):
+For path-prefixed Angular view composition, use `view()`:
 
 ```ts
-import { layout } from '@epikodelabs/switchboard';
+import { view } from '@epikodelabs/switchboard';
 
-export const admin = layout('/admin', AdminLayout, [
+export const admin = view('/admin', AdminLayout, [
   settings,
   users,
 ]);
 ```
 
-`layout()` and `view()` are both supported first-class helpers and produce the same Angular view-composition definition.
+`view()` is the single public composition helper in 1.0.7. Angular components remain responsible for the actual view/layout structure; Switchboard records their materialized `ViewNode` ownership for frame outlets.
 
 Primary and named outlets are structural branches:
 
