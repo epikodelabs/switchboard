@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.0.7
+## 1.0.8
 
 ### Angular view ownership
 
@@ -26,10 +26,10 @@
 ### Documentation
 
 - Updated the root README and package README around Angular-owned view/layout composition.
-- Added 1.0.7 migration/release notes covering `ViewNode`, the move from `layout()` to `view()`, Relay ancestry, and release verification.
+- Added 1.0.8 migration/release notes covering `ViewNode`, the move from `layout()` to `view()`, Relay ancestry, and release verification.
 - Updated build/server-delivery documentation to keep authored definitions, delivered contributions, and materialized view ownership distinct.
 
-## 1.0.6
+## 1.0.7
 
 ### Navigation model
 
