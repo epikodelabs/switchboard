@@ -306,28 +306,6 @@ describe('FrameRuntime: nested frames', () => {
     expect(navigator.state.path).toBe('/app/child');
   });
 
-  it('accepts frame targets and places them at their authored path', async () => {
-    const childFrame = frame('child', '/child', ChildComponent, {
-      directEntry: true,
-    });
-
-    const routes = [
-      layout('/app', ShellComponent, [childFrame]),
-    ] as const satisfies NavigationTree;
-
-    bootstrap(routes);
-
-    await navigator.navigate({
-      frame: 'child',
-    });
-    await new Promise((resolve) => setTimeout(resolve, 0));
-
-    const content = getOutletContent();
-    expect(content).toContain('<h2>Shell</h2>');
-    expect(content).toContain('<h3>Child</h3>');
-    expect(window.location.pathname).toBe('/app/child');
-  });
-
   it('keeps named outlet navigation working across layout re-renders', async () => {
     const routes = [
       layout('/app', ShellWithSidebarComponent, [
@@ -455,29 +433,6 @@ describe('FrameRuntime: nested frames', () => {
     expect(navigator.state.path).toBe('/settings');
     expect(navigator.state.query['section']).toBe('access');
     expect(getOutletContent()).toContain('<h3>Settings</h3>');
-  });
-
-  it('accepts frame targets and carries payload through navigation state', async () => {
-    const settingsFrame = frame('settings', '/settings', SettingsComponent, {
-      directEntry: true,
-    });
-    const routes = [settingsFrame] as const;
-
-    bootstrap(routes);
-
-    await navigator.navigate({
-      frame: 'settings',
-      payload: {
-        source: 'menu',
-      },
-    });
-    await new Promise((resolve) => setTimeout(resolve, 0));
-
-    expect(navigator.state.path).toBe('/settings');
-    expect(navigator.state.historyState).toEqual({
-      source: 'menu',
-    });
-    expect(navigator.displayUrl).toBe('/settings');
   });
 
   it('restores a frame from browser history state', async () => {

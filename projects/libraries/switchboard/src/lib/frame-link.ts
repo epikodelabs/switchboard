@@ -21,10 +21,7 @@ import {
   watchFrameLocation,
 } from './adapter-utils';
 
-import type {
-  NavigationTarget,
-  PathNavigationTarget,
-} from './navigation-targets';
+import type { FrameAddress, PathAddress } from './frame-runtime';
 
 import { FrameRuntime } from './frame-runtime';
 import { Relay, type RelayTarget } from './frame-relay';
@@ -33,7 +30,7 @@ type FrameLinkCommands =
   readonly unknown[];
 
 type FrameLinkInput =
-  | NavigationTarget
+  | FrameAddress
   | RelayTarget
   | FrameLinkCommands
   | null
@@ -191,9 +188,6 @@ export class FrameLink implements OnChanges {
       }
 
       if (this.isRelayTarget(target)) {
-        await this.runtime.navigate({
-          frame: target.id,
-        }, options);
         return;
       }
 
@@ -218,11 +212,7 @@ export class FrameLink implements OnChanges {
           query: this.queryParams ?? undefined,
           state: this.state,
           replace: this.replaceUrl,
-        }) ?? this.runtime.href({
-          frame: target.id,
-          query: this.queryParams ?? undefined,
-          payload: this.state,
-        })
+        }) ?? null
       : this.runtime.href(target);
 
     if (!href) {
@@ -252,7 +242,7 @@ export class FrameLink implements OnChanges {
   }
 
   private resolveTarget():
-    NavigationTarget | RelayTarget | null {
+    FrameAddress | RelayTarget | null {
     const link =
       this.frameLink;
 
@@ -293,7 +283,7 @@ export class FrameLink implements OnChanges {
     }
 
     return this.withQueryParams(
-      link as PathNavigationTarget,
+      link as PathAddress,
     );
   }
 
@@ -301,8 +291,8 @@ export class FrameLink implements OnChanges {
     target:
       string |
       URL |
-      PathNavigationTarget,
-  ): NavigationTarget {
+      PathAddress,
+  ): FrameAddress {
     if (!this.queryParams) {
       return target;
     }

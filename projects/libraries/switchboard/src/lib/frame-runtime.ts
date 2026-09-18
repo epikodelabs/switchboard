@@ -17,11 +17,6 @@ import {
   unwrapDefault,
 } from './adapter-utils';
 
-import type {
-  NamedNavigationTarget,
-  NavigationTarget,
-} from './navigation-targets';
-
 import {
   CompiledRouteGroup,
   createRouteRegistry,
@@ -50,8 +45,6 @@ import type {
   RouteDefinition,
 } from './navigation-definitions';
 
-import type { TypedHref, TypedNavigate } from './typed-navigation';
-
 import type { ServerFrameResolver } from './frame-delivery';
 import {
   FRAME_RELAY_RUNTIME,
@@ -79,7 +72,9 @@ import {
   serializeParams,
   serializeQuery,
   type InferParamType,
+  type InferQueryInputType,
   type ParamSchemaRecord,
+  type QuerySchemaRecord,
 } from './query-schema';
 
 import {
@@ -100,6 +95,80 @@ import {
   type ScrollRestorationMode,
   type ViewTransitionsOption,
 } from './vanilla-router';
+
+export type PathAddress = { readonly path: string | URL };
+export type NamedFrameAddress<
+  TName extends string = string,
+  TParams = Record<string, unknown>,
+  TQuery = Record<string, unknown>,
+> = {
+  readonly name: TName;
+  readonly params?: TParams;
+  readonly query?: TQuery;
+};
+export type FrameAddress = string | URL | PathAddress | NamedFrameAddress;
+
+type ExtractPathParams<T extends string> =
+  T extends `${string}:${infer Param}/${infer Rest}`
+    ? Param | ExtractPathParams<`/${Rest}`>
+    : T extends `${string}:${infer Param}`
+      ? Param
+      : never;
+
+type LeafFrames<TTree extends NavigationTree> =
+  TTree[number] extends infer TEntry
+    ? TEntry extends FrameView<any> & { readonly id: string; readonly path: string }
+      ? TEntry | (TEntry extends { readonly layout: infer TLayout extends NavigationTree }
+          ? LeafFrames<TLayout>
+          : never)
+      : TEntry extends { kind: 'layout'; layout: infer TLayout extends NavigationTree }
+        ? LeafFrames<TLayout>
+        : never
+    : never;
+
+type FrameId<TFrame> = TFrame extends FrameView<any> & { readonly id: infer TId }
+  ? Extract<TId, string>
+  : never;
+
+type FrameIds<TTree extends NavigationTree> = FrameId<LeafFrames<TTree>>;
+
+type FrameParams<TFrame> =
+  TFrame extends FrameView<any> & {
+    readonly path: infer TPath extends string;
+    readonly params?: infer TParamsSchema;
+  }
+    ? [TParamsSchema] extends [ParamSchemaRecord]
+      ? InferParamType<TParamsSchema>
+      : [ExtractPathParams<TPath>] extends [never]
+        ? Record<string, never>
+        : Record<ExtractPathParams<TPath>, string>
+    : Record<string, unknown>;
+
+type FrameQuery<TFrame> =
+  TFrame extends FrameView<any> & { readonly query?: infer TQuerySchema }
+    ? [TQuerySchema] extends [QuerySchemaRecord]
+      ? InferQueryInputType<TQuerySchema>
+      : Record<string, unknown>
+    : Record<string, unknown>;
+
+type FrameAddressOptions<TTree extends NavigationTree, TId extends string> =
+  LeafFrames<TTree> extends infer TFrame
+    ? TFrame extends FrameView<any> & { readonly id: TId; readonly path: string }
+      ? keyof FrameParams<TFrame> extends never
+        ? { readonly params?: FrameParams<TFrame>; readonly query?: FrameQuery<TFrame>; readonly state?: unknown; readonly replace?: boolean }
+        : FrameParams<TFrame> extends Record<string, never>
+          ? { readonly params?: FrameParams<TFrame>; readonly query?: FrameQuery<TFrame>; readonly state?: unknown; readonly replace?: boolean }
+          : { readonly params: FrameParams<TFrame>; readonly query?: FrameQuery<TFrame>; readonly state?: unknown; readonly replace?: boolean }
+      : never
+    : never;
+
+type TypedNavigate<TTree extends NavigationTree> = {
+  [K in FrameIds<TTree>]: (options?: FrameAddressOptions<TTree, K>) => Promise<boolean>;
+};
+
+type TypedHref<TTree extends NavigationTree> = {
+  [K in FrameIds<TTree>]: (options?: FrameAddressOptions<TTree, K>) => string | null;
+};
 
 export interface FrameGraphOptions {
   readonly baseHref?: string;
@@ -131,6 +200,7 @@ interface FrameGraphConfiguration<
 }
 
 const FRAME_GRAPH_CONFIGURATION = new InjectionToken<FrameGraphConfiguration>('FRAME_GRAPH_CONFIGURATION');
+
 
 const EMPTY_ROUTER_STATE: RouterState = Object.freeze({
   current: null,
@@ -211,9 +281,9 @@ function execute<TContext, TResult>(
   return runWithInjector(injector, handler, context);
 }
 
-function buildNamedNavigationPath(
+function buildFrameAddressPath(
   registry: RouteRegistry,
-  target: NamedNavigationTarget,
+  target: NamedFrameAddress,
 ): string | null {
   const record = registry.namedRoutes.get(target.name);
 
@@ -1006,9 +1076,9 @@ export class FrameRuntime<TFrames extends NavigationTree = any> implements Relay
     target: RelayTarget,
     input?: RelayInput,
   ): Promise<boolean>;
-  async navigate(target: NavigationTarget, options?: NavigationOptions): Promise<boolean>;
+  async navigate(target: FrameAddress, options?: NavigationOptions): Promise<boolean>;
   async navigate(
-    originOrTarget: FrameNode | NavigationTarget,
+    originOrTarget: FrameNode | FrameAddress,
     targetOrOptions?: RelayTarget | NavigationOptions,
     input?: RelayInput,
   ): Promise<boolean> {
@@ -1037,21 +1107,21 @@ export class FrameRuntime<TFrames extends NavigationTree = any> implements Relay
         this.consumeRelayAuthorization(target.id);
       }
     }
-    return this.navigateTarget(originOrTarget, targetOrOptions as NavigationOptions | undefined);
+    return this.navigateAddress(originOrTarget, targetOrOptions as NavigationOptions | undefined);
   }
 
   href(origin: FrameNode, target: RelayTarget, input?: RelayInput): string | null;
-  href(target: NavigationTarget): string | null;
-  href(originOrTarget: FrameNode | NavigationTarget, target?: RelayTarget, input?: RelayInput): string | null {
+  href(target: FrameAddress): string | null;
+  href(originOrTarget: FrameNode | FrameAddress, target?: RelayTarget, input?: RelayInput): string | null {
     if (this.isFrameNode(originOrTarget)) {
       return target && this.resolve(originOrTarget, target)
         ? this.resolveRelayInstruction(target, input)?.href ?? null
         : null;
     }
-    return this.hrefTarget(originOrTarget);
+    return this.hrefAddress(originOrTarget);
   }
 
-  private isFrameNode(value: FrameNode | NavigationTarget): value is FrameNode {
+  private isFrameNode(value: FrameNode | FrameAddress): value is FrameNode {
     return typeof value === 'object' && value !== null && 'key' in value && 'host' in value && 'children' in value;
   }
 
@@ -1070,14 +1140,14 @@ export class FrameRuntime<TFrames extends NavigationTree = any> implements Relay
     return { matchTarget: href, href };
   }
 
-  private async navigateTarget(target: NavigationTarget, options?: NavigationOptions): Promise<boolean> {
-    let instruction = this.resolveNavigationInstruction(target);
+  private async navigateAddress(target: FrameAddress, options?: NavigationOptions): Promise<boolean> {
+    let instruction = this.resolveAddressInstruction(target);
 
     if (this.configuration.resolveFrames) {
-      const candidateUrl = this.navigationTargetUrl(target, instruction);
+      const candidateUrl = this.addressUrl(target, instruction);
       if (candidateUrl) {
         const changed = await this.resolveServerFrames(candidateUrl);
-        if (changed) instruction = this.resolveNavigationInstruction(target);
+        if (changed) instruction = this.resolveAddressInstruction(target);
       }
     }
 
@@ -1085,21 +1155,13 @@ export class FrameRuntime<TFrames extends NavigationTree = any> implements Relay
       return false;
     }
 
-    const navigationOptions =
-      typeof target === 'object' &&
-      target !== null &&
-      'frame' in target &&
-      options?.state === undefined
-        ? {
-            ...options,
-            state: target.payload,
-          }
-        : { ...options };
-
-    return await (await this.requireStartedEngine()).navigate(instruction.matchTarget, navigationOptions);
+    return await (await this.requireStartedEngine()).navigate(
+      instruction.matchTarget,
+      { ...options },
+    );
   }
 
-  private hrefTarget(target: NavigationTarget | null | undefined): string | null {
+  private hrefAddress(target: FrameAddress | null | undefined): string | null {
     if (target === null || target === undefined) {
       return null;
     }
@@ -1112,12 +1174,8 @@ export class FrameRuntime<TFrames extends NavigationTree = any> implements Relay
       return this.resolveHref(target.path);
     }
 
-    if ('frame' in target) {
-      return this.resolveNavigationInstruction(target)?.href ?? null;
-    }
-
     if ('name' in target) {
-      return this.resolveNavigationInstruction(target)?.href ?? null;
+      return this.resolveAddressInstruction(target)?.href ?? null;
     }
 
     return null;
@@ -1270,8 +1328,8 @@ export class FrameRuntime<TFrames extends NavigationTree = any> implements Relay
     );
   }
 
-  private navigationTargetUrl(
-    target: NavigationTarget,
+  private addressUrl(
+    target: FrameAddress,
     instruction: ResolvedNavigationInstruction | null,
   ): URL | null {
     if (instruction) {
@@ -1296,8 +1354,8 @@ export class FrameRuntime<TFrames extends NavigationTree = any> implements Relay
     return null;
   }
 
-  private resolveNavigationInstruction(
-    target: NavigationTarget,
+  private resolveAddressInstruction(
+    target: FrameAddress,
   ): ResolvedNavigationInstruction | null {
     if (typeof target === 'string' || target instanceof URL) {
       const href = this.resolveHref(target);
@@ -1317,13 +1375,7 @@ export class FrameRuntime<TFrames extends NavigationTree = any> implements Relay
       };
     }
 
-    const path = 'name' in target
-      ? buildNamedNavigationPath(this.registry, target)
-      : buildNamedNavigationPath(this.registry, {
-        name: target.frame,
-        params: target.params,
-        query: target.query,
-      });
+    const path = buildFrameAddressPath(this.registry, target);
 
     if (!path) {
       return null;
@@ -1349,7 +1401,7 @@ export class FrameRuntime<TFrames extends NavigationTree = any> implements Relay
             Object.assign(
               { name: property },
               options,
-            ) as NamedNavigationTarget,
+            ) as NamedFrameAddress,
           );
       },
     }) as TypedNavigate<TFrames>;
@@ -1367,7 +1419,7 @@ export class FrameRuntime<TFrames extends NavigationTree = any> implements Relay
             Object.assign(
               { name: property },
               options,
-            ) as NamedNavigationTarget,
+            ) as NamedFrameAddress,
           );
       },
     }) as TypedHref<TFrames>;
