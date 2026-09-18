@@ -1033,8 +1033,11 @@ export class FrameRuntime<TFrames extends NavigationTree = any> implements Relay
 
   resolve(origin: FrameNode, target: RelayTarget): RelayPath | null {
     const bubble = this.frameTree.bubble(origin);
-    if (bubble.length === 0 || !this.registry.namedRoutes.has(target.id)) return null;
+    if (bubble.length === 0) return null;
 
+    // Relay resolution is purely a materialized-tree operation. Whether the
+    // accepted target currently has an address is a later projection concern
+    // (and may change when server-delivered frames are installed).
     for (let index = 0; index < bubble.length; index++) {
       const candidate = bubble[index]!;
       const acceptsSelf = candidate.frameId === target.id;
