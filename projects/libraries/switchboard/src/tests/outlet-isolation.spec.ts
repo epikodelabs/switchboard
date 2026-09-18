@@ -25,4 +25,3 @@ describe('FrameOutlet isolation', () => {
     expect().nothing();
   });
 });
-

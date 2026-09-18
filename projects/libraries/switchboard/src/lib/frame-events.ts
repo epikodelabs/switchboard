@@ -73,5 +73,3 @@ export function findContainingOutlet(
 ): HTMLElement | null {
   return node.closest<HTMLElement>(OUTLET_QUERY);
 }
-
-

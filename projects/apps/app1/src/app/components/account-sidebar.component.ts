@@ -37,4 +37,3 @@ export class AccountSidebarComponent {
     return String(this.params()['accountId'] ?? '');
   }
 }
-

@@ -1,64 +1,26 @@
-import { resolveRelayPath, type RelayFrameRecord } from '../lib/frame-relay';
+import { Relay, type RelayRuntime, type RelayTarget } from '../lib/frame-relay';
+import { FrameTree } from '../lib/frame-tree';
 
-function graph(...records: RelayFrameRecord[]): ReadonlyMap<string, RelayFrameRecord> {
-  return new Map(records.map(record => [record.frameId, record]));
-}
+describe('Relay', () => {
+  it('is an origin-bound capability and delegates tree navigation to the runtime', async () => {
+    const tree = new FrameTree();
+    const origin = tree.create('books', document.createElement('frame-host'));
+    const target: RelayTarget = { kind: 'frame', id: 'journal' };
+    const calls: string[] = [];
+    const runtime: RelayRuntime = {
+      resolve(node, requested) { calls.push(`resolve:${node.key}:${requested.id}`); return null; },
+      async navigate(node, requested) { calls.push(`navigate:${node.key}:${requested.id}`); return true; },
+      href(node, requested) { calls.push(`href:${node.key}:${requested.id}`); return '/journal'; },
+    };
+    const relay = new Relay(origin, runtime);
 
-describe('peer-to-peer frame Relay', () => {
-  it('uses a direct peer connection without bubbling', () => {
-    const frames = graph(
-      { frameId: 'workspace', parentFrameIds: [], transitions: [] },
-      { frameId: 'books', parentFrameIds: ['workspace'], transitions: ['journal'] },
-      { frameId: 'journal', parentFrameIds: ['workspace'], transitions: [] },
-    );
-
-    expect(resolveRelayPath(frames, 'books', 'journal')).toEqual({
-      originFrameId: 'books',
-      bubble: ['books'],
-      acceptedByFrameId: 'books',
-      cascade: ['journal'],
-      targetFrameId: 'journal',
-    });
-  });
-
-  it('bubbles until an ancestor accepts the connection', () => {
-    const frames = graph(
-      { frameId: 'app', parentFrameIds: [], transitions: ['settings'] },
-      { frameId: 'workspace', parentFrameIds: ['app'], transitions: [] },
-      { frameId: 'document', parentFrameIds: ['workspace', 'app'], transitions: [] },
-      { frameId: 'settings', parentFrameIds: ['app'], transitions: [] },
-    );
-
-    expect(resolveRelayPath(frames, 'document', 'settings')).toEqual({
-      originFrameId: 'document',
-      bubble: ['document', 'workspace', 'app'],
-      acceptedByFrameId: 'app',
-      cascade: ['settings'],
-      targetFrameId: 'settings',
-    });
-  });
-
-  it('stops at the nearest ancestor that accepts the connection', () => {
-    const frames = graph(
-      { frameId: 'app', parentFrameIds: [], transitions: ['settings'] },
-      { frameId: 'workspace', parentFrameIds: ['app'], transitions: ['settings'] },
-      { frameId: 'document', parentFrameIds: ['workspace', 'app'], transitions: [] },
-      { frameId: 'settings', parentFrameIds: ['app'], transitions: [] },
-    );
-
-    expect(resolveRelayPath(frames, 'document', 'settings')?.acceptedByFrameId)
-      .toBe('workspace');
-    expect(resolveRelayPath(frames, 'document', 'settings')?.bubble)
-      .toEqual(['document', 'workspace']);
-  });
-
-  it('rejects a relay when no peer in the bubble chain accepts it', () => {
-    const frames = graph(
-      { frameId: 'app', parentFrameIds: [], transitions: [] },
-      { frameId: 'document', parentFrameIds: ['app'], transitions: [] },
-      { frameId: 'admin', parentFrameIds: ['app'], transitions: [] },
-    );
-
-    expect(resolveRelayPath(frames, 'document', 'admin')).toBeNull();
+    expect(relay.resolve(target)).toBeNull();
+    expect(await relay.to(target)).toBeTrue();
+    expect(relay.href(target)).toBe('/journal');
+    expect(calls).toEqual([
+      `resolve:${origin.key}:journal`,
+      `navigate:${origin.key}:journal`,
+      `href:${origin.key}:journal`,
+    ]);
   });
 });

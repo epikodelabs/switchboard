@@ -130,16 +130,24 @@ export class HistoryManager {
     const resolvedIndex = entryId === null
       ? this.findHistoryIndexByHref(href)
       : this.entries.findIndex(entry => entry.id === entryId);
+    const usedFallbackEntry = resolvedIndex < 0 && !!this.entries[previousIndex - 1];
     const nextIndex = resolvedIndex >= 0
       ? resolvedIndex
-      : this.entries[previousIndex - 1]
+      : usedFallbackEntry
         ? previousIndex - 1
         : previousIndex;
     const existing = this.entries[nextIndex];
     const id = entryId ?? existing?.id ?? this.allocateId();
+    // A manually dispatched/synthetic popstate can arrive synchronously after
+    // history.back(), before location/history.state have advanced. In that
+    // case the fallback entry is authoritative: using the still-current href
+    // would overwrite the destination entry and navigate back to the page we
+    // are trying to leave. Native popstate events resolve by id/href and keep
+    // using the browser-provided href.
+    const nextHref = usedFallbackEntry && existing ? existing.href : href;
     const nextEntry: HistoryEntry = existing
-      ? { ...existing, id, href, state: this.decorateState(browserState, id) }
-      : { id, href, scroll: ZERO_SCROLL, state: this.decorateState(browserState, id) };
+      ? { ...existing, id, href: nextHref, state: this.decorateState(browserState, id) }
+      : { id, href: nextHref, scroll: ZERO_SCROLL, state: this.decorateState(browserState, id) };
 
     return {
       type: 'popstate', previousIndex, nextIndex, previousScroll,

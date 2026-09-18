@@ -39,6 +39,3 @@ export class FrameOutlet implements OnInit {
     return name !== '' || this.element.closest('frame-host') === null;
   }
 }
-
-
-

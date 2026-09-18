@@ -54,14 +54,14 @@ import type { TypedHref, TypedNavigate } from './typed-navigation';
 
 import type { ServerFrameResolver } from './frame-delivery';
 import {
-  FRAME_RELAY_TRANSPORT,
+  FRAME_RELAY_RUNTIME,
   relayNavigationOptions,
-  resolveRelayPath,
   type RelayInput,
   type RelayPath,
   type RelayTarget,
-  type RelayTransport,
+  type RelayRuntime,
 } from './frame-relay';
+import { FRAME_TREE, FrameTree, type FrameNode } from './frame-tree';
 import { resolveFrameSlots } from './frame-slots';
 
 import { OUTLET_ACTIVATE_EVENT, dispatchOutletLifecycleEvent } from './frame-events';
@@ -707,12 +707,13 @@ function interpolateNamedPath(
   return path;
 }
 
-export class FrameNavigator<TFrames extends NavigationTree = any> implements RelayTransport {
+export class FrameNavigator<TFrames extends NavigationTree = any> implements RelayRuntime {
   private readonly appRef: ApplicationRef;
   private readonly injector: EnvironmentInjector;
   private readonly destroyRef: DestroyRef;
   private readonly document: Document;
   private readonly appBaseHref: string;
+  private readonly frameTree: FrameTree;
   private registry: ReturnType<typeof createRouteRegistry>;
   private registryPatterns: readonly ReturnType<typeof compileRoutePath>[] = [];
   private activeSource: NavigationTree;
@@ -734,6 +735,7 @@ export class FrameNavigator<TFrames extends NavigationTree = any> implements Rel
     this.injector = inject(EnvironmentInjector);
     this.destroyRef = inject(DestroyRef);
     this.document = inject(DOCUMENT);
+    this.frameTree = inject(FRAME_TREE);
     this.appBaseHref =
       inject(APP_BASE_HREF, {
         optional: true,
@@ -865,6 +867,7 @@ export class FrameNavigator<TFrames extends NavigationTree = any> implements Rel
         }
 
         replaceChildNodes(target, node);
+        this.frameTree.mountHost(node, target);
       },
 
       commit: (outlets) => {
@@ -884,6 +887,7 @@ export class FrameNavigator<TFrames extends NavigationTree = any> implements Rel
           }
 
           replaceChildNodes(target, outlet.node);
+          this.frameTree.mountHost(outlet.node, target);
           dispatchOutletLifecycleEvent(target, OUTLET_ACTIVATE_EVENT, outlet.component);
         }
       },
@@ -954,37 +958,65 @@ export class FrameNavigator<TFrames extends NavigationTree = any> implements Rel
   }
 
 
-  resolveRelay(originFrameId: string, target: RelayTarget): RelayPath | null {
-    return resolveRelayPath(this.registry.frames.byId, originFrameId, target.id);
+  resolve(origin: FrameNode, target: RelayTarget): RelayPath | null {
+    const bubble = this.frameTree.bubble(origin);
+    if (bubble.length === 0 || !this.registry.frames.byId.has(target.id)) return null;
+
+    for (let index = 0; index < bubble.length; index++) {
+      const candidate = bubble[index]!;
+      const acceptsSelf = candidate.frameId === target.id;
+      const acceptsPeer = this.registry.frames.byId.get(candidate.frameId)?.transitions.includes(target.id) ?? false;
+      if (!acceptsSelf && !acceptsPeer) continue;
+      return Object.freeze({
+        origin,
+        bubble: Object.freeze(bubble.slice(0, index + 1)),
+        acceptedBy: candidate,
+        targetFrameId: target.id,
+      });
+    }
+    return null;
   }
 
-  async navigateRelay(
-    originFrameId: string,
+  async navigate(
+    origin: FrameNode,
     target: RelayTarget,
     input?: RelayInput,
+  ): Promise<boolean>;
+  async navigate(target: NavigationTarget, options?: NavigationOptions): Promise<boolean>;
+  async navigate(
+    originOrTarget: FrameNode | NavigationTarget,
+    targetOrOptions?: RelayTarget | NavigationOptions,
+    input?: RelayInput,
   ): Promise<boolean> {
-    let path = this.resolveRelay(originFrameId, target);
-
-    if (!path && this.configuration.resolveFrames) {
-      const relayTarget = this.createRelayNavigationTarget(target, input);
-      const instruction = this.resolveNavigationInstruction(relayTarget);
-      const candidateUrl = this.navigationTargetUrl(relayTarget, instruction);
-      if (candidateUrl && await this.resolveServerFrames(candidateUrl)) {
-        path = this.resolveRelay(originFrameId, target);
+    if (this.isFrameNode(originOrTarget)) {
+      const origin = originOrTarget;
+      const target = targetOrOptions as RelayTarget;
+      let path = this.resolve(origin, target);
+      if (!path && this.configuration.resolveFrames) {
+        const relayTarget = this.createRelayNavigationTarget(target, input);
+        const instruction = this.resolveNavigationInstruction(relayTarget);
+        const candidateUrl = this.navigationTargetUrl(relayTarget, instruction);
+        if (candidateUrl && await this.resolveServerFrames(candidateUrl)) path = this.resolve(origin, target);
       }
+      if (!path) return false;
+      return this.navigateTarget(this.createRelayNavigationTarget(target, input), relayNavigationOptions(input));
     }
-
-    if (!path) return false;
-    return this.navigate(
-      this.createRelayNavigationTarget(target, input),
-      relayNavigationOptions(input),
-    );
+    return this.navigateTarget(originOrTarget, targetOrOptions as NavigationOptions | undefined);
   }
 
-  hrefRelay(originFrameId: string, target: RelayTarget, input?: RelayInput): string | null {
-    return this.resolveRelay(originFrameId, target)
-      ? this.href(this.createRelayNavigationTarget(target, input))
-      : null;
+  href(origin: FrameNode, target: RelayTarget, input?: RelayInput): string | null;
+  href(target: NavigationTarget): string | null;
+  href(originOrTarget: FrameNode | NavigationTarget, target?: RelayTarget, input?: RelayInput): string | null {
+    if (this.isFrameNode(originOrTarget)) {
+      return target && this.resolve(originOrTarget, target)
+        ? this.hrefTarget(this.createRelayNavigationTarget(target, input))
+        : null;
+    }
+    return this.hrefTarget(originOrTarget);
+  }
+
+  private isFrameNode(value: FrameNode | NavigationTarget): value is FrameNode {
+    return typeof value === 'object' && value !== null && 'key' in value && 'host' in value && 'children' in value;
   }
 
   private createRelayNavigationTarget(
@@ -999,7 +1031,7 @@ export class FrameNavigator<TFrames extends NavigationTree = any> implements Rel
     };
   }
 
-  async navigate(target: NavigationTarget, options?: NavigationOptions): Promise<boolean> {
+  private async navigateTarget(target: NavigationTarget, options?: NavigationOptions): Promise<boolean> {
     let instruction = this.resolveNavigationInstruction(target);
 
     if (this.configuration.resolveFrames) {
@@ -1028,7 +1060,7 @@ export class FrameNavigator<TFrames extends NavigationTree = any> implements Rel
     return await (await this.requireStartedEngine()).navigate(instruction.matchTarget, navigationOptions);
   }
 
-  href(target: NavigationTarget | null | undefined): string | null {
+  private hrefTarget(target: NavigationTarget | null | undefined): string | null {
     if (target === null || target === undefined) {
       return null;
     }
@@ -1328,6 +1360,7 @@ export function provideFrameGraph<const TFrames extends NavigationTree>(
       provide: FRAME_GRAPH_CONFIGURATION,
       useValue: config,
     },
+    { provide: FRAME_TREE, useFactory: () => new FrameTree() },
     {
       provide: FrameNavigator,
       useFactory: (configuration: FrameGraphConfiguration<TFrames>) =>
@@ -1335,7 +1368,7 @@ export function provideFrameGraph<const TFrames extends NavigationTree>(
       deps: [FRAME_GRAPH_CONFIGURATION],
     },
     {
-      provide: FRAME_RELAY_TRANSPORT,
+      provide: FRAME_RELAY_RUNTIME,
       useExisting: FrameNavigator,
     },
   ];

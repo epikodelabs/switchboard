@@ -35,4 +35,3 @@ describe('Switchboard frame events', () => {
     }
   });
 });
-

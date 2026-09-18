@@ -37,4 +37,3 @@ import { LedgerService } from '../services/ledger.service';
 export class BooksSidebarComponent {
   protected readonly ledger = inject(LedgerService);
 }
-

@@ -548,5 +548,3 @@ describe('FrameNavigator async facade methods', () => {
     ).toBeRejectedWithError('Frame navigator has no active outlet.');
   });
 });
-
-

@@ -8,7 +8,8 @@ import {
 } from '@angular/core';
 
 import { bindFrameInputs } from './frame-input-adapter';
-import { FRAME_RELAY_TRANSPORT, Relay } from './frame-relay';
+import { FRAME_RELAY_RUNTIME, Relay } from './frame-relay';
+import { FRAME_TREE, type FrameNode } from './frame-tree';
 import { replaceChildNodes } from './adapter-utils';
 
 import type { NavigationProviders } from './navigation-definitions';
@@ -50,6 +51,7 @@ function createScopedInjector(
   parent: EnvironmentInjector,
   label: string,
   frameId?: string,
+  host?: HTMLElement,
 ): EnvironmentInjector | undefined {
   if (!providers?.length && !frameId) {
     return undefined;
@@ -57,9 +59,11 @@ function createScopedInjector(
 
   try {
     const scopedProviders = [...(providers ? Array.from(providers) : [])];
-    if (frameId) {
-      const transport = parent.get(FRAME_RELAY_TRANSPORT);
-      scopedProviders.push({ provide: Relay, useValue: new Relay(frameId, transport) });
+    if (frameId && host) {
+      const tree = parent.get(FRAME_TREE);
+      const runtime = parent.get(FRAME_RELAY_RUNTIME);
+      const node = tree.create(frameId, host);
+      scopedProviders.push({ provide: Relay, useValue: new Relay(node, runtime) });
     }
     return createEnvironmentInjector(scopedProviders, parent, label);
   } catch (error) {
@@ -79,8 +83,8 @@ function createAngularComponent(
   environmentInjector: EnvironmentInjector,
   route: ActivatedRoute,
   context: RouteRenderContext,
+  host: HTMLElement = documentRef.createElement('frame-host'),
 ): RenderedRouteNode {
-  const host = documentRef.createElement('frame-host');
 
   const elementInjector = Injector.create({
     parent: environmentInjector,
@@ -165,6 +169,9 @@ function createAngularComponent(
         }
       } finally {
         ref.destroy();
+        const tree = environmentInjector.get(FRAME_TREE, null);
+        const frameNode = tree?.nodeForHost(host);
+        if (frameNode) tree?.remove(frameNode);
         host.remove();
       }
     },
@@ -214,19 +221,13 @@ export function composeAngularFrameView(
     try {
       for (let index = 0; index < views.length; index++) {
         const view = views[index];
-
-        const scopedInjector = createScopedInjector(view.providers, parentInjector, view.label, view.frameId);
+        const host = documentRef.createElement('frame-host');
+        const scopedInjector = createScopedInjector(view.providers, parentInjector, view.label, view.frameId, host);
 
         const activeInjector = scopedInjector ?? parentInjector;
 
         const rendered = createAngularComponent(
-          appRef,
-          documentRef,
-          tokens,
-          view.component,
-          activeInjector,
-          route,
-          context,
+          appRef, documentRef, tokens, view.component, activeInjector, route, context, host,
         );
 
         const parent = layers[layers.length - 1];
@@ -246,6 +247,9 @@ export function composeAngularFrameView(
           }
 
           replaceChildNodes(outlet, rendered.node);
+          const tree = activeInjector.get(FRAME_TREE, null);
+          const frameNode = tree?.nodeForHost(rendered.node as HTMLElement);
+          if (tree && frameNode) tree.mount(frameNode, outlet);
 
           // Capture the outlet while the node is attached. Parent-layer
           // disposal may detach this host before its own dispose() runs.
@@ -303,8 +307,12 @@ export function composeAngularLeafFrameView(
     let parentInjector = rootInjector;
 
     try {
+      const leafHost = documentRef.createElement('frame-host');
+      const leafView = views[views.length - 1];
       for (const view of views) {
-        const scopedInjector = createScopedInjector(view.providers, parentInjector, view.label, view.frameId);
+        const scopedInjector = createScopedInjector(
+          view.providers, parentInjector, view.label, view.frameId, view === leafView ? leafHost : undefined,
+        );
 
         if (scopedInjector) {
           scopedInjectors.push(scopedInjector);
@@ -326,6 +334,7 @@ export function composeAngularLeafFrameView(
         parentInjector,
         route,
         context,
+        leafHost,
       );
 
       return {

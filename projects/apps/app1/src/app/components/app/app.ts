@@ -101,4 +101,3 @@ export class App implements DoCheck {
     };
   }
 }
-

@@ -175,5 +175,3 @@ export class LedgerShellPage {
     return this.navigator.state.pending;
   }
 }
-
-

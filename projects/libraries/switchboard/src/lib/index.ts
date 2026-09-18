@@ -9,6 +9,7 @@ export { FrameLink } from './frame-link';
 export * from './navigation-definitions';
 export * from './frame-events';
 export * from './frame-relay';
+export * from './frame-tree';
 export * from './typed-navigation';
 export {
     createRouter,

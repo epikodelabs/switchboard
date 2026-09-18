@@ -94,4 +94,3 @@ export class TrialPage {
     return this.rows().reduce((s, r) => s + r.credit, 0);
   }
 }
-
