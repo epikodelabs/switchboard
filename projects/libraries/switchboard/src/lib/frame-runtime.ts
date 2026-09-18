@@ -244,6 +244,26 @@ function buildNamedNavigationPath(
   return `${path}${query}`;
 }
 
+function buildFrameNavigationPath(
+  registry: RouteRegistry,
+  frameId: string,
+  params: Readonly<Record<string, unknown>> = {},
+  query: Readonly<Record<string, unknown>> | undefined,
+): string | null {
+  const record = registry.frames.byId.get(frameId);
+  if (!record || isRedirectRouteDefinition(record.route)) return null;
+
+  const path = interpolateNamedPath(record.matchPath, params, record.route.params);
+  if (!path) return null;
+
+  const serializedQuery =
+    record.route.query && query
+      ? serializeQuery(record.route.query, query)
+      : '';
+
+  return `${path}${serializedQuery}`;
+}
+
 function adaptFrameBeforeEnter(
   handler: CanEnterFn,
   injector: EnvironmentInjector,
@@ -389,6 +409,7 @@ function resolveFrameRouteRecord(
 
 function adaptFrameGraphTransitions(
   registry: RouteRegistry,
+  consumeRelayAuthorization: (targetFrameId: string) => boolean,
 ): readonly NavigationTransitionDefinition[] {
   const { frames } = registry;
 
@@ -413,13 +434,12 @@ function adaptFrameGraphTransitions(
             return true;
           }
 
-          if (sourceFrame) {
-            const relayCandidates = [sourceFrame.frameId, ...sourceFrame.parentFrameIds];
-            if (relayCandidates.some(frameId =>
-              frames.byId.get(frameId)?.transitions.includes(targetFrame.frameId)
-            )) {
-              return true;
-            }
+          if (consumeRelayAuthorization(targetFrame.frameId)) {
+            return true;
+          }
+
+          if (sourceFrame?.transitions.includes(targetFrame.frameId)) {
+            return true;
           }
 
           if (!sourceFrame && transition.redirectCount > 0) {
@@ -721,6 +741,7 @@ export class FrameRuntime<TFrames extends NavigationTree = any> implements Relay
   private readonly contributionIdentities = new Map<string, string>();
   private readonly pendingFrameResolutions = new Map<string, Promise<boolean>>();
   private readonly unresolvedFrameTargets = new Set<string>();
+  private readonly relayAuthorizations = new Map<string, number>();
   private startupTask: Promise<void> | null = null;
   private engine: VanillaRouter | null = null;
   private currentState: RouterState = EMPTY_ROUTER_STATE;
@@ -853,7 +874,7 @@ export class FrameRuntime<TFrames extends NavigationTree = any> implements Relay
       preloading: this.configuration.preloading,
 
       transitions: [
-        ...adaptFrameGraphTransitions(this.registry),
+        ...adaptFrameGraphTransitions(this.registry, frameId => this.consumeRelayAuthorization(frameId)),
         ...adaptFrameTransitions(this.registry.groups, this.injector),
       ],
 
@@ -992,14 +1013,26 @@ export class FrameRuntime<TFrames extends NavigationTree = any> implements Relay
       const origin = originOrTarget;
       const target = targetOrOptions as RelayTarget;
       let path = this.resolve(origin, target);
-      if (!path && this.configuration.resolveFrames) {
-        const relayTarget = this.createRelayNavigationTarget(target, input);
-        const instruction = this.resolveNavigationInstruction(relayTarget);
-        const candidateUrl = this.navigationTargetUrl(relayTarget, instruction);
-        if (candidateUrl && await this.resolveServerFrames(candidateUrl)) path = this.resolve(origin, target);
+      let instruction = this.resolveRelayInstruction(target, input);
+      if ((!path || !instruction) && this.configuration.resolveFrames) {
+        const candidateUrl = instruction
+          ? new URL(instruction.matchTarget, getNavigationLocation(this.document).origin)
+          : null;
+        if (candidateUrl && await this.resolveServerFrames(candidateUrl)) {
+          path = this.resolve(origin, target);
+          instruction = this.resolveRelayInstruction(target, input);
+        }
       }
-      if (!path) return false;
-      return this.navigateTarget(this.createRelayNavigationTarget(target, input), relayNavigationOptions(input));
+      if (!path || !instruction) return false;
+      this.authorizeRelayTarget(target.id);
+      try {
+        return await (await this.requireStartedEngine()).navigate(
+          instruction.matchTarget,
+          relayNavigationOptions(input),
+        );
+      } finally {
+        this.consumeRelayAuthorization(target.id);
+      }
     }
     return this.navigateTarget(originOrTarget, targetOrOptions as NavigationOptions | undefined);
   }
@@ -1009,7 +1042,7 @@ export class FrameRuntime<TFrames extends NavigationTree = any> implements Relay
   href(originOrTarget: FrameNode | NavigationTarget, target?: RelayTarget, input?: RelayInput): string | null {
     if (this.isFrameNode(originOrTarget)) {
       return target && this.resolve(originOrTarget, target)
-        ? this.hrefTarget(this.createRelayNavigationTarget(target, input))
+        ? this.resolveRelayInstruction(target, input)?.href ?? null
         : null;
     }
     return this.hrefTarget(originOrTarget);
@@ -1019,16 +1052,19 @@ export class FrameRuntime<TFrames extends NavigationTree = any> implements Relay
     return typeof value === 'object' && value !== null && 'key' in value && 'host' in value && 'children' in value;
   }
 
-  private createRelayNavigationTarget(
+  private resolveRelayInstruction(
     target: RelayTarget,
     input: RelayInput | undefined,
-  ): NavigationTarget {
-    return {
-      frame: target.id,
-      params: input?.params,
-      query: input?.query,
-      payload: input?.state,
-    };
+  ): ResolvedNavigationInstruction | null {
+    const path = buildFrameNavigationPath(
+      this.registry,
+      target.id,
+      input?.params ?? {},
+      input?.query,
+    );
+    if (!path) return null;
+    const href = this.resolveHref(path);
+    return { matchTarget: href, href };
   }
 
   private async navigateTarget(target: NavigationTarget, options?: NavigationOptions): Promise<boolean> {
@@ -1084,6 +1120,18 @@ export class FrameRuntime<TFrames extends NavigationTree = any> implements Relay
     return null;
   }
 
+  private authorizeRelayTarget(frameId: string): void {
+    this.relayAuthorizations.set(frameId, (this.relayAuthorizations.get(frameId) ?? 0) + 1);
+  }
+
+  private consumeRelayAuthorization(frameId: string): boolean {
+    const count = this.relayAuthorizations.get(frameId) ?? 0;
+    if (count <= 0) return false;
+    if (count === 1) this.relayAuthorizations.delete(frameId);
+    else this.relayAuthorizations.set(frameId, count - 1);
+    return true;
+  }
+
   async revalidate(): Promise<boolean> {
     this.unresolvedFrameTargets.clear();
     return await (await this.requireStartedEngine()).revalidate();
@@ -1103,6 +1151,7 @@ export class FrameRuntime<TFrames extends NavigationTree = any> implements Relay
     this.startupTask = null;
     this.pendingFrameResolutions.clear();
     this.unresolvedFrameTargets.clear();
+    this.relayAuthorizations.clear();
     this.engine = null;
     this.outlets.clear();
 
@@ -1159,7 +1208,7 @@ export class FrameRuntime<TFrames extends NavigationTree = any> implements Relay
         this.injector,
       ),
       transitions: [
-        ...adaptFrameGraphTransitions(this.registry),
+        ...adaptFrameGraphTransitions(this.registry, frameId => this.consumeRelayAuthorization(frameId)),
         ...adaptFrameTransitions(this.registry.groups, this.injector),
       ],
     });

@@ -404,8 +404,6 @@ export interface FrameRouteRegistryRecord {
   readonly route: RouteDefinition;
   readonly frame: FrameView | null;
   readonly transitions: readonly string[];
-  /** Structural frame ancestors, nearest first. Used by Relay bubbling. */
-  readonly parentFrameIds: readonly string[];
   readonly directEntry: boolean;
   readonly directEntryRedirectTo?: string;
   readonly enforceGraph: boolean;
@@ -429,42 +427,9 @@ export interface RouteRegistry {
     FrameRouteRegistry;
 }
 
-function collectFrameParentIds(
-  source: NavigationTree,
-): ReadonlyMap<string, readonly string[]> {
-  const parents = new Map<string, readonly string[]>();
-
-  const visit = (entries: NavigationTree, ancestors: readonly string[]): void => {
-    for (const entry of entries) {
-      if (entry.kind === 'frame-slot' || entry.kind === 'redirect-frame') {
-        continue;
-      }
-
-      if (entry.kind === 'layout') {
-        const frameId = entry.frame?.id;
-        const next = frameId ? Object.freeze([frameId, ...ancestors]) : ancestors;
-        if (frameId) parents.set(frameId, Object.freeze([...ancestors]));
-        visit(entry.layout, next);
-        continue;
-      }
-
-      if (entry.kind === 'frame') {
-        const frameId = entry.id;
-        const next = frameId ? Object.freeze([frameId, ...ancestors]) : ancestors;
-        if (frameId) parents.set(frameId, Object.freeze([...ancestors]));
-        if (entry.layout) visit(entry.layout, next);
-      }
-    }
-  };
-
-  visit(source, Object.freeze([]));
-  return parents;
-}
-
 export function createRouteRegistry(
   source: NavigationTree,
 ): RouteRegistry {
-  const frameParentIds = collectFrameParentIds(source);
   const namedRoutes =
     new Map<
       string,
@@ -570,7 +535,6 @@ export function createRouteRegistry(
           Object.freeze([
             ...(frame.transitions ?? []),
           ]),
-        parentFrameIds: frameParentIds.get(frame.id) ?? Object.freeze([]),
         directEntry:
           frame.directEntry === true,
         directEntryRedirectTo:

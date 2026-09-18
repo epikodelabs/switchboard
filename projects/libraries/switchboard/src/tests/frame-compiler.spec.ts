@@ -141,22 +141,20 @@ describe('frame compiler parameter validation', () => {
     );
   });
 
-  it('records nearest-first frame ownership for Relay bubbling', () => {
+  it('does not encode authored frame ancestry into the route registry', () => {
     const routes = [
       frame('app', '/app', TestLayout, {
         layout: [
           frame('workspace', '/workspace', TestLayout, {
-            layout: [
-              frame('document', '/document', TestPage),
-            ],
+            layout: [frame('document', '/document', TestPage)],
           }),
         ],
       }),
     ] as const;
 
     const registry = createRouteRegistry(routes);
-    expect(registry.frames.byId.get('document')?.parentFrameIds)
-      .toEqual(['workspace', 'app']);
+    expect(Object.keys(registry.frames.byId.get('document') ?? {}))
+      .not.toContain('parentFrameIds');
   });
 
 });
