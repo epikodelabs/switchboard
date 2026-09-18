@@ -1,5 +1,6 @@
 import {
   ApplicationRef,
+  DestroyRef,
   EnvironmentInjector,
   Injector,
   Type,
@@ -80,7 +81,7 @@ function createScopedInjector(
       }
 
       const scoped = createEnvironmentInjector(scopedProviders, parent, label);
-      scoped.onDestroy(() => tree.remove(node));
+      scoped.get(DestroyRef).onDestroy(() => tree.remove(node));
       return scoped;
     }
     return createEnvironmentInjector(scopedProviders, parent, label);
