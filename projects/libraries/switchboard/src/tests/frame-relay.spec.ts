@@ -9,8 +9,8 @@ describe('Relay', () => {
     const calls: string[] = [];
     const runtime: RelayRuntime = {
       resolve(node, requested) { calls.push(`resolve:${node.key}:${requested.id}`); return null; },
-      async navigate(node, requested) { calls.push(`navigate:${node.key}:${requested.id}`); return true; },
-      href(node, requested) { calls.push(`href:${node.key}:${requested.id}`); return '/journal'; },
+      async send(node, requested) { calls.push(`send:${node.key}:${requested.id}`); return true; },
+      link(node, requested) { calls.push(`link:${node.key}:${requested.id}`); return '/journal'; },
     };
     const relay = new Relay(origin, runtime);
 
@@ -19,8 +19,8 @@ describe('Relay', () => {
     expect(relay.href(target)).toBe('/journal');
     expect(calls).toEqual([
       `resolve:${origin.key}:journal`,
-      `navigate:${origin.key}:journal`,
-      `href:${origin.key}:journal`,
+      `send:${origin.key}:journal`,
+      `link:${origin.key}:journal`,
     ]);
   });
 });

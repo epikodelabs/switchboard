@@ -4,7 +4,7 @@ import {
   s,
 } from '@epikodelabs/switchboard';
 
-import { createRouteRegistry } from '../lib/frame-compiler';
+import { compileFrameRoutes } from '../lib/frame-compiler';
 
 class TestPage {}
 class TestLayout {}
@@ -19,7 +19,7 @@ describe('frame compiler parameter validation', () => {
       }),
     ] as const;
 
-    expect(() => createRouteRegistry(routes)).toThrowError(
+    expect(() => compileFrameRoutes(routes)).toThrowError(
       /Duplicate path parameter ":id" in compiled route "\/teams\/:id\/members\/:id"/,
     );
   });
@@ -33,7 +33,7 @@ describe('frame compiler parameter validation', () => {
       }),
     ] as const;
 
-    expect(() => createRouteRegistry(routes)).toThrowError(
+    expect(() => compileFrameRoutes(routes)).toThrowError(
       /params declares "id".*does not contain ":id"/,
     );
   });
@@ -47,7 +47,7 @@ describe('frame compiler parameter validation', () => {
       }),
     ] as const;
 
-    expect(() => createRouteRegistry(routes)).toThrowError(
+    expect(() => compileFrameRoutes(routes)).toThrowError(
       /contains ":userId", but params does not declare it/,
     );
   });
@@ -66,7 +66,7 @@ describe('frame compiler parameter validation', () => {
       }),
     ] as const;
 
-    expect(() => createRouteRegistry(routes)).not.toThrow();
+    expect(() => compileFrameRoutes(routes)).not.toThrow();
   });
 
   it('uses direct frame entries as named navigation records', () => {
@@ -75,9 +75,9 @@ describe('frame compiler parameter validation', () => {
       booksFrame,
     ] as const;
 
-    const registry = createRouteRegistry(routes);
-    expect(registry.namedRoutes.has('books')).toBeTrue();
-    expect(registry.namedRoutes.get('books')?.fullPath).toBe('/books');
+    const compiled = compileFrameRoutes(routes);
+    expect(compiled.addresses.has('books')).toBeTrue();
+    expect(compiled.addresses.get('books')?.fullPath).toBe('/books');
   });
 
   it('resolves redirect frame targets through the compiled frame graph', () => {
@@ -91,8 +91,8 @@ describe('frame compiler parameter validation', () => {
       }),
     ] as const;
 
-    const registry = createRouteRegistry(routes);
-    const group = registry.groups.find(g => g.primary.path === '/ledger');
+    const compiled = compileFrameRoutes(routes);
+    const group = compiled.groups.find(g => g.primary.path === '/ledger');
 
     expect(group?.primary.redirectTo).toBe('/ledger/books');
   });
@@ -105,11 +105,11 @@ describe('frame compiler parameter validation', () => {
       }),
     ] as const;
 
-    const registry = createRouteRegistry(routes);
+    const compiled = compileFrameRoutes(routes);
 
-    expect(registry.namedRoutes.has('parent')).toBeFalse();
-    expect(registry.namedRoutes.get('child')?.fullPath).toBe('/parent/child');
-    expect(registry.groups.find(g => g.primary.path === '/parent/child')?.primary.layouts.length).toBe(1);
+    expect(compiled.addresses.has('parent')).toBeFalse();
+    expect(compiled.addresses.get('child')?.fullPath).toBe('/parent/child');
+    expect(compiled.groups.find(g => g.primary.path === '/parent/child')?.primary.layouts.length).toBe(1);
   });
 
   it('synthesizes outlet routes for a frame that owns outlets', () => {
@@ -121,8 +121,8 @@ describe('frame compiler parameter validation', () => {
       withSidebar,
     ] as const;
 
-    const registry = createRouteRegistry(routes);
-    const group = registry.groups.find(g => g.primary.path === '/books');
+    const compiled = compileFrameRoutes(routes);
+    const group = compiled.groups.find(g => g.primary.path === '/books');
 
     expect(group?.outlets.length).toBe(1);
     expect(group?.outlets[0]?.route.outlet).toBe('sidebar');
@@ -136,7 +136,7 @@ describe('frame compiler parameter validation', () => {
       isolated,
     ] as const;
 
-    expect(() => createRouteRegistry(routes)).toThrowError(
+    expect(() => compileFrameRoutes(routes)).toThrowError(
       /references unknown transition target "account"/,
     );
   });

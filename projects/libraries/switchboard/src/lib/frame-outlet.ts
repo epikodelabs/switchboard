@@ -1,12 +1,14 @@
 import { DestroyRef, Directive, ElementRef, Input, OnInit, inject } from '@angular/core';
 
 import { FrameRuntime } from './frame-runtime';
+import { CURRENT_FRAME_NODE } from './frame-tree';
 
 @Directive({ selector: 'frame-outlet', standalone: true })
 export class FrameOutlet implements OnInit {
   private readonly runtime = inject(FrameRuntime);
   private readonly element = inject(ElementRef<HTMLElement>).nativeElement;
   private readonly destroyRef = inject(DestroyRef);
+  private readonly owner = inject(CURRENT_FRAME_NODE, { optional: true });
   private connectedName = '';
 
   @Input() name = '';
@@ -18,7 +20,7 @@ export class FrameOutlet implements OnInit {
       return;
     }
 
-    this.runtime.connect(this.connectedName, this.element);
+    this.runtime.connect(this.connectedName, this.element, this.owner);
   }
 
   constructor() {
@@ -36,6 +38,6 @@ export class FrameOutlet implements OnInit {
   }
 
   private shouldConnect(name: string): boolean {
-    return name !== '' || this.element.closest('frame-host') === null;
+    return name !== '' || this.owner === null;
   }
 }

@@ -19,8 +19,8 @@ import {
 
 import {
   CompiledRouteGroup,
-  createRouteRegistry,
-  type RouteRegistry,
+  compileFrameRoutes,
+  type CompiledFrameRoutes,
 } from './frame-compiler';
 
 import {
@@ -280,10 +280,10 @@ function execute<TContext, TResult>(
 }
 
 function buildFrameAddressPath(
-  registry: RouteRegistry,
+  compiled: CompiledFrameRoutes,
   target: NamedFrameAddress,
 ): string | null {
-  const record = registry.namedRoutes.get(target.name);
+  const record = compiled.addresses.get(target.name);
 
   if (!record) {
     return null;
@@ -312,12 +312,12 @@ function buildFrameAddressPath(
 }
 
 function buildFrameNavigationPath(
-  registry: RouteRegistry,
+  compiled: CompiledFrameRoutes,
   frameId: string,
   params: Readonly<Record<string, unknown>> = {},
   query: Readonly<Record<string, unknown>> | undefined,
 ): string | null {
-  const record = registry.namedRoutes.get(frameId);
+  const record = compiled.addresses.get(frameId);
   if (!record || isRedirectRouteDefinition(record.route)) return null;
 
   const path = interpolateNamedPath(record.fullPath, params, record.route.params);
@@ -780,6 +780,7 @@ function interpolateNamedPath(
   return path;
 }
 
+
 export class FrameRuntime<TFrames extends NavigationTree = any> implements RelayRuntime {
   private readonly appRef: ApplicationRef;
   private readonly injector: EnvironmentInjector;
@@ -787,8 +788,8 @@ export class FrameRuntime<TFrames extends NavigationTree = any> implements Relay
   private readonly document: Document;
   private readonly appBaseHref: string;
   private readonly frameTree: FrameTree;
-  private registry: ReturnType<typeof createRouteRegistry>;
-  private registryPatterns: readonly ReturnType<typeof compileRoutePath>[] = [];
+  private compiled: CompiledFrameRoutes;
+  private addressPatterns: readonly ReturnType<typeof compileRoutePath>[] = [];
   private activeSource: NavigationTree;
   private readonly deliveredBySlot = new Map<string, FrameContributionDefinition>();
   private readonly contributionIdentities = new Map<string, string>();
@@ -797,7 +798,6 @@ export class FrameRuntime<TFrames extends NavigationTree = any> implements Relay
   private startupTask: Promise<void> | null = null;
   private engine: VanillaRouter | null = null;
   private currentState: RouterState = EMPTY_ROUTER_STATE;
-  private readonly outlets = new Map<string, HTMLElement[]>();
   private tickQueued = false;
 
   public readonly navigateTo: TypedNavigate<TFrames>;
@@ -818,9 +818,9 @@ export class FrameRuntime<TFrames extends NavigationTree = any> implements Relay
       this.deliveredBySlot.set(contribution.slotId, contribution);
     }
     this.activeSource = this.composeActiveSource();
-    this.registry = createRouteRegistry(this.activeSource);
-    this.registryPatterns = Object.freeze(
-      this.registry.groups.map(group => compileRoutePath(group.primary.path)),
+    this.compiled = compileFrameRoutes(this.activeSource);
+    this.addressPatterns = Object.freeze(
+      this.compiled.groups.map(group => compileRoutePath(group.primary.path)),
     );
     this.navigateTo = this.createNavigateProxy();
 
@@ -843,23 +843,10 @@ export class FrameRuntime<TFrames extends NavigationTree = any> implements Relay
     return `${location.pathname}${location.search}${location.hash}`;
   }
 
-  connect(name: string, outlet: HTMLElement): void {
-    const outletName = name.trim();
+  connect(name: string, outlet: HTMLElement, owner: FrameNode | null = null): void {
+    this.frameTree.registerOutlet(name, outlet, owner);
 
-    const registered = this.outlets.get(outletName) ?? [];
-
-    if (registered.includes(outlet)) {
-      return;
-    }
-
-    registered.push(outlet);
-
-    this.outlets.set(outletName, registered);
-
-    if (this.engine || this.startupTask) {
-      return;
-    }
-
+    if (this.engine || this.startupTask) return;
     this.startRouter();
   }
 
@@ -871,7 +858,7 @@ export class FrameRuntime<TFrames extends NavigationTree = any> implements Relay
       const url = new URL(location.href);
       await this.resolveServerFrames(url);
 
-      if (this.startupTask !== task || this.engine || this.outlets.size === 0) {
+      if (this.startupTask !== task || this.engine || this.frameTree.outletCount === 0) {
         return;
       }
 
@@ -911,7 +898,7 @@ export class FrameRuntime<TFrames extends NavigationTree = any> implements Relay
 
   private createEngine(): VanillaRouter {
     return createRouter({
-      routes: adaptRoutes(this.registry.groups, this.appRef, this.document, this.injector),
+      routes: adaptRoutes(this.compiled.groups, this.appRef, this.document, this.injector),
 
       baseHref: this.baseHref,
 
@@ -926,8 +913,8 @@ export class FrameRuntime<TFrames extends NavigationTree = any> implements Relay
       preloading: this.configuration.preloading,
 
       transitions: [
-        ...adaptFrameEntryTransitions(this.registry.groups),
-        ...adaptFrameTransitions(this.registry.groups, this.injector),
+        ...adaptFrameEntryTransitions(this.compiled.groups),
+        ...adaptFrameTransitions(this.compiled.groups, this.injector),
       ],
 
       viewTransitions: this.configuration.viewTransitions,
@@ -946,7 +933,7 @@ export class FrameRuntime<TFrames extends NavigationTree = any> implements Relay
       commit: (outlets) => {
         // First phase: validate all outlets exist before any DOM mutation.
         for (const outlet of outlets) {
-          if (!this.outlets.has(outlet.name)) {
+          if (!this.frameTree.outlet(outlet.name)) {
             throw new Error(`Frame outlet "${outlet.name}" is not connected.`);
           }
         }
@@ -1004,30 +991,9 @@ export class FrameRuntime<TFrames extends NavigationTree = any> implements Relay
     });
   }
 
-  disconnect(name: string, outlet: HTMLElement): void {
-    const outletName = name.trim();
-
-    const registered = this.outlets.get(outletName);
-
-    if (!registered) {
-      return;
-    }
-
-    const index = registered.lastIndexOf(outlet);
-
-    if (index < 0) {
-      return;
-    }
-
-    registered.splice(index, 1);
-
-    if (registered.length === 0) {
-      this.outlets.delete(outletName);
-    }
-
-    if (this.outlets.size === 0) {
-      this.dispose();
-    }
+  disconnect(_name: string, outlet: HTMLElement): void {
+    this.frameTree.unregisterOutlet(outlet);
+    if (this.frameTree.outletCount === 0) this.dispose();
   }
 
 
@@ -1043,67 +1009,51 @@ export class FrameRuntime<TFrames extends NavigationTree = any> implements Relay
       const acceptsSelf = candidate.frameId === target.id;
       const acceptsPeer = candidate.transitions.includes(target.id);
       if (!acceptsSelf && !acceptsPeer) continue;
-      const projection = this.frameTree.project(origin, candidate, target.id);
-      if (!projection) return null;
       return Object.freeze({
         origin,
         bubble: Object.freeze(bubble.slice(0, index + 1)),
         acceptedBy: candidate,
         targetFrameId: target.id,
-        projection,
-        reconciliation: this.frameTree.reconcile(projection),
       });
     }
     return null;
   }
 
-  async navigate(
+  async send(
     origin: FrameNode,
     target: RelayTarget,
     input?: RelayInput,
-  ): Promise<boolean>;
-  async navigate(target: FrameAddress, options?: NavigationOptions): Promise<boolean>;
-  async navigate(
-    originOrTarget: FrameNode | FrameAddress,
-    targetOrOptions?: RelayTarget | NavigationOptions,
-    input?: RelayInput,
   ): Promise<boolean> {
-    if (this.isFrameNode(originOrTarget)) {
-      const origin = originOrTarget;
-      const target = targetOrOptions as RelayTarget;
-      let path = this.resolve(origin, target);
-      let instruction = this.resolveRelayInstruction(target, input);
-      if ((!path || !instruction) && this.configuration.resolveFrames) {
-        const candidateUrl = instruction
-          ? new URL(instruction.matchTarget, getNavigationLocation(this.document).origin)
-          : null;
-        if (candidateUrl && await this.resolveServerFrames(candidateUrl)) {
-          path = this.resolve(origin, target);
-          instruction = this.resolveRelayInstruction(target, input);
-        }
-      }
-      if (!path || !instruction) return false;
-      return await (await this.requireStartedEngine()).navigate(
-        instruction.matchTarget,
-        { replace: input?.replace, state: input?.state },
-      );
-    }
-    return this.navigateAddress(originOrTarget, targetOrOptions as NavigationOptions | undefined);
-  }
-
-  href(origin: FrameNode, target: RelayTarget, input?: RelayInput): string | null;
-  href(target: FrameAddress): string | null;
-  href(originOrTarget: FrameNode | FrameAddress, target?: RelayTarget, input?: RelayInput): string | null {
-    if (this.isFrameNode(originOrTarget)) {
-      return target && this.resolve(originOrTarget, target)
-        ? this.resolveRelayInstruction(target, input)?.href ?? null
+    let path = this.resolve(origin, target);
+    let instruction = this.resolveRelayInstruction(target, input);
+    if ((!path || !instruction) && this.configuration.resolveFrames) {
+      const candidateUrl = instruction
+        ? new URL(instruction.matchTarget, getNavigationLocation(this.document).origin)
         : null;
+      if (candidateUrl && await this.resolveServerFrames(candidateUrl)) {
+        path = this.resolve(origin, target);
+        instruction = this.resolveRelayInstruction(target, input);
+      }
     }
-    return this.hrefAddress(originOrTarget);
+    if (!path || !instruction) return false;
+    return await (await this.requireStartedEngine()).navigate(
+      instruction.matchTarget,
+      { replace: input?.replace, state: input?.state },
+    );
   }
 
-  private isFrameNode(value: FrameNode | FrameAddress): value is FrameNode {
-    return typeof value === 'object' && value !== null && 'key' in value && 'host' in value && 'children' in value;
+  link(origin: FrameNode, target: RelayTarget, input?: RelayInput): string | null {
+    return this.resolve(origin, target)
+      ? this.resolveRelayInstruction(target, input)?.href ?? null
+      : null;
+  }
+
+  async navigate(target: FrameAddress, options?: NavigationOptions): Promise<boolean> {
+    return this.navigateAddress(target, options);
+  }
+
+  href(target: FrameAddress): string | null {
+    return this.hrefAddress(target);
   }
 
   private resolveRelayInstruction(
@@ -1111,7 +1061,7 @@ export class FrameRuntime<TFrames extends NavigationTree = any> implements Relay
     input: RelayInput | undefined,
   ): ResolvedNavigationInstruction | null {
     const path = buildFrameNavigationPath(
-      this.registry,
+      this.compiled,
       target.id,
       input?.params ?? {},
       input?.query,
@@ -1183,7 +1133,6 @@ export class FrameRuntime<TFrames extends NavigationTree = any> implements Relay
     this.pendingFrameResolutions.clear();
     this.unresolvedFrameTargets.clear();
     this.engine = null;
-    this.outlets.clear();
 
     engine?.dispose();
 
@@ -1224,22 +1173,22 @@ export class FrameRuntime<TFrames extends NavigationTree = any> implements Relay
 
   private rebuildActiveGraph(): void {
     this.activeSource = this.composeActiveSource();
-    this.registry = createRouteRegistry(this.activeSource);
-    this.registryPatterns = Object.freeze(
-      this.registry.groups.map(group => compileRoutePath(group.primary.path)),
+    this.compiled = compileFrameRoutes(this.activeSource);
+    this.addressPatterns = Object.freeze(
+      this.compiled.groups.map(group => compileRoutePath(group.primary.path)),
     );
 
     if (!this.engine) return;
     this.engine.replaceConfiguration({
       routes: adaptRoutes(
-        this.registry.groups,
+        this.compiled.groups,
         this.appRef,
         this.document,
         this.injector,
       ),
       transitions: [
-        ...adaptFrameEntryTransitions(this.registry.groups),
-        ...adaptFrameTransitions(this.registry.groups, this.injector),
+        ...adaptFrameEntryTransitions(this.compiled.groups),
+        ...adaptFrameTransitions(this.compiled.groups, this.injector),
       ],
     });
   }
@@ -1249,7 +1198,7 @@ export class FrameRuntime<TFrames extends NavigationTree = any> implements Relay
     if (!resolver) return false;
 
     const key = `${url.pathname}${url.search}${url.hash}`;
-    if (this.registryMatchesPath(url.pathname) || this.unresolvedFrameTargets.has(key)) {
+    if (this.addressMatchesPath(url.pathname) || this.unresolvedFrameTargets.has(key)) {
       return false;
     }
 
@@ -1291,8 +1240,8 @@ export class FrameRuntime<TFrames extends NavigationTree = any> implements Relay
     return task;
   }
 
-  private registryMatchesPath(pathname: string): boolean {
-    return this.registryPatterns.some(pattern =>
+  private addressMatchesPath(pathname: string): boolean {
+    return this.addressPatterns.some(pattern =>
       matchRoutePath(pattern, pathname) !== null,
     );
   }
@@ -1344,7 +1293,7 @@ export class FrameRuntime<TFrames extends NavigationTree = any> implements Relay
       };
     }
 
-    const path = buildFrameAddressPath(this.registry, target);
+    const path = buildFrameAddressPath(this.compiled, target);
 
     if (!path) {
       return null;
@@ -1395,9 +1344,7 @@ export class FrameRuntime<TFrames extends NavigationTree = any> implements Relay
   }
 
   private getOutlet(name: string): HTMLElement | null {
-    const registered = this.outlets.get(name.trim());
-
-    return registered?.[registered.length - 1] ?? null;
+    return this.frameTree.outlet(name);
   }
 
   private requestTick(): void {

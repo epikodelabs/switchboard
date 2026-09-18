@@ -9,7 +9,7 @@ import {
 
 import { bindFrameInputs } from './frame-input-adapter';
 import { FRAME_RELAY_RUNTIME, Relay } from './frame-relay';
-import { FRAME_TREE, type FrameNode } from './frame-tree';
+import { CURRENT_FRAME_NODE, FRAME_TREE, type FrameNode } from './frame-tree';
 import { replaceChildNodes } from './adapter-utils';
 
 import type { NavigationProviders } from './navigation-definitions';
@@ -65,7 +65,10 @@ function createScopedInjector(
       const tree = parent.get(FRAME_TREE);
       const runtime = parent.get(FRAME_RELAY_RUNTIME);
       const node = tree.create(frameId, host, transitions);
-      scopedProviders.push({ provide: Relay, useValue: new Relay(node, runtime) });
+      scopedProviders.push(
+        { provide: CURRENT_FRAME_NODE, useValue: node },
+        { provide: Relay, useValue: new Relay(node, runtime) },
+      );
       const scoped = createEnvironmentInjector(scopedProviders, parent, label);
       scoped.onDestroy(() => tree.remove(node));
       return scoped;

@@ -2,10 +2,14 @@ import { FrameTree } from '../lib/frame-tree';
 
 describe('materialized FrameTree', () => {
   function host(): HTMLElement { return document.createElement('frame-host'); }
-  function outlet(owner?: HTMLElement, name = ''): HTMLElement {
+  function outlet(name = ''): HTMLElement {
     const element = document.createElement('frame-outlet');
     if (name) element.setAttribute('name', name);
-    owner?.appendChild(element);
+    return element;
+  }
+
+  function connect(tree: FrameTree, element: HTMLElement, owner: ReturnType<FrameTree['create']> | null, name = ''): HTMLElement {
+    tree.registerOutlet(name, element, owner);
     return element;
   }
 
@@ -14,12 +18,13 @@ describe('materialized FrameTree', () => {
     const workspaceHost = host();
     const workspace = tree.create('workspace', workspaceHost);
     const root = outlet();
+    tree.registerOutlet('', root, null);
     tree.mount(workspace, root);
 
     const sidebar = tree.create('books-sidebar', host());
     const primary = tree.create('books', host());
-    tree.mount(sidebar, outlet(workspaceHost, 'sidebar'));
-    tree.mount(primary, outlet(workspaceHost));
+    tree.mount(sidebar, connect(tree, outlet('sidebar'), workspace, 'sidebar'));
+    tree.mount(primary, connect(tree, outlet(), workspace));
 
     expect(workspace.children.get('sidebar')).toBe(sidebar);
     expect(workspace.children.get('')).toBe(primary);
@@ -39,9 +44,10 @@ describe('materialized FrameTree', () => {
     const tree = new FrameTree();
     const rootHost = host();
     const root = tree.create('workspace', rootHost);
-    tree.mount(root, outlet());
-    const sidebarOutlet = outlet(rootHost, 'sidebar');
-    const primaryOutlet = outlet(rootHost);
+    const appOutlet = connect(tree, outlet(), null);
+    tree.mount(root, appOutlet);
+    const sidebarOutlet = connect(tree, outlet('sidebar'), root, 'sidebar');
+    const primaryOutlet = connect(tree, outlet(), root);
     const sidebar = tree.create('sidebar', host());
     const books = tree.create('books', host());
     tree.mount(sidebar, sidebarOutlet);
@@ -60,83 +66,73 @@ describe('materialized FrameTree', () => {
     const tree = new FrameTree();
     const workspaceHost = host();
     const workspace = tree.create('workspace', workspaceHost);
-    tree.mount(workspace, outlet());
+    const appOutlet = connect(tree, outlet(), null);
+    tree.mount(workspace, appOutlet);
 
     const booksHost = host();
     const books = tree.create('books', booksHost);
-    tree.mount(books, outlet(workspaceHost));
+    const workspacePrimary = connect(tree, outlet(), workspace);
+    tree.mount(books, workspacePrimary);
     const details = tree.create('details', host());
-    tree.mount(details, outlet(booksHost));
+    tree.mount(details, connect(tree, outlet(), books));
 
     const journal = tree.create('journal', host());
-    tree.mount(journal, outlet(workspaceHost));
+    tree.mount(journal, workspacePrimary);
 
     expect(workspace.children.get('')).toBe(journal);
     expect(tree.bubble(books)).toEqual([]);
     expect(tree.bubble(details)).toEqual([]);
     expect(books.children.size).toBe(0);
   });
-  describe('tree-native navigation projection', () => {
-    it('replaces only the branch through which a relay bubbled', () => {
-      const tree = new FrameTree();
-      const workspaceHost = host();
-      const workspace = tree.create('workspace', workspaceHost);
-      tree.mount(workspace, outlet());
 
-      const sidebar = tree.create('sidebar', host());
-      tree.mount(sidebar, outlet(workspaceHost, 'sidebar'));
+  it('identifies outlet ownership from the materialized frame tree', () => {
+    const tree = new FrameTree();
+    const rootHost = document.createElement('frame-host');
+    const root = tree.create('root', rootHost);
+    const rootOutlet = document.createElement('frame-outlet');
+    rootHost.appendChild(rootOutlet);
+    const appOutlet = document.createElement('frame-outlet');
+    tree.registerOutlet('', appOutlet, null);
+    tree.mount(root, appOutlet);
+    tree.registerOutlet('', rootOutlet, root);
 
-      const booksHost = host();
-      const books = tree.create('books', booksHost);
-      tree.mount(books, outlet(workspaceHost));
-      const details = tree.create('details', host());
-      tree.mount(details, outlet(booksHost));
+    expect(tree.ownerOf(rootOutlet)).toBe(root);
+    expect(tree.depth(root)).toBe(0);
 
-      const projection = tree.project(details, workspace, 'journal');
-      expect(projection).not.toBeNull();
-      expect(projection!.acceptedBy).toBe(workspace);
-      expect(projection!.parent).toBe(workspace);
-      expect(projection!.slot).toBe('');
-      expect(projection!.current).toBe(books);
+    const childHost = document.createElement('frame-host');
+    const child = tree.create('child', childHost);
+    tree.mount(child, rootOutlet);
+    const childOutlet = document.createElement('frame-outlet');
+    childHost.appendChild(childOutlet);
+    tree.registerOutlet('', childOutlet, child);
 
-      const diff = tree.reconcile(projection!);
-      expect(diff.keep).toContain(workspace);
-      expect(diff.keep).toContain(sidebar);
-      expect(diff.leave).toEqual([books, details]);
-      expect(diff.enteringFrameId).toBe('journal');
-    });
+    expect(tree.ownerOf(childOutlet)).toBe(child);
+    expect(tree.depth(child)).toBe(1);
 
-    it('replaces the origin itself when the origin accepts a peer transition', () => {
-      const tree = new FrameTree();
-      const workspaceHost = host();
-      const workspace = tree.create('workspace', workspaceHost);
-      tree.mount(workspace, outlet());
-      const books = tree.create('books', host());
-      tree.mount(books, outlet(workspaceHost));
-
-      const projection = tree.project(books, books, 'journal')!;
-      expect(projection.acceptedBy).toBe(books);
-      expect(projection.parent).toBe(workspace);
-      expect(projection.current).toBe(books);
-      const diff = tree.reconcile(projection);
-      expect(diff.leave).toEqual([books]);
-      expect(diff.enteringFrameId).toBe('journal');
-      expect(diff.keep).toContain(workspace);
-    });
-
-    it('turns navigation to the already materialized branch root into KEEP', () => {
-      const tree = new FrameTree();
-      const workspaceHost = host();
-      const workspace = tree.create('workspace', workspaceHost);
-      tree.mount(workspace, outlet());
-      const books = tree.create('books', host());
-      tree.mount(books, outlet(workspaceHost));
-
-      const projection = tree.project(books, workspace, 'books')!;
-      const diff = tree.reconcile(projection);
-      expect(diff.leave).toEqual([]);
-      expect(diff.enteringFrameId).toBeNull();
-      expect(diff.keep).toContain(books);
-    });
+    tree.remove(child);
+    expect(tree.depth(child)).toBe(-1);
   });
+
+  it('resolves duplicate outlet names by visible-tree ownership rather than registration order', () => {
+    const tree = new FrameTree();
+    const app = outlet();
+    tree.registerOutlet('', app, null);
+    const root = tree.create('root', host());
+    tree.mount(root, app);
+
+    const rootSidebar = outlet('sidebar');
+    tree.registerOutlet('sidebar', rootSidebar, root);
+    const child = tree.create('child', host());
+    const primary = outlet();
+    tree.registerOutlet('', primary, root);
+    tree.mount(child, primary);
+
+    const childSidebar = outlet('sidebar');
+    tree.registerOutlet('sidebar', childSidebar, child);
+    expect(tree.outlet('sidebar')).toBe(childSidebar);
+
+    tree.remove(child);
+    expect(tree.outlet('sidebar')).toBe(rootSidebar);
+  });
+
 });

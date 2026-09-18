@@ -11,26 +11,6 @@ export interface FrameNode {
 }
 
 
-export interface FrameProjection {
-  /** Visible frame that accepted the relay request. */
-  readonly acceptedBy: FrameNode;
-  /** Parent that owns the branch being transformed; null means a root branch. */
-  readonly parent: FrameNode | null;
-  /** Child/root slot whose branch is transformed. Empty string is primary. */
-  readonly slot: string;
-  /** Existing materialized root of the affected branch. */
-  readonly current: FrameNode;
-  /** Frame definition that should become the root of the projected branch. */
-  readonly targetFrameId: string;
-}
-
-export interface FrameReconciliation {
-  readonly projection: FrameProjection;
-  readonly keep: readonly FrameNode[];
-  readonly leave: readonly FrameNode[];
-  readonly enteringFrameId: string | null;
-}
-
 /**
  * Authoritative runtime model of the materialized application.
  *
@@ -44,6 +24,8 @@ export class FrameTree {
   private readonly byHost = new WeakMap<HTMLElement, FrameNode>();
   private readonly nodes = new Map<number, FrameNode>();
   private readonly rootsBySlot = new Map<string, FrameNode>();
+  private nextOutletOrder = 1;
+  private readonly outlets = new Map<HTMLElement, { readonly name: string; readonly owner: FrameNode | null; readonly order: number }>();
 
   create(frameId: string, host: HTMLElement, transitions: readonly string[] = []): FrameNode {
     const node: FrameNode = {
@@ -64,11 +46,58 @@ export class FrameTree {
     return this.byHost.get(host) ?? null;
   }
 
+  contains(node: FrameNode): boolean {
+    return this.nodes.get(node.key) === node;
+  }
+
+  registerOutlet(name: string, outlet: HTMLElement, owner: FrameNode | null): void {
+    this.outlets.set(outlet, {
+      name: name.trim(),
+      owner,
+      order: this.nextOutletOrder++,
+    });
+  }
+
+  unregisterOutlet(outlet: HTMLElement): void {
+    this.outlets.delete(outlet);
+  }
+
+  get outletCount(): number {
+    return this.outlets.size;
+  }
+
+  ownerOf(outlet: HTMLElement): FrameNode | null {
+    const owner = this.outlets.get(outlet)?.owner ?? null;
+    return owner && this.contains(owner) ? owner : null;
+  }
+
+  /** Resolve a named outlet in the currently materialized tree. */
+  outlet(name: string): HTMLElement | null {
+    const targetName = name.trim();
+    let selected: { readonly element: HTMLElement; readonly depth: number; readonly order: number } | null = null;
+
+    for (const [element, record] of this.outlets) {
+      if (record.name !== targetName) continue;
+      const depth = record.owner ? this.depth(record.owner) : 0;
+      if (record.owner && depth < 0) continue;
+      if (selected && (depth < selected.depth || (depth === selected.depth && record.order < selected.order))) continue;
+      selected = { element, depth, order: record.order };
+    }
+
+    return selected?.element ?? null;
+  }
+
+  depth(node: FrameNode): number {
+    if (!this.contains(node)) return -1;
+    let depth = 0;
+    for (let parent = node.parent; parent; parent = parent.parent) depth++;
+    return depth;
+  }
+
   /** Mount a materialized frame into a concrete outlet. */
   mount(node: FrameNode, outlet: HTMLElement, slot = outlet.getAttribute('name')?.trim() ?? ''): void {
     this.detach(node);
-    const ownerHost = outlet.closest<HTMLElement>('frame-host');
-    const owner = ownerHost ? this.nodeForHost(ownerHost) : null;
+    const owner = this.ownerOf(outlet);
     node.parent = owner;
     node.slot = slot;
     if (owner) {
@@ -102,73 +131,8 @@ export class FrameTree {
     return Object.freeze(chain);
   }
 
-  /**
-   * Project peer navigation onto the materialized tree. If an ancestor accepts
-   * a bubbled request, the branch from that ancestor toward the origin is
-   * replaced. If the origin accepts its own peer transition, the origin itself
-   * is replaced in its parent slot.
-   */
-  project(origin: FrameNode, acceptedBy: FrameNode, targetFrameId: string): FrameProjection | null {
-    if (!this.nodes.has(origin.key) || !this.nodes.has(acceptedBy.key)) return null;
-
-    if (origin === acceptedBy) {
-      return Object.freeze({
-        acceptedBy,
-        parent: acceptedBy.parent,
-        slot: acceptedBy.slot,
-        current: acceptedBy,
-        targetFrameId,
-      });
-    }
-
-    let branch = origin;
-    while (branch.parent && branch.parent !== acceptedBy) branch = branch.parent;
-    if (branch.parent !== acceptedBy) return null;
-
-    return Object.freeze({
-      acceptedBy,
-      parent: acceptedBy,
-      slot: branch.slot,
-      current: branch,
-      targetFrameId,
-    });
-  }
-
-  reconcile(projection: FrameProjection): FrameReconciliation {
-    const keep: FrameNode[] = [];
-    const parent = projection.parent;
-
-    if (parent) {
-      keep.push(parent);
-      for (const [slot, child] of parent.children) {
-        if (slot !== projection.slot) this.collectSubtree(child, keep);
-      }
-    } else {
-      for (const [slot, root] of this.rootsBySlot) {
-        if (slot !== projection.slot) this.collectSubtree(root, keep);
-      }
-    }
-
-    const sameRoot = projection.current.frameId === projection.targetFrameId;
-    const leave: FrameNode[] = [];
-    if (sameRoot) this.collectSubtree(projection.current, keep);
-    else this.collectSubtree(projection.current, leave);
-
-    return Object.freeze({
-      projection,
-      keep: Object.freeze(keep),
-      leave: Object.freeze(leave),
-      enteringFrameId: sameRoot ? null : projection.targetFrameId,
-    });
-  }
-
   roots(): readonly FrameNode[] {
     return Object.freeze([...this.rootsBySlot.values()]);
-  }
-
-  private collectSubtree(node: FrameNode, output: FrameNode[]): void {
-    output.push(node);
-    for (const child of node.children.values()) this.collectSubtree(child, output);
   }
 
   private detach(node: FrameNode): void {
@@ -183,3 +147,6 @@ export class FrameTree {
 }
 
 export const FRAME_TREE = new InjectionToken<FrameTree>('FRAME_TREE');
+
+/** Materialized frame that owns the current Angular component scope. */
+export const CURRENT_FRAME_NODE = new InjectionToken<FrameNode>('CURRENT_FRAME_NODE');

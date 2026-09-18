@@ -393,28 +393,24 @@ function validateRouteGroups(
   }
 }
 
-interface RouteRegistryRecord {
+export interface FrameAddressRecord {
   readonly route: RouteDefinition;
   readonly fullPath: string;
 }
 
-export interface RouteRegistry {
-  readonly namedRoutes:
-    ReadonlyMap<
-      string,
-      RouteRegistryRecord
-    >;
-  readonly groups:
-    readonly CompiledRouteGroup[];
+export interface CompiledFrameRoutes {
+  /** Address lookup only. This is not a frame graph. */
+  readonly addresses: ReadonlyMap<string, FrameAddressRecord>;
+  readonly groups: readonly CompiledRouteGroup[];
 }
 
-export function createRouteRegistry(
+export function compileFrameRoutes(
   source: NavigationTree,
-): RouteRegistry {
-  const namedRoutes =
+): CompiledFrameRoutes {
+  const addresses =
     new Map<
       string,
-      RouteRegistryRecord
+      FrameAddressRecord
     >();
 
   const groups = groupRoutes(
@@ -472,7 +468,7 @@ export function createRouteRegistry(
     }
 
     if (
-      namedRoutes.has(route.name)
+      addresses.has(route.name)
     ) {
       throw new Error(
         `Duplicate route name ` +
@@ -481,7 +477,7 @@ export function createRouteRegistry(
       );
     }
 
-    namedRoutes.set(
+    addresses.set(
       route.name,
       {
         route,
@@ -540,7 +536,7 @@ export function createRouteRegistry(
   }
 
   return {
-    namedRoutes,
+    addresses,
     groups,
   };
 }
