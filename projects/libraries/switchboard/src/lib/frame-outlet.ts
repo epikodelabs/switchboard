@@ -9,35 +9,23 @@ export class FrameOutlet implements OnInit {
   private readonly element = inject(ElementRef<HTMLElement>).nativeElement;
   private readonly destroyRef = inject(DestroyRef);
   private readonly owner = inject(CURRENT_FRAME_NODE, { optional: true });
-  private connectedName = '';
+  private connected = false;
 
   @Input() name = '';
 
   ngOnInit(): void {
-    this.connectedName = this.resolveName();
-
-    if (!this.shouldConnect(this.connectedName)) {
-      return;
-    }
-
-    this.runtime.connect(this.connectedName, this.element, this.owner);
+    const name = this.resolveName();
+    this.runtime.connect(name, this.element, this.owner);
+    this.connected = true;
   }
 
   constructor() {
     this.destroyRef.onDestroy(() => {
-      if (!this.shouldConnect(this.connectedName)) {
-        return;
-      }
-
-      this.runtime.disconnect(this.connectedName, this.element);
+      if (this.connected) this.runtime.disconnect(this.resolveName(), this.element);
     });
   }
 
   private resolveName(): string {
     return (this.name || this.element.getAttribute('name') || '').trim();
-  }
-
-  private shouldConnect(name: string): boolean {
-    return name !== '' || this.owner === null;
   }
 }

@@ -2,7 +2,7 @@ import { InjectionToken } from '@angular/core';
 
 export interface FrameNode {
   readonly key: number;
-  readonly frameId: string;
+  readonly frameId: string | null;
   readonly host: HTMLElement;
   readonly transitions: readonly string[];
   parent: FrameNode | null;
@@ -27,7 +27,7 @@ export class FrameTree {
   private nextOutletOrder = 1;
   private readonly outlets = new Map<HTMLElement, { readonly name: string; readonly owner: FrameNode | null; readonly order: number }>();
 
-  create(frameId: string, host: HTMLElement, transitions: readonly string[] = []): FrameNode {
+  create(frameId: string | null, host: HTMLElement, transitions: readonly string[] = []): FrameNode {
     const node: FrameNode = {
       key: this.nextKey++,
       frameId,
@@ -66,20 +66,58 @@ export class FrameTree {
     return this.outlets.size;
   }
 
+  /**
+   * Return the logical owner recorded when the outlet connected.
+   *
+   * Ownership and visibility are deliberately separate. Angular composes a
+   * layout subtree before VanillaRouter commits its root host. Children must
+   * still attach to their logical parent during that detached composition;
+   * outlet() is responsible for exposing only outlets whose owners are rooted
+   * in the currently materialized tree.
+   */
   ownerOf(outlet: HTMLElement): FrameNode | null {
     const owner = this.outlets.get(outlet)?.owner ?? null;
     return owner && this.contains(owner) ? owner : null;
   }
 
+  /** True only while the frame participates in the currently visible tree. */
+  isMaterialized(node: FrameNode): boolean {
+    if (!this.contains(node)) return false;
+    if (node.parent) {
+      return this.isMaterialized(node.parent) && node.parent.children.get(node.slot) === node;
+    }
+    return this.rootsBySlot.get(node.slot) === node;
+  }
+
   /** Resolve a named outlet in the currently materialized tree. */
-  outlet(name: string): HTMLElement | null {
+  outlet(name: string, incoming?: Node): HTMLElement | null {
     const targetName = name.trim();
+    const incomingFrame = incoming && incoming.nodeType === 1
+      ? this.nodeForHost(incoming as HTMLElement)
+      : null;
+
+    // A primary frame render has an exact structural destination. The root
+    // layer of a composed render already carries its logical parent in the
+    // detached FrameTree, so do not use "deepest outlet wins" here: on a
+    // sibling navigation that would place the new layout inside the old
+    // layout and the old render's disposal would then remove both.
+    //
+    // Root frame      -> root primary outlet (owner === null)
+    // Nested frame    -> primary outlet owned by its logical parent
+    const exactPrimaryOwner = targetName === '' && incomingFrame
+      ? incomingFrame.parent
+      : undefined;
+
     let selected: { readonly element: HTMLElement; readonly depth: number; readonly order: number } | null = null;
 
     for (const [element, record] of this.outlets) {
       if (record.name !== targetName) continue;
+      if (exactPrimaryOwner !== undefined && record.owner !== exactPrimaryOwner) continue;
+      // Never choose an outlet contained by the node that is about to be
+      // committed. Incoming components connect their outlets before commit.
+      if (incoming && incoming.nodeType === 1 && (incoming as Element).contains(element)) continue;
+      if (record.owner && !this.isMaterialized(record.owner)) continue;
       const depth = record.owner ? this.depth(record.owner) : 0;
-      if (record.owner && depth < 0) continue;
       if (selected && (depth < selected.depth || (depth === selected.depth && record.order < selected.order))) continue;
       selected = { element, depth, order: record.order };
     }
@@ -118,6 +156,7 @@ export class FrameTree {
   }
 
   remove(node: FrameNode): void {
+    if (!this.contains(node)) return;
     for (const child of [...node.children.values()]) this.remove(child);
     this.detach(node);
     this.nodes.delete(node.key);

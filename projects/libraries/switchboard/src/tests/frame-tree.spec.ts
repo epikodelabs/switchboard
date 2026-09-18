@@ -135,4 +135,76 @@ describe('materialized FrameTree', () => {
     expect(tree.outlet('sidebar')).toBe(rootSidebar);
   });
 
+  it('does not resolve outlets owned by a frame until that frame is mounted', () => {
+    const tree = new FrameTree();
+    const app = outlet();
+    tree.registerOutlet('', app, null);
+
+    const oldRoot = tree.create('old-root', host());
+    tree.mount(oldRoot, app);
+    const oldSidebar = outlet('sidebar');
+    tree.registerOutlet('sidebar', oldSidebar, oldRoot);
+
+    // Angular can instantiate the incoming component (and therefore connect
+    // its outlets) before VanillaRouter commits its host into the DOM/tree.
+    const incoming = tree.create('incoming', host());
+    const incomingSidebar = outlet('sidebar');
+    tree.registerOutlet('sidebar', incomingSidebar, incoming);
+
+    expect(tree.isMaterialized(incoming)).toBeFalse();
+    expect(tree.outlet('sidebar')).toBe(oldSidebar);
+
+    tree.mount(incoming, app);
+    expect(tree.isMaterialized(incoming)).toBeTrue();
+    expect(tree.outlet('sidebar')).toBe(incomingSidebar);
+  });
+
+  it('builds detached layout ancestry without exposing its outlets until the root is mounted', () => {
+    const tree = new FrameTree();
+    const app = outlet();
+    tree.registerOutlet('', app, null);
+
+    const layout = tree.create('layout', host());
+    const layoutPrimary = outlet();
+    tree.registerOutlet('', layoutPrimary, layout);
+
+    const child = tree.create('child', host());
+    tree.mount(child, layoutPrimary);
+
+    expect(child.parent).toBe(layout);
+    expect(layout.children.get('')).toBe(child);
+    expect(tree.isMaterialized(layout)).toBeFalse();
+    expect(tree.isMaterialized(child)).toBeFalse();
+    expect(tree.outlet('')).toBe(app);
+
+    tree.mount(layout, app);
+
+    expect(tree.isMaterialized(layout)).toBeTrue();
+    expect(tree.isMaterialized(child)).toBeTrue();
+    expect(tree.outlet('')).toBe(layoutPrimary);
+  });
+
+  it('uses anonymous rendered layouts as structural outlet owners', () => {
+    const tree = new FrameTree();
+    const app = outlet();
+    tree.registerOutlet('', app, null);
+
+    const layout = tree.create(null, host());
+    const layoutPrimary = outlet();
+    tree.registerOutlet('', layoutPrimary, layout);
+
+    const child = tree.create('settings', host());
+    tree.mount(child, layoutPrimary);
+
+    expect(tree.ownerOf(layoutPrimary)).toBe(layout);
+    expect(child.parent).toBe(layout);
+    expect(layout.frameId).toBeNull();
+    expect(tree.outlet('', layout.host)).toBe(app);
+
+    tree.mount(layout, app);
+
+    expect(tree.isMaterialized(layout)).toBeTrue();
+    expect(tree.isMaterialized(child)).toBeTrue();
+  });
+
 });

@@ -799,6 +799,11 @@ export class FrameRuntime<TFrames extends NavigationTree = any> implements Relay
   private engine: VanillaRouter | null = null;
   private currentState: RouterState = EMPTY_ROUTER_STATE;
   private tickQueued = false;
+  // VanillaRouter render targets remain a presentation concern. The materialized
+  // FrameTree records every outlet for logical ownership, while this registry
+  // exposes only application/named commit targets. Nested primary outlets are
+  // composed by frame-renderer and must never compete as router commit targets.
+  private readonly outlets = new Map<string, HTMLElement[]>();
 
   public readonly navigateTo: TypedNavigate<TFrames>;
   public readonly hrefTo: TypedHref<TFrames>;
@@ -844,7 +849,20 @@ export class FrameRuntime<TFrames extends NavigationTree = any> implements Relay
   }
 
   connect(name: string, outlet: HTMLElement, owner: FrameNode | null = null): void {
-    this.frameTree.registerOutlet(name, outlet, owner);
+    const outletName = name.trim();
+    this.frameTree.registerOutlet(outletName, outlet, owner);
+
+    // Primary outlets owned by a frame are composition slots, not router-level
+    // commit targets. composeAngularFrameView places descendants into them while
+    // building the frame subtree. Root primary and all named outlets remain
+    // addressable by VanillaRouter.
+    if (outletName !== '' || owner === null) {
+      const registered = this.outlets.get(outletName) ?? [];
+      if (!registered.includes(outlet)) {
+        registered.push(outlet);
+        this.outlets.set(outletName, registered);
+      }
+    }
 
     if (this.engine || this.startupTask) return;
     this.startRouter();
@@ -920,7 +938,7 @@ export class FrameRuntime<TFrames extends NavigationTree = any> implements Relay
       viewTransitions: this.configuration.viewTransitions,
 
       render: (targetName, node) => {
-        const target = this.getOutlet(targetName);
+        const target = this.getOutlet(targetName, node);
 
         if (!target) {
           throw new Error(`Frame outlet "${targetName}" is not connected.`);
@@ -931,21 +949,18 @@ export class FrameRuntime<TFrames extends NavigationTree = any> implements Relay
       },
 
       commit: (outlets) => {
-        // First phase: validate all outlets exist before any DOM mutation.
-        for (const outlet of outlets) {
-          if (!this.frameTree.outlet(outlet.name)) {
-            throw new Error(`Frame outlet "${outlet.name}" is not connected.`);
-          }
-        }
-
-        // Second phase: perform synchronous DOM mutations.
-        for (const outlet of outlets) {
-          const target = this.getOutlet(outlet.name);
-
+        // Resolve the complete commit plan before mutating the DOM. Besides
+        // making validation atomic, this prevents an earlier outlet mutation
+        // from changing which later outlet instance wins resolution.
+        const placements = outlets.map(outlet => {
+          const target = this.getOutlet(outlet.name, outlet.node);
           if (!target) {
             throw new Error(`Frame outlet "${outlet.name}" is not connected.`);
           }
+          return { outlet, target };
+        });
 
+        for (const { outlet, target } of placements) {
           replaceChildNodes(target, outlet.node);
           this.frameTree.mountHost(outlet.node, target);
           dispatchOutletLifecycleEvent(target, OUTLET_ACTIVATE_EVENT, outlet.component);
@@ -991,9 +1006,18 @@ export class FrameRuntime<TFrames extends NavigationTree = any> implements Relay
     });
   }
 
-  disconnect(_name: string, outlet: HTMLElement): void {
+  disconnect(name: string, outlet: HTMLElement): void {
     this.frameTree.unregisterOutlet(outlet);
-    if (this.frameTree.outletCount === 0) this.dispose();
+
+    const outletName = name.trim();
+    const registered = this.outlets.get(outletName);
+    if (registered) {
+      const index = registered.indexOf(outlet);
+      if (index >= 0) registered.splice(index, 1);
+      if (registered.length === 0) this.outlets.delete(outletName);
+    }
+
+    if (this.outlets.size === 0) this.dispose();
   }
 
 
@@ -1343,8 +1367,25 @@ export class FrameRuntime<TFrames extends NavigationTree = any> implements Relay
     }) as TypedHref<TFrames>;
   }
 
-  private getOutlet(name: string): HTMLElement | null {
-    return this.frameTree.outlet(name);
+  private getOutlet(name: string, incoming?: Node): HTMLElement | null {
+    const registered = this.outlets.get(name.trim());
+    if (!registered?.length) return null;
+
+    // Angular may connect outlets contained by an incoming composed frame
+    // before VanillaRouter commits that frame. Such an outlet can never be a
+    // legal destination for the node that contains it. Keep router-target
+    // selection independent from FrameTree ownership, but enforce this DOM
+    // invariant at the final placement boundary.
+    if (incoming?.nodeType === 1) {
+      const incomingElement = incoming as Element;
+      for (let index = registered.length - 1; index >= 0; index--) {
+        const candidate = registered[index]!;
+        if (!incomingElement.contains(candidate)) return candidate;
+      }
+      return null;
+    }
+
+    return registered[registered.length - 1] ?? null;
   }
 
   private requestTick(): void {

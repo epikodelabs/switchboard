@@ -55,20 +55,30 @@ function createScopedInjector(
   host?: HTMLElement,
   transitions?: readonly string[],
 ): EnvironmentInjector | undefined {
-  if (!providers?.length && !frameId) {
+  // Every rendered layer needs a materialized tree node, even when the authored
+  // layout is not itself a named Frame. Its outlets still need a concrete
+  // logical owner so they cannot be confused with application-root outlets.
+  // Provider-only scopes that are not rendered (for example inherited layout
+  // providers of a named outlet) do not create structural nodes.
+  if (!providers?.length && !host) {
     return undefined;
   }
 
   try {
     const scopedProviders = [...(providers ? Array.from(providers) : [])];
-    if (frameId && host) {
+    if (host) {
       const tree = parent.get(FRAME_TREE);
-      const runtime = parent.get(FRAME_RELAY_RUNTIME);
-      const node = tree.create(frameId, host, transitions);
-      scopedProviders.push(
-        { provide: CURRENT_FRAME_NODE, useValue: node },
-        { provide: Relay, useValue: new Relay(node, runtime) },
-      );
+      const node = tree.create(frameId ?? null, host, transitions);
+      scopedProviders.push({ provide: CURRENT_FRAME_NODE, useValue: node });
+
+      // Relay is a capability of authored Frames only. Anonymous structural
+      // layout nodes participate in ownership/bubbling but cannot originate a
+      // frame-addressed navigation request themselves.
+      if (frameId !== undefined) {
+        const runtime = parent.get(FRAME_RELAY_RUNTIME);
+        scopedProviders.push({ provide: Relay, useValue: new Relay(node, runtime) });
+      }
+
       const scoped = createEnvironmentInjector(scopedProviders, parent, label);
       scoped.onDestroy(() => tree.remove(node));
       return scoped;
