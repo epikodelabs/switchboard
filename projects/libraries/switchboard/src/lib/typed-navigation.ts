@@ -112,7 +112,7 @@ export type FrameOptionsByName<
   : never;
 
 /**
- * Strongly-typed navigation proxy for FrameNavigator.
+ * Legacy typed address proxy used by FrameRuntime during URL projection.
  */
 export type TypedNavigate<
   TTree extends NavigationTree,
@@ -123,7 +123,7 @@ export type TypedNavigate<
 };
 
 /**
- * Strongly-typed href generator proxy for FrameNavigator.
+ * Legacy typed href projection used by FrameRuntime.
  */
 export type TypedHref<
   TTree extends NavigationTree,

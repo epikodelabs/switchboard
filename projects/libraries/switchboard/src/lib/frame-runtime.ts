@@ -707,7 +707,7 @@ function interpolateNamedPath(
   return path;
 }
 
-export class FrameNavigator<TFrames extends NavigationTree = any> implements RelayRuntime {
+export class FrameRuntime<TFrames extends NavigationTree = any> implements RelayRuntime {
   private readonly appRef: ApplicationRef;
   private readonly injector: EnvironmentInjector;
   private readonly destroyRef: DestroyRef;
@@ -1362,14 +1362,14 @@ export function provideFrameGraph<const TFrames extends NavigationTree>(
     },
     { provide: FRAME_TREE, useFactory: () => new FrameTree() },
     {
-      provide: FrameNavigator,
+      provide: FrameRuntime,
       useFactory: (configuration: FrameGraphConfiguration<TFrames>) =>
-        new FrameNavigator<TFrames>(configuration),
+        new FrameRuntime<TFrames>(configuration),
       deps: [FRAME_GRAPH_CONFIGURATION],
     },
     {
       provide: FRAME_RELAY_RUNTIME,
-      useExisting: FrameNavigator,
+      useExisting: FrameRuntime,
     },
   ];
 }

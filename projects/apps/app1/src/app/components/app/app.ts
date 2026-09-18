@@ -1,7 +1,7 @@
 import { Component, DestroyRef, DoCheck, inject, signal } from '@angular/core';
 import {
   FRAME_LOCATION_CHANGE_EVENT,
-  FrameNavigator,
+  FrameRuntime,
   FrameLink,
   FrameOutlet,
 } from '@epikodelabs/switchboard';
@@ -21,7 +21,7 @@ interface HeaderSnapshot {
   styleUrl: './app.css',
 })
 export class App implements DoCheck {
-  private readonly navigator = inject(FrameNavigator);
+  private readonly navigator = inject(FrameRuntime);
   private readonly destroyRef = inject(DestroyRef);
   private readonly headerPulseToken = signal<number | null>(null);
   protected readonly headerState = signal<HeaderSnapshot>(this.readHeaderState());

@@ -5,7 +5,7 @@ import { TestBed } from '@angular/core/testing';
 import {
   FrameLink,
   FrameOutlet,
-  FrameNavigator,
+  FrameRuntime,
   provideFrameGraph,
   frame,
   s,
@@ -75,7 +75,7 @@ class NamedFrameLinkHostComponent {
 }
 
 describe('FrameLink', () => {
-  let navigator: FrameNavigator;
+  let navigator: FrameRuntime;
 
   beforeEach(() => {
     TestBed.resetTestingModule();
@@ -102,7 +102,7 @@ describe('FrameLink', () => {
     }).compileComponents();
 
     const fixture = TestBed.createComponent(FrameLinkHostComponent);
-    navigator = TestBed.inject(FrameNavigator);
+    navigator = TestBed.inject(FrameRuntime);
 
     fixture.detectChanges();
     await delay();
@@ -140,7 +140,7 @@ describe('FrameLink', () => {
     }).compileComponents();
 
     const fixture = TestBed.createComponent(NamedFrameLinkHostComponent);
-    navigator = TestBed.inject(FrameNavigator);
+    navigator = TestBed.inject(FrameRuntime);
 
     fixture.detectChanges();
     await delay();

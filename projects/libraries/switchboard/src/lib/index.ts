@@ -45,5 +45,5 @@ export {
 } from './vanilla-router';
 export {
     provideFrameGraph, provideServerFrameGraph, ROUTE,
-    ROUTE_CONTEXT, FrameNavigator, type FrameGraphOptions
-} from './frame-navigator';
+    ROUTE_CONTEXT, FrameRuntime, type FrameGraphOptions
+} from './frame-runtime';

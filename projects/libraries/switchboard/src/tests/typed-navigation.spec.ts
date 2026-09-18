@@ -1,7 +1,7 @@
 import {
   frame,
   s,
-  type FrameNavigator,
+  type FrameRuntime,
 } from '@epikodelabs/switchboard';
 
 class DashboardLayout {}
@@ -35,7 +35,7 @@ const frames = [
   }),
 ] as const;
 
-function assertNamedNavigation(navigator: FrameNavigator<typeof frames>): void {
+function assertNamedNavigation(navigator: FrameRuntime<typeof frames>): void {
   void navigator.navigateTo.dashboard({
     params: { projectId: 123 },
   });

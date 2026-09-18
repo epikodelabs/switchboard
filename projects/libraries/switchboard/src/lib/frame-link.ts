@@ -26,7 +26,7 @@ import type {
   PathNavigationTarget,
 } from './navigation-targets';
 
-import { FrameNavigator } from './frame-navigator';
+import { FrameRuntime } from './frame-runtime';
 import { Relay, type RelayTarget } from './frame-relay';
 
 type FrameLinkCommands =
@@ -106,7 +106,7 @@ function appendQueryParams(
 })
 export class FrameLink implements OnChanges {
   private readonly relay = inject(Relay, { optional: true });
-  private readonly router = inject(FrameNavigator);
+  private readonly runtime = inject(FrameRuntime);
   private readonly document = inject(DOCUMENT);
   private readonly destroyRef = inject(DestroyRef);
   private readonly element = inject(
@@ -191,13 +191,13 @@ export class FrameLink implements OnChanges {
       }
 
       if (this.isRelayTarget(target)) {
-        await this.router.navigate({
+        await this.runtime.navigate({
           frame: target.id,
         }, options);
         return;
       }
 
-      await this.router.navigate(target, options);
+      await this.runtime.navigate(target, options);
     } catch {
       // Router state already records the actionable navigation error. The DOM
       // click contract is still best-effort, so keep the failure local here.
@@ -218,12 +218,12 @@ export class FrameLink implements OnChanges {
           query: this.queryParams ?? undefined,
           state: this.state,
           replace: this.replaceUrl,
-        }) ?? this.router.href({
+        }) ?? this.runtime.href({
           frame: target.id,
           query: this.queryParams ?? undefined,
           payload: this.state,
         })
-      : this.router.href(target);
+      : this.runtime.href(target);
 
     if (!href) {
       this.href = null;

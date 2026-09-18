@@ -1,10 +1,10 @@
 import { DestroyRef, Directive, ElementRef, Input, OnInit, inject } from '@angular/core';
 
-import { FrameNavigator } from './frame-navigator';
+import { FrameRuntime } from './frame-runtime';
 
 @Directive({ selector: 'frame-outlet', standalone: true })
 export class FrameOutlet implements OnInit {
-  private readonly router = inject(FrameNavigator);
+  private readonly runtime = inject(FrameRuntime);
   private readonly element = inject(ElementRef<HTMLElement>).nativeElement;
   private readonly destroyRef = inject(DestroyRef);
   private connectedName = '';
@@ -18,7 +18,7 @@ export class FrameOutlet implements OnInit {
       return;
     }
 
-    this.router.connect(this.connectedName, this.element);
+    this.runtime.connect(this.connectedName, this.element);
   }
 
   constructor() {
@@ -27,7 +27,7 @@ export class FrameOutlet implements OnInit {
         return;
       }
 
-      this.router.disconnect(this.connectedName, this.element);
+      this.runtime.disconnect(this.connectedName, this.element);
     });
   }
 

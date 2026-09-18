@@ -1,5 +1,5 @@
 import { Component, inject } from '@angular/core';
-import { FrameNavigator, FrameLink, FrameOutlet } from '@epikodelabs/switchboard';
+import { FrameRuntime, FrameLink, FrameOutlet } from '@epikodelabs/switchboard';
 import { LedgerService } from '../services/ledger.service';
 
 @Component({
@@ -168,7 +168,7 @@ import { LedgerService } from '../services/ledger.service';
   `],
 })
 export class LedgerShellPage {
-  private readonly navigator = inject(FrameNavigator);
+  private readonly navigator = inject(FrameRuntime);
   protected readonly ledger = inject(LedgerService);
 
   protected isTransitioning(): boolean {

@@ -2238,6 +2238,7 @@ export function createRouter(config: RouterConfig): Router {
 
   async function handlePopState(): Promise<void> {
     const historyUpdate = history.createPopStateUpdate(currentHref());
+
     const resolvedHref = historyUpdate.nextEntry?.href ?? currentHref();
     const displayUrl = new URL(resolvedHref, routerLocation().origin);
 

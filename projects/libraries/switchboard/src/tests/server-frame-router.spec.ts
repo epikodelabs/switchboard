@@ -7,7 +7,7 @@ import {
   frameSlot,
   framesFor,
   provideServerFrameGraph,
-  FrameNavigator,
+  FrameRuntime,
   type ServerFrameResolver,
 } from '@epikodelabs/switchboard';
 
@@ -17,7 +17,7 @@ ensureAngularTestEnvironment();
 class ProtectedComponent {}
 
 describe('Switchboard server frame integration', () => {
-  let navigator: FrameNavigator;
+  let navigator: FrameRuntime;
   let outlet: HTMLElement;
 
   beforeEach(() => {
@@ -57,7 +57,7 @@ describe('Switchboard server frame integration', () => {
     });
 
     outlet = document.createElement('div');
-    navigator = TestBed.inject(FrameNavigator);
+    navigator = TestBed.inject(FrameRuntime);
     navigator.connect('', outlet);
 
     await new Promise(resolve => setTimeout(resolve, 0));
@@ -96,7 +96,7 @@ describe('Switchboard server frame integration', () => {
     });
 
     outlet = document.createElement('div');
-    navigator = TestBed.inject(FrameNavigator);
+    navigator = TestBed.inject(FrameRuntime);
     navigator.connect('', outlet);
     await new Promise(resolve => setTimeout(resolve, 0));
 
@@ -137,7 +137,7 @@ describe('Switchboard server frame integration', () => {
     });
 
     outlet = document.createElement('div');
-    navigator = TestBed.inject(FrameNavigator);
+    navigator = TestBed.inject(FrameRuntime);
     navigator.connect('', outlet);
     await new Promise(resolve => setTimeout(resolve, 0));
 

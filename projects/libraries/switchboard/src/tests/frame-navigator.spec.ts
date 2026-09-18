@@ -9,7 +9,7 @@ import {
   provideFrameGraph,
   FrameOutlet,
   s,
-  FrameNavigator,
+  FrameRuntime,
   NavigationTree,
 } from '@epikodelabs/switchboard';
 
@@ -56,9 +56,9 @@ class ChildComponent {}
 })
 class SettingsComponent {}
 
-describe('FrameNavigator: nested frames', () => {
+describe('FrameRuntime: nested frames', () => {
   let outlet: HTMLElement;
-  let navigator: FrameNavigator;
+  let navigator: FrameRuntime;
 
   function bootstrap(routes: NavigationTree): void {
     TestBed.configureTestingModule({
@@ -74,7 +74,7 @@ describe('FrameNavigator: nested frames', () => {
     });
 
     outlet = document.createElement('div');
-    navigator = TestBed.inject(FrameNavigator);
+    navigator = TestBed.inject(FrameRuntime);
     navigator.connect('', outlet);
   }
 
@@ -513,8 +513,8 @@ describe('FrameNavigator: nested frames', () => {
   });
 });
 
-describe('FrameNavigator async facade methods', () => {
-  let navigator: FrameNavigator;
+describe('FrameRuntime async facade methods', () => {
+  let navigator: FrameRuntime;
 
   beforeEach(() => {
     TestBed.resetTestingModule();
@@ -523,7 +523,7 @@ describe('FrameNavigator async facade methods', () => {
       imports: [HomeComponent],
       providers: [...provideFrameGraph([frame('home', '/', HomeComponent)])],
     });
-    navigator = TestBed.inject(FrameNavigator);
+    navigator = TestBed.inject(FrameRuntime);
   });
 
   afterEach(() => {
