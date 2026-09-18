@@ -9,6 +9,27 @@ export interface FrameNode {
   readonly children: Map<string, FrameNode>;
 }
 
+
+export interface FrameProjection {
+  /** Visible frame that accepted the relay request. */
+  readonly acceptedBy: FrameNode;
+  /** Parent that owns the branch being transformed; null means a root branch. */
+  readonly parent: FrameNode | null;
+  /** Child/root slot whose branch is transformed. Empty string is primary. */
+  readonly slot: string;
+  /** Existing materialized root of the affected branch. */
+  readonly current: FrameNode;
+  /** Frame definition that should become the root of the projected branch. */
+  readonly targetFrameId: string;
+}
+
+export interface FrameReconciliation {
+  readonly projection: FrameProjection;
+  readonly keep: readonly FrameNode[];
+  readonly leave: readonly FrameNode[];
+  readonly enteringFrameId: string | null;
+}
+
 /**
  * Authoritative runtime model of the materialized application.
  *
@@ -79,8 +100,73 @@ export class FrameTree {
     return Object.freeze(chain);
   }
 
+  /**
+   * Project peer navigation onto the materialized tree. If an ancestor accepts
+   * a bubbled request, the branch from that ancestor toward the origin is
+   * replaced. If the origin accepts its own peer transition, the origin itself
+   * is replaced in its parent slot.
+   */
+  project(origin: FrameNode, acceptedBy: FrameNode, targetFrameId: string): FrameProjection | null {
+    if (!this.nodes.has(origin.key) || !this.nodes.has(acceptedBy.key)) return null;
+
+    if (origin === acceptedBy) {
+      return Object.freeze({
+        acceptedBy,
+        parent: acceptedBy.parent,
+        slot: acceptedBy.slot,
+        current: acceptedBy,
+        targetFrameId,
+      });
+    }
+
+    let branch = origin;
+    while (branch.parent && branch.parent !== acceptedBy) branch = branch.parent;
+    if (branch.parent !== acceptedBy) return null;
+
+    return Object.freeze({
+      acceptedBy,
+      parent: acceptedBy,
+      slot: branch.slot,
+      current: branch,
+      targetFrameId,
+    });
+  }
+
+  reconcile(projection: FrameProjection): FrameReconciliation {
+    const keep: FrameNode[] = [];
+    const parent = projection.parent;
+
+    if (parent) {
+      keep.push(parent);
+      for (const [slot, child] of parent.children) {
+        if (slot !== projection.slot) this.collectSubtree(child, keep);
+      }
+    } else {
+      for (const [slot, root] of this.rootsBySlot) {
+        if (slot !== projection.slot) this.collectSubtree(root, keep);
+      }
+    }
+
+    const sameRoot = projection.current.frameId === projection.targetFrameId;
+    const leave: FrameNode[] = [];
+    if (sameRoot) this.collectSubtree(projection.current, keep);
+    else this.collectSubtree(projection.current, leave);
+
+    return Object.freeze({
+      projection,
+      keep: Object.freeze(keep),
+      leave: Object.freeze(leave),
+      enteringFrameId: sameRoot ? null : projection.targetFrameId,
+    });
+  }
+
   roots(): readonly FrameNode[] {
     return Object.freeze([...this.rootsBySlot.values()]);
+  }
+
+  private collectSubtree(node: FrameNode, output: FrameNode[]): void {
+    output.push(node);
+    for (const child of node.children.values()) this.collectSubtree(child, output);
   }
 
   private detach(node: FrameNode): void {

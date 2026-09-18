@@ -1,6 +1,5 @@
 import { InjectionToken } from '@angular/core';
-import type { FrameNode } from './frame-tree';
-import type { NavigationOptions } from './vanilla-router';
+import type { FrameNode, FrameProjection, FrameReconciliation } from './frame-tree';
 
 export interface RelayTarget<TId extends string = string> { readonly kind: 'frame'; readonly id: TId; }
 export interface RelayInput {
@@ -15,6 +14,8 @@ export interface RelayPath {
   readonly bubble: readonly FrameNode[];
   readonly acceptedBy: FrameNode;
   readonly targetFrameId: string;
+  readonly projection: FrameProjection;
+  readonly reconciliation: FrameReconciliation;
 }
 
 /** Runtime service. Relay itself is only an origin-bound capability. */
@@ -31,8 +32,4 @@ export class Relay {
   resolve(target: RelayTarget): RelayPath | null { return this.runtime.resolve(this.origin, target); }
   to(target: RelayTarget, input?: RelayInput): Promise<boolean> { return this.runtime.navigate(this.origin, target, input); }
   href(target: RelayTarget, input?: RelayInput): string | null { return this.runtime.href(this.origin, target, input); }
-}
-
-export function relayNavigationOptions(input: RelayInput | undefined): NavigationOptions {
-  return { replace: input?.replace, state: input?.state };
 }

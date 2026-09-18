@@ -55,7 +55,6 @@ import type { TypedHref, TypedNavigate } from './typed-navigation';
 import type { ServerFrameResolver } from './frame-delivery';
 import {
   FRAME_RELAY_RUNTIME,
-  relayNavigationOptions,
   type RelayInput,
   type RelayPath,
   type RelayTarget,
@@ -988,11 +987,15 @@ export class FrameRuntime<TFrames extends NavigationTree = any> implements Relay
       const acceptsSelf = candidate.frameId === target.id;
       const acceptsPeer = this.registry.frames.byId.get(candidate.frameId)?.transitions.includes(target.id) ?? false;
       if (!acceptsSelf && !acceptsPeer) continue;
+      const projection = this.frameTree.project(origin, candidate, target.id);
+      if (!projection) return null;
       return Object.freeze({
         origin,
         bubble: Object.freeze(bubble.slice(0, index + 1)),
         acceptedBy: candidate,
         targetFrameId: target.id,
+        projection,
+        reconciliation: this.frameTree.reconcile(projection),
       });
     }
     return null;
@@ -1028,7 +1031,7 @@ export class FrameRuntime<TFrames extends NavigationTree = any> implements Relay
       try {
         return await (await this.requireStartedEngine()).navigate(
           instruction.matchTarget,
-          relayNavigationOptions(input),
+          { replace: input?.replace, state: input?.state },
         );
       } finally {
         this.consumeRelayAuthorization(target.id);

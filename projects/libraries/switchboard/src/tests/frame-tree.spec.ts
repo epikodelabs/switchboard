@@ -54,4 +54,67 @@ describe('materialized FrameTree', () => {
     expect(root.children.get('')).toBe(journal);
     expect(books.parent).toBeNull();
   });
+  describe('tree-native navigation projection', () => {
+    it('replaces only the branch through which a relay bubbled', () => {
+      const tree = new FrameTree();
+      const workspaceHost = host();
+      const workspace = tree.create('workspace', workspaceHost);
+      tree.mount(workspace, outlet());
+
+      const sidebar = tree.create('sidebar', host());
+      tree.mount(sidebar, outlet(workspaceHost, 'sidebar'));
+
+      const booksHost = host();
+      const books = tree.create('books', booksHost);
+      tree.mount(books, outlet(workspaceHost));
+      const details = tree.create('details', host());
+      tree.mount(details, outlet(booksHost));
+
+      const projection = tree.project(details, workspace, 'journal');
+      expect(projection).not.toBeNull();
+      expect(projection!.acceptedBy).toBe(workspace);
+      expect(projection!.parent).toBe(workspace);
+      expect(projection!.slot).toBe('');
+      expect(projection!.current).toBe(books);
+
+      const diff = tree.reconcile(projection!);
+      expect(diff.keep).toContain(workspace);
+      expect(diff.keep).toContain(sidebar);
+      expect(diff.leave).toEqual([books, details]);
+      expect(diff.enteringFrameId).toBe('journal');
+    });
+
+    it('replaces the origin itself when the origin accepts a peer transition', () => {
+      const tree = new FrameTree();
+      const workspaceHost = host();
+      const workspace = tree.create('workspace', workspaceHost);
+      tree.mount(workspace, outlet());
+      const books = tree.create('books', host());
+      tree.mount(books, outlet(workspaceHost));
+
+      const projection = tree.project(books, books, 'journal')!;
+      expect(projection.acceptedBy).toBe(books);
+      expect(projection.parent).toBe(workspace);
+      expect(projection.current).toBe(books);
+      const diff = tree.reconcile(projection);
+      expect(diff.leave).toEqual([books]);
+      expect(diff.enteringFrameId).toBe('journal');
+      expect(diff.keep).toContain(workspace);
+    });
+
+    it('turns navigation to the already materialized branch root into KEEP', () => {
+      const tree = new FrameTree();
+      const workspaceHost = host();
+      const workspace = tree.create('workspace', workspaceHost);
+      tree.mount(workspace, outlet());
+      const books = tree.create('books', host());
+      tree.mount(books, outlet(workspaceHost));
+
+      const projection = tree.project(books, workspace, 'books')!;
+      const diff = tree.reconcile(projection);
+      expect(diff.leave).toEqual([]);
+      expect(diff.enteringFrameId).toBeNull();
+      expect(diff.keep).toContain(books);
+    });
+  });
 });
