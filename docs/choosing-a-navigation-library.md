@@ -119,25 +119,29 @@ The fundamental question is:
 
 # Switchboard
 
-**Navigation by transition.**
+**Navigation by contextual transition.**
 
-Switchboard approaches navigation from the opposite direction.
+Switchboard approaches navigation from a different direction.
 
-Instead of making URLs the primary model, it describes an application as **frames connected by transitions**.
+URLs are not the runtime relationship model. Authored frames declare possible transitions, while the application the user can currently interact with is represented as a **materialized tree of frame and layout instances**.
+
+A `Relay` is bound to one concrete visible frame. When that frame requests a target, Relay walks the actual materialized ownership chain until the nearest authored frame accepts the target. `FrameRuntime` then projects that accepted target to an address and delegates location navigation to `VanillaRouter`.
 
 ```text
-current frame
+visible frame
      ↓
-transition
+    Relay
      ↓
-next frame
+bubble through visible owners
+     ↓
+nearest accepting authored frame
+     ↓
+target address / next materialized state
 ```
 
-A destination matters, but so does **how the application is allowed to reach it**.
+This makes navigation context part of the application model. Two instances of the same authored frame definition are distinct runtime nodes because navigation begins from the instance the user is actually in.
 
-This makes navigation itself part of the application model.
-
-Choose Switchboard when the valid transition from one state to another is more important than simply matching a URL.
+Choose Switchboard when a valid state transition from the current visible context matters more than simply matching a URL.
 
 Typical examples include:
 
@@ -166,15 +170,13 @@ confirmation
 
 The important information is not merely that `/payment` exists.
 
-The application cares that `payment` can be entered from an appropriate state, under the appropriate conditions, through a defined transition.
+The application cares that `payment` is reached through a transition accepted by the currently materialized workflow context.
 
-Switchboard can still participate in URL navigation, browser history, SSR, and server-authorized frontend delivery. Those capabilities do not make it Waypoint.
-
-Its center of gravity remains the **transition graph**.
+Switchboard can still participate in URL navigation, browser history, SSR, named outlets, and server-authorized frontend delivery. Those capabilities do not make it Waypoint. `VanillaRouter` remains the lower-level location engine; Switchboard's distinctive model is Relay operating on the visible frame tree.
 
 The fundamental question is:
 
-> Which transition is valid from the current state?
+> From the frame the user is actually in, which visible owner can accept this transition?
 
 ---
 
@@ -207,14 +209,16 @@ Use it when you mostly think:
 ### Switchboard
 
 ```text
-current frame
+visible frame
       ↓
-transition
+    Relay
       ↓
-next frame
+visible ownership chain
+      ↓
+accepted transition
 ```
 
-The transition is primary.
+The transition from the current visible context is primary.
 
 Use it when you mostly think:
 
@@ -224,7 +228,7 @@ A useful test is to imagine removing the URLs from your design.
 
 If the application structure becomes difficult to describe, it is probably a **Waypoint** application.
 
-If the application still makes perfect sense as states and transitions, **Switchboard** may be the better model.
+If the application still makes sense as visible states, ownership, and allowed transitions, **Switchboard** may be the better model.
 
 ---
 
@@ -250,7 +254,7 @@ What naturally identifies navigation?
       │
       ├── destination / URL ─────→ Waypoint
       │
-      └── state / transition ────→ Switchboard
+      └── visible state / transition ─→ Switchboard
 ```
 
 This is why Routty should not gradually accumulate every Waypoint or Switchboard capability.
@@ -270,7 +274,8 @@ Its constraint is part of its purpose.
 | SSR                                 |         ✓        |     ✓    |      ✓      |
 | Lazy route model                    |         —        |     ✓    |      ✓      |
 | Named/secondary composition         |       Basic      |     ✓    |      ✓      |
-| Transition graph                    |         —        |     —    |  **Native** |
+| Relay / frame transitions           |         —        |     —    |  **Native** |
+| Materialized frame ownership        |         —        |     —    |  **Native** |
 | Server-driven navigation            |         —        |     ✓    |      ✓      |
 | Server-authorized frontend delivery |         —        |     ✓    |      ✓      |
 | Protected artifact boundaries       |         —        |     ✓    |      ✓      |
@@ -290,15 +295,15 @@ Routty intentionally has fewer concepts. Waypoint and Switchboard intentionally 
 | -------------------------------------------------------------------- | --------------- |
 | A small application with straightforward routes                      | **Routty**      |
 | A conventional URL/deep-link driven application                      | **Waypoint**    |
-| A workflow or state machine                                          | **Switchboard** |
+| A workflow or state machine with contextual transitions              | **Switchboard** |
 | A large SaaS/admin application                                       | **Waypoint**    |
 | An onboarding or setup wizard                                        | **Switchboard** |
 | A checkout with meaningful transition rules                          | **Switchboard** |
 | A content or documentation application                               | **Waypoint**    |
 | A small internal utility                                             | **Routty**      |
-| An editor where modes form a real state graph                        | **Switchboard** |
+| An editor where modes form meaningful visible states                 | **Switchboard** |
 | An application with protected frontend modules organized around URLs | **Waypoint**    |
-| An application with protected workflow/frame modules                 | **Switchboard** |
+| An application with protected workflow/frame definitions             | **Switchboard** |
 
 ---
 
@@ -319,7 +324,7 @@ A better picture is:
 ```text
                      navigation model
 
-             destination            transition
+             destination         contextual transition
                  │                       │
                  │                       │
           ┌─────────────┐         ┌─────────────┐
@@ -361,6 +366,6 @@ But they are not editions of one router.
 
 **Switchboard** asks:
 
-> Which transition is valid from the current state?
+> From the frame the user is actually in, which visible owner can accept this transition?
 
 Choose the question that sounds most like your application.

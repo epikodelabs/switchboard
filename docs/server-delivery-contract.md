@@ -1,8 +1,10 @@
 # Switchboard Server Frame Delivery Contract
 
-The server is the disclosure boundary. A browser may know a frame address, frame id, or artifact key and still must not receive an unauthorized graph artifact.
+The server is the disclosure boundary. A browser may know a frame address, frame id, or artifact key and still must not receive an unauthorized definition artifact.
 
-The generated server index describes each frame-set artifact, its ownership dependencies, content hash, physical file, slot id, frame ids, and addressable frame branches. Shards contain the address prefixes and inherited frame policies used by a server adapter to resolve a request.
+This protocol delivers authored frame definitions. It does **not** serialize or transmit the materialized runtime `FrameTree`, Relay paths, or outlet ownership.
+
+The generated server index describes each frame-contribution artifact, its ownership dependencies, content hash, physical file, slot id, frame ids, and address-resolvable branch ids. Shards contain address prefixes and inherited frame policies used by a server adapter to resolve a request.
 
 A successful resolve response has this logical shape:
 
@@ -26,6 +28,17 @@ A successful resolve response has this logical shape:
 }
 ```
 
-Artifacts are returned dependency-first. `createServerFrameResolver()` imports them, validates that each default export is a `framesFor()` contribution for the expected slot, rebinds compiler-owned identity, and returns the authorized contribution set.
+`artifactKey` identifies the requested contribution. `artifacts` is returned dependency-first so parent contribution dependencies are available before the requested contribution is installed.
 
-A `404` intentionally covers both unknown and unauthorized destinations. Client lifecycle hooks are not a security boundary.
+`createServerFrameResolver()` imports each module, validates that its default export is a `framesFor()` contribution for the expected slot, rebinds the contribution id to the compiler-owned artifact key, and returns:
+
+```ts
+{
+  contributions,
+  contributionIdentities
+}
+```
+
+`FrameRuntime` installs those definitions into their declared slots and rebuilds the browser-side definition source/address catalog. Materialized `FrameNode` instances still arise only from rendering.
+
+A `404` intentionally covers both unknown and unauthorized destinations so resolution does not disclose which protected definition exists. Client lifecycle hooks, Relay transitions, hidden links, and missing menu items are not security boundaries; backend/API authorization remains independent.

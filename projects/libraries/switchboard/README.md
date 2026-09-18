@@ -2,108 +2,176 @@
 
 **Frame-first navigation for Angular.**
 
-Switchboard models the application the user can currently interact with as a **materialized tree of frames**. A frame can own child frames through outlets, declare which peer frames it can transition to, carry lifecycle behavior, and project to a URL. Navigation between frames is performed by **Relay** through that visible tree.
+Switchboard models the application the user can currently interact with as a **materialized tree of frames and structural layout owners**. Authored frames describe possible product states; rendering turns those definitions into concrete runtime nodes. Navigation between visible frames is performed by **Relay** through that materialized tree.
 
-`VanillaRouter` is intentionally separate and constant: it remains the location engine responsible for URL matching, history, popstate, scroll restoration, route lifecycle, and rendering.
+`VanillaRouter` is intentionally separate and constant: it remains the location engine responsible for URL matching, history, popstate, scroll restoration, route lifecycle, view transitions, and rendering commits.
+
+> **Switchboard navigates frames. VanillaRouter navigates locations.**
 
 ## The model
 
-A frame definition describes a possible part of the application. Once rendered, it becomes a concrete `FrameNode` in the runtime `FrameTree`. Rendered layout shells also receive anonymous structural nodes so their outlets have an explicit owner; only authored frames carry a frame id and a `Relay` capability.
+An authored `frame()` definition describes a possible application state. Once rendered, it becomes a concrete `FrameNode` in the runtime `FrameTree`.
+
+Ordinary rendered layouts also receive anonymous structural nodes so their outlets have an explicit owner. Anonymous layout nodes are part of the visible tree, but they are not authored frames: they have no frame id, no transition declarations, and no `Relay` capability.
 
 ```text
-ledger
-├── [sidebar] books-sidebar
-└── [default] books
-                 └── ...
+application outlet
+└── anonymous layout owner
+    ├── [sidebar] sidebar frame
+    └── [default] ledger frame
+        └── child frame
 ```
 
-The tree contains only materialized render instances: authored frame nodes plus anonymous structural layout nodes. Parent/child ownership is explicit; it is not reconstructed from authored route ancestry or inferred from DOM ancestry. Two instances of the same frame definition are therefore distinct runtime nodes.
+The tree contains **render instances**, not authored definitions. Two instances of the same frame definition are different runtime nodes.
 
-Named outlets are branches owned by their materialized frame. Outlet names are not globally unique: when the same outlet name exists at several levels, Switchboard resolves it in the live frame tree.
+Parent/child ownership is explicit. It is not reconstructed from authored route ancestry and is not inferred from DOM ancestry.
+
+## Authored definitions are not the runtime tree
+
+The authored navigation definitions passed to `provideFrameGraph()` are definition/build input. They describe addresses, views, transitions, redirects, layouts, policies, and delivery boundaries.
+
+They are compiled into the information needed to resolve addresses and load definitions, but Relay does not navigate that authored structure.
+
+The runtime relationship model is only:
+
+```text
+FrameTree
+├── concrete authored FrameNode instances
+└── anonymous layout-owner nodes
+```
+
+This distinction is fundamental to decentralized navigation: Relay follows what is **actually materialized now**.
 
 ## Relay navigation
 
-`Relay` is an origin-bound capability injected into a materialized frame. It does not represent a route and does not maintain a second navigation graph.
+`Relay` is an origin-bound capability injected into a materialized authored frame. It is not a route service and does not maintain another navigation graph.
 
 ```ts
+import { inject } from '@angular/core';
 import { Relay } from '@epikodelabs/switchboard';
+import { account } from './app.frames';
 
 const relay = inject(Relay);
 
-await relay.to({ kind: 'frame', id: 'account' }, {
-  params: { accountId: 'a-1000' },
+await relay.to(account, {
+  params: { accountId: 42 },
   query: { tab: 'activity' },
   state: { source: 'books' },
 });
 ```
 
-Resolution starts at the concrete frame that owns the Relay and bubbles through its materialized parents. The nearest visible frame whose authored `transitions` includes the target accepts the request.
+A `frame()` value is structurally a Relay target because it carries `kind: 'frame'` and its authored `id`.
+
+Resolution starts at the concrete `FrameNode` that owns the Relay and bubbles through its materialized parents:
 
 ```text
-origin
-  ↑
-parent
-  ↑
-parent
-  ↑
-first accepting frame
+origin authored frame
+        ↑
+structural parent
+        ↑
+structural parent
+        ↑
+nearest authored frame whose transitions accept target
 ```
 
-After acceptance, `FrameRuntime` projects the target frame and payload to an address and delegates the actual location navigation to `VanillaRouter`. Rendering then mounts and removes nodes in `FrameTree`.
+Anonymous layout nodes participate in the ancestry walk because they are real structural owners, but only authored frame nodes can accept a transition.
 
-There is deliberately no global `navigate({ frame: '...' })` escape hatch. Frame-to-frame navigation belongs to Relay and the visible tree.
+After a target is accepted, `FrameRuntime` projects the target and payload to an address and delegates the location transition to `VanillaRouter`. Rendering then updates the materialized tree.
+
+There is deliberately no global `navigate({ frame: '...' })` escape hatch. Frame-to-frame navigation belongs to Relay and must originate from a concrete visible frame.
 
 ## Defining frames
 
 ```ts
 import { frame, redirect } from '@epikodelabs/switchboard';
 
-export const frames = [
-  redirect('/', booksFrame),
+export const books = frame('books', '/books', BooksPage, {
+  transitions: ['account'],
+});
 
+export const account = frame('account', '/accounts/:accountId', AccountPage, {
+  transitions: ['books'],
+});
+
+export const frames = [
+  redirect('/', books),
   frame('ledger', '/ledger', LedgerShellPage, {
-    transitions: ['books', 'account', 'journal', 'settings'],
+    transitions: ['books', 'account'],
     layout: [
-      redirect('', booksFrame),
-      booksFrame,
-      accountFrame,
-      journalFrame,
-      settingsFrame,
+      redirect('', books),
+      books,
+      account,
     ],
   }),
 ] as const;
 ```
 
-`transitions` belongs to the frame definition but is copied onto each materialized `FrameNode`. Relay therefore evaluates reachability from the actual visible tree rather than consulting a parallel route registry.
+`transitions` belongs to the authored frame definition and is copied onto each materialized authored `FrameNode`. Relay therefore checks reachability against the visible instance tree without consulting a parallel frame registry.
+
+## Structural layouts
+
+A plain `layout()` is visible structure, so it receives an anonymous node even though it has no authored frame identity:
+
+```ts
+import { layout } from '@epikodelabs/switchboard';
+
+export const admin = layout('/admin', AdminLayout, [
+  settings,
+  users,
+]);
+```
+
+If `AdminLayout` contains a primary outlet, that outlet belongs to the concrete anonymous layout node:
+
+```html
+<header>Admin</header>
+<frame-outlet />
+```
+
+This prevents a nested layout outlet from being confused with the application root during later navigations or layout re-renders.
 
 ## Outlets
 
-Use `FrameOutlet` to attach a child branch to the current frame:
+Use `FrameOutlet` to attach structural branches:
 
 ```html
 <frame-outlet name="sidebar" />
 <frame-outlet />
 ```
 
-Outlet ownership is supplied explicitly by the current frame scope. Switchboard does not use `closest('frame-host')` or other DOM traversal to discover frame relationships.
+Every outlet is registered with its logical runtime owner: either an authored frame node, an anonymous layout node, or `null` for an application-level outlet.
+
+Switchboard does not use `closest('frame-host')` or other DOM traversal to discover ownership.
+
+Outlet names are not globally unique. The same name may exist in multiple visible branches; resolution is based on the concrete materialized ownership context.
+
+Nested frame-composition outlets and VanillaRouter commit targets are distinct responsibilities. A node can never be committed into one of its own descendant outlets.
 
 ## Links
 
-`FrameLink` supports both address links and frame targets. A frame target uses the current frame's Relay when one is available.
+`FrameLink` supports both address targets and Relay targets. A frame target uses the current frame's Relay when one is available.
 
 ```html
-<a [frameLink]="{ name: 'settings' }">Settings</a>
+<a [frameLink]="settings">Settings</a>
+<a [frameLink]="{ path: '/about' }">About</a>
 ```
 
-Address navigation remains available directly through `FrameRuntime`:
+A frame target that the current Relay cannot resolve does not fall back to global frame-id navigation.
+
+## Address navigation
+
+Address navigation is separate and remains available through `FrameRuntime`:
 
 ```ts
 await runtime.navigate('/about');
 await runtime.navigate({ path: '/about' });
-await runtime.navigate({ name: 'settings', query: { section: 'access' } });
+await runtime.navigate({
+  name: 'settings',
+  query: { section: 'access' },
+});
 ```
 
-This is address navigation, not a substitute for Relay-based frame navigation.
+This is location-level navigation, not a substitute for Relay-based frame navigation.
 
 ## Providing the graph
 
@@ -118,44 +186,61 @@ export const appConfig = {
 };
 ```
 
-`provideServerFrameGraph` is also exported for server-delivered configurations.
+`provideServerFrameGraph()` is also exported for server-delivered configurations.
 
 ## Server-delivered frame contributions
 
-`frameSlot()` and `framesFor()` are authoring/build-time contribution boundaries. They answer which frame definitions may be delivered into a protected slot; they do **not** represent the currently visible runtime tree.
-
-That separation is intentional:
+`frameSlot()` and `framesFor()` are authoring/build-time contribution boundaries. They describe which frame definitions may be delivered into a protected slot; they do **not** represent the visible runtime tree.
 
 ```text
-frameSlot / framesFor  → allowed/delivered definitions
-FrameTree / FrameOutlet → materialized frames visible now
+frameSlot / framesFor
+        ↓
+allowed and delivered authored definitions
+
+FrameTree / FrameOutlet / Relay
+        ↓
+concrete visible structure right now
+```
+
+Example:
+
+```ts
+import { frame, frameSlot, framesFor } from '@epikodelabs/switchboard';
+
+export const frames = [frameSlot('application')] as const;
+
+export const applicationFrames = framesFor('application', [
+  frame('workspace', '/workspace', WorkspacePage, {
+    policy: { roles: ['member'] },
+  }),
+] as const);
 ```
 
 ## Runtime responsibilities
 
-The final ownership split is:
-
 | Concern | Owner |
 | --- | --- |
-| Materialized frame instances | `FrameTree` |
-| Parent/child relationships | `FrameTree` |
+| Concrete visible frame/layout instances | `FrameTree` |
+| Parent/child structural relationships | `FrameTree` |
 | Logical outlet ownership | `FrameTree` |
 | Frame-to-frame propagation | `Relay` / `RelayRuntime` |
 | Target-to-address projection | `FrameRuntime` |
 | URL matching and navigation | `VanillaRouter` |
 | History / popstate / scroll | `VanillaRouter` |
-| Rendering and route lifecycle | `VanillaRouter` |
+| Rendering commits / route lifecycle | `VanillaRouter` |
 | Protected contribution boundaries | `frameSlot()` / `framesFor()` |
 
 ## Architectural invariants
 
 1. The materialized `FrameTree` is the sole runtime model of frame relationships.
-2. Relay bubbles only through live materialized nodes.
-3. Frame IDs identify authored definitions; `FrameNode` identity identifies concrete visible instances, including anonymous layout owners.
-4. Outlet ownership is logical and explicit, never inferred from DOM ancestry.
-5. No parallel static frame graph is used for Relay resolution.
-6. No global frame-ID navigation bypasses Relay.
-7. Address navigation and frame navigation are separate APIs.
-8. `VanillaRouter` remains the lower-level location engine.
+2. Relay starts from a concrete authored frame node and bubbles only through live materialized ancestry.
+3. Anonymous layout nodes own structure but never become Relay endpoints.
+4. Frame ids identify authored definitions; `FrameNode` identity identifies concrete rendered instances.
+5. Outlet ownership is logical and explicit, never inferred from DOM ancestry.
+6. A frame/layout host is never committed into an outlet contained by that same host.
+7. No parallel static frame graph is used for Relay resolution.
+8. No global frame-id navigation bypasses Relay.
+9. Address navigation and frame navigation are separate APIs.
+10. `VanillaRouter` remains the lower-level location engine.
 
 These invariants are the core of Switchboard's decentralized navigation model.
